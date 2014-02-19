@@ -329,6 +329,22 @@ class DataFile(object):
                 efacequad = pulsarname
 
             self.writeData(flagGroup, "efacequad", efacequad, overwrite=overwrite)
+        
+        if not "efacequad_freq" in flagGroup:
+            efacequad_freq = []
+            nobs = len(t2pulsar.toas())
+            pulsarname = map(str, [t2pulsar.name] * nobs)
+            
+            # create "f" flag from fe and be flags
+            if "fe" in flagGroup and 'be' in flagGroup:
+                fflag = map('-'.join, zip(flagGroup['fe'], flagGroup['be']))
+                efacequad_freq = map('-'.join, zip(pulsarname, fflag))
+            elif "f" in flagGroup:
+                efacequad_freq = map('-'.join, zip(pulsarname, flagGroup['f']))
+            else:
+                efacequad_freq = pulsarname
+
+            self.writeData(flagGroup, "efacequad_freq", efacequad_freq, overwrite=overwrite)
 
         if not "pulsarname" in flagGroup:
             nobs = len(t2pulsar.toas())
@@ -420,6 +436,10 @@ class DataFile(object):
         psr.ptmpars = np.array(self.getData(psrname, 'tmp_valpre'))
         psr.ptmparerrs = np.array(self.getData(psrname, 'tmp_errpre'))
         psr.flags = map(str, self.getData(psrname, 'efacequad', 'Flags'))
+
+        # add this for frequency dependent terms
+        #TODO: should eventually change psr.flags to a dictionary
+        psr.fflags = map(str, self.getData(psrname, 'efacequad_freq', 'Flags'))
 
         # Read the position of the pulsar
         rajind = np.flatnonzero(np.array(psr.ptmdescription) == 'RAJ')

@@ -126,10 +126,10 @@ class PTAmodels(object):
             incGWB=False, gwbModel='powerlaw', \
             incBWM=False, \
             incCW=False, \
-            varyEfac=True, separateEfacs=False, \
-            incEquad=False, \
+            varyEfac=True, separateEfacs=False, separateEfacsByFreq=False, \
+            incEquad=False,separateEquads=False, separateEquadsByFreq=False, \
             incCEquad=False, \
-            incJitter=False, separateJitter=False, \
+            incJitter=False, separateJitter=False, separateJitterByFreq=False, \
             incSingleFreqNoise=False, numSingleFreqLines=1, \
             incSingleFreqDMNoise=False, numSingleFreqDMLines=1, \
             singlePulsarMultipleFreqNoise=None, \
@@ -152,7 +152,14 @@ class PTAmodels(object):
             else:
                 ndmfreqs = 0
 
-            if separateEfacs:
+            if separateEfacs or separateEfacsByFreq:
+                if separateEfacs and ~separateEfacsByFreq:
+                    pass
+
+                # if both set, default to fflags
+                else:
+                    p.flags = p.fflags  # TODO: make this more elegant
+
                 uflagvals = list(set(p.flags))  # Unique flags
                 for flagval in uflagvals:
                     newsignal = OrderedDict({
@@ -184,7 +191,14 @@ class PTAmodels(object):
                 signals.append(newsignal)
             
             if incJitter:
-                if separateJitter:
+                if separateJitter or separateJitterByFreq:
+                    if separateJitter and ~separateJitterByFreq:
+                        pass
+
+                    # if both set, default to fflags
+                    else:
+                        p.flags = p.fflags
+
                     uflagvals = list(set(p.flags))  # Unique flags
                     for flagval in uflagvals:
                         newsignal = OrderedDict({
@@ -217,19 +231,43 @@ class PTAmodels(object):
 
 
             if incEquad:
-                newsignal = OrderedDict({
-                    "stype":"equad",
-                    "corr":"single",
-                    "pulsarind":ii,
-                    "flagname":"pulsarname",
-                    "flagvalue":p.name,
-                    "bvary":[True],
-                    "pmin":[-10.0],
-                    "pmax":[-4.0],
-                    "pwidth":[0.1],
-                    "pstart":[-8.0]
-                    })
-                signals.append(newsignal)
+                if separateEquads or separateEquadsByFreq:
+                    if separateEquads and ~separateEquadsByFreq:
+                        pass
+
+                    # if both set, default to fflags
+                    else:
+                        p.flags = p.fflags
+
+                    uflagvals = list(set(p.flags))  # Unique flags
+                    for flagval in uflagvals:
+                        newsignal = OrderedDict({
+                            "stype":"equad",
+                            "corr":"single",
+                            "pulsarind":ii,
+                            "flagname":"jitter",
+                            "flagvalue":flagval,
+                            "bvary":[True],
+                            "pmin":[-10.0],
+                            "pmax":[-4.0],
+                            "pwidth":[0.1],
+                            "pstart":[-8.0]
+                            })
+                        signals.append(newsignal)
+                else:
+                    newsignal = OrderedDict({
+                        "stype":"equad",
+                        "corr":"single",
+                        "pulsarind":ii,
+                        "flagname":"pulsarname",
+                        "flagvalue":p.name,
+                        "bvary":[True],
+                        "pmin":[-10.0],
+                        "pmax":[-4.0],
+                        "pwidth":[0.1],
+                        "pstart":[-8.0]
+                        })
+                    signals.append(newsignal)
 
 
             if incRedNoise:

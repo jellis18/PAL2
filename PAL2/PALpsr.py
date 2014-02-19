@@ -217,7 +217,7 @@ class Pulsar(object):
 
         if compression == 'average':
 
-            self.avetoas, self.Umat = PALutils.exploderMatrix(toas, freqs=None, dt=1200)
+            self.avetoas, self.Umat = PALutils.exploderMatrix(self.toas, freqs=None, dt=1200)
 
             # weighted fit?
             # TODO: should we do this?
