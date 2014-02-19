@@ -407,7 +407,7 @@ class DataFile(object):
     TODO: The HDF5 file is opened and closed every call of 'getData'. That seems
           kind of inefficient
     """
-    """
+    
     def readPulsar(self, psr, psrname):
         psr.name = psrname
 
@@ -426,6 +426,8 @@ class DataFile(object):
         decjind = np.flatnonzero(np.array(psr.ptmdescription) == 'DECJ')
         psr.raj = np.array(self.getData(psrname, 'tmp_valpre'))[rajind]
         psr.decj = np.array(self.getData(psrname, 'tmp_valpre'))[decjind]
+        psr.theta = np.pi/2 - psr.decj
+        psr.phi = psr.raj
 
         # Obtain residuals, TOAs, etc.
         psr.toas = np.array(self.getData(psrname, 'TOAs'))
@@ -435,10 +437,10 @@ class DataFile(object):
         psr.detresiduals = np.array(self.getData(psrname, 'prefitRes'))
         psr.freqs = np.array(self.getData(psrname, 'freq'))
         psr.Mmat = np.array(self.getData(psrname, 'designmatrix'))
-        psr.unitconversion = np.array(self.getData(psrname, 'unitConversion', required=False))
+        #psr.unitconversion = np.array(self.getData(psrname, 'unitConversion', required=False))
 
         # We do not read the (co)G-matrix anymore here. Happens when
         # initialising the model
 
-        """
+        
 

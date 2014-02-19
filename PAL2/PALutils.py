@@ -439,7 +439,7 @@ def createTimeLags(toa1, toa2, round=True):
         
     return tm
 
-def exploderMatrix(toas, freqs=None, dt=1200):
+def exploderMatrix(toas, freqs=None, dt=1200, flags=None):
     """
     Compute exploder matrix for daily averaging
 
@@ -455,6 +455,7 @@ def exploderMatrix(toas, freqs=None, dt=1200):
     U = np.zeros((len(toas), 0))
     avetoas = np.empty(0)
     avefreqs = np.empty(0)
+    aveflags = []
 
     while not np.all(processed):
         npindex = np.where(processed == False)[0]
@@ -472,11 +473,19 @@ def exploderMatrix(toas, freqs=None, dt=1200):
         
         if freqs is not None:
             avefreqs = np.append(avefreqs, np.mean(freqs[dailyind]))
+        
+        # TODO: what if we have different backends overlapping
+        if flags is not None:
+            aveflags.append(flags[dailyind][0])
 
         processed[dailyind] = True
     
-    if freqs is not None:
+    if freqs is not None and flags is not None:
+        return avetoas, avefreqs, aveflags, U
+    elif freqs is not None and flags is None:
         return avetoas, avefreqs, U
+    elif freqs is None and flags is not None:
+        return avetoas, aveflags, U
     else:
         return avetoas, U
 
@@ -589,6 +598,7 @@ def createGHmatrix(toa, err, res, G, fidelity):
     eigVec = eigVec[:,idx]
     
     # computing a rough estimate of the GWB amplitude for a strain-spectrum slope of -2/3
+    Tspan = toa.max() - toa.min()
     sigma_gwb = np.std(res) * 1e-15
     Amp = (sigma_gwb/(1.37*(10**(-9)))) / (Tspan**(5/3))
     
@@ -966,6 +976,9 @@ def createfourierdesignmatrix(t, nmodes, freq=False, Tspan=None):
 
     # define sampling frequencies
     f = np.linspace(1/T, nmodes/T, nmodes)
+    Ffreqs = np.zeros(2*nmodes)
+    Ffreqs[0::2] = f
+    Ffreqs[1::2] = f
 
     # The sine/cosine modes
     ct = 0
@@ -976,7 +989,7 @@ def createfourierdesignmatrix(t, nmodes, freq=False, Tspan=None):
         ct += 1
     
     if freq:
-        return F, f
+        return F, Ffreqs
     else:
         return F
 
