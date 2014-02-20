@@ -882,7 +882,7 @@ class PTAmodels(object):
                                 nSingleFreqs=numSingleFreqs[pindex], \
                                 nSingleDMFreqs=numSingleDMFreqs[pindex], \
                                 likfunc=likfunc, compression=compression, \
-                                write='likfunc')
+                                write='no')
 
         # Initialise the ptasignal objects
         self.ptasignals = []
