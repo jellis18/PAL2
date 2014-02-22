@@ -489,6 +489,55 @@ def exploderMatrix(toas, freqs=None, dt=1200, flags=None):
     else:
         return avetoas, U
 
+def dailyAveMatrix(toas, err, dt=1200, flags=None):
+    """
+    Compute matrix for daily averaging
+
+    @param toas: array of toas
+    @param toas: array of toa errors
+    @param dt: time offset (seconds)
+
+    @return: exploder matrix and daily averaged toas
+
+    """
+
+
+    processed = np.array([0]*len(toas), dtype=np.bool)  # No toas processed yet
+    U = np.zeros((len(toas), 0))
+    avetoas = np.empty(0)
+    avefreqs = np.empty(0)
+    aveerr = np.empty(0)
+    aveflags = []
+
+    while not np.all(processed):
+        npindex = np.where(processed == False)[0]
+        ind = npindex[0]
+        satmin = toas[ind] - dt
+        satmax = toas[ind] + dt
+
+        dailyind = np.where(np.logical_and(toas > satmin, toas < satmax))[0]
+
+        newcol = np.zeros((len(toas)))
+        w = 1/err[dailyind]**2
+        newcol[dailyind] = w/np.sum(w)
+
+        U = np.append(U, np.array([newcol]).T, axis=1)
+        avetoas = np.append(avetoas, np.mean(toas[dailyind]))
+        aveerr = np.append(aveerr, np.sqrt(1/np.sum(w)))
+
+        # TODO: what if we have different backends overlapping
+        if flags is not None:
+            aveflags.append(flags[dailyind][0])
+        
+        processed[dailyind] = True
+       
+    if flags is not None:
+        return avetoas, aveerr, aveflags, U
+    else:
+        return avetoas, aveerr, U
+
+
+
 def DMXDesignMatrix(toas, freqs, dt=1200):
     """
     Compute DMX Design matrix

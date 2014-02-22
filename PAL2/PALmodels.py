@@ -1222,7 +1222,7 @@ class PTAmodels(object):
     TODO: this code only works if all pulsars have the same number of frequencies
     want to make this more flexible
     """
-    def constructPhiMatrix(self, parameters):
+    def constructPhiMatrix(self, parameters, constructPhi=False):
         
         tstart = time.time()
         # Loop over all signals and determine rho (GW signals) and kappa (red + DM signals)
@@ -1432,6 +1432,11 @@ class PTAmodels(object):
             
             # symmeterize Phi
             self.Phiinv = self.Phiinv + self.Phiinv.T - np.diag(np.diag(self.Phiinv))
+
+        # TODO: make this usable for multiple puslars
+        if self.npsr == 1 and constructPhi:
+
+            self.Phi = np.diag(1/np.diag(self.Phiinv))
 
 
 
@@ -1682,6 +1687,69 @@ class PTAmodels(object):
         return loglike
 
     
+    """
+    mark 3 log likelihood. Note that this is not the same as mark3 in piccard
+
+    Single pulsar test of daily average likelihood function 
+
+    Under Construction
+
+    """
+
+    def mark3LogLikelihood(self, parameters):
+
+        tstart = time.time()
+        tstart_tot = tstart
+
+        loglike = 0
+
+        # set pulsar white noise parameters
+        self.setPsrNoise(parameters, incJitter=False)
+
+        # set red noise, DM and GW parameters
+        self.constructPhiMatrix(parameters, constructPhi=True)
+        Phi = np.diag(self.Phi)
+
+        #print 'Setting noise = {0} s'.format(time.time()-tstart)
+
+        tstart = time.time()
+
+        # set deterministic sources
+        if self.haveDetSources:
+            self.updateDetSources(parameters)
+
+        # construct covariance matrix
+        #red = np.dot(self.psr[0].Ftot, (np.diag(self.Phi)*self.psr[0].Ftot).T)
+        #cov = red + np.diag(self.psr[0].Nvec)
+
+        QCQ = np.dot(self.psr[0].QRF, (Phi * self.psr[0].QRF).T)
+        QCQ += np.dot(self.psr[0].QR, (self.psr[0].Nvec * self.psr[0].QR).T)
+
+        #print 'Constructing Covariance = {0} s'.format(time.time()-tstart)
+
+        tstart = time.time()
+
+        # svd
+        u, s, v = sl.svd(QCQ)
+        ind = s/s[0] < 1e-15*len(s)
+        sinv = 1/s
+        sinv[ind] = 0.0
+
+        logdetCov = np.sum(np.log(s[~ind]))
+        invCov = np.dot(v.T, np.dot(np.diag(sinv), u.T))
+        
+        #print 'Computing Inverse = {0} s'.format(time.time()-tstart)
+        
+        tstart = time.time()
+
+        loglike = -0.5 * (logdetCov + np.dot(self.psr[0].QRr, np.dot(invCov, self.psr[0].QRr)))
+
+        #print 'Matrix vector = {0} s'.format(time.time()-tstart)
+        
+        #print 'Total time = {0} s\n'.format(time.time()-tstart_tot)
+
+        return loglike
+        
     """
     Very simple uniform prior on all parameters
 

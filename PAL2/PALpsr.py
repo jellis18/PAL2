@@ -406,7 +406,10 @@ class Pulsar(object):
         # Create the daily averaged residuals
         (self.avetoas, self.avefreqs, self.aveflags, self.Umat) = \
                 PALutils.exploderMatrix(self.toas, freqs=self.freqs, \
-                                    flags=np.array(self.flags), dt=1200)
+                                    flags=np.array(self.flags), dt=10)
+
+        # create daily averaged residual matrix
+        (self.avetoas, self.aveerr, self.Qmat) = PALutils.dailyAveMatrix(self.toas, self.toaerrs, dt=10)
 
         # Create the Fourier design matrices for noise
         if nf > 0:
@@ -469,6 +472,11 @@ class Pulsar(object):
         U, s, Vh = sl.svd(self.Mmat)
         self.Gmat = U[:, self.Mmat.shape[1]:].copy()
         self.Gcmat = U[:, :self.Mmat.shape[1]].copy()
+
+        R = PALutils.createRmatrix(self.Mmat, self.toaerrs)
+        self.QR = np.dot(self.Qmat.T, R)
+        self.QRr = np.dot(self.QR, self.residuals)
+        self.QRF = np.dot(self.QR, self.Ftot)
 
         # Construct the compression matrix
         self.constructCompressionMatrix(compression, nfmodes=2*nf,

@@ -205,7 +205,7 @@ class DataFile(object):
                         does not delete the auxiliary fields. New requires the
                         pulsar not to exist, and throws an exception otherwise.
     """
-    def addTempoPulsar(self, parfile, timfile, iterations=1, mode='replace'):
+    def addTempoPulsar(self, parfile, timfile, iterations=1, mode='replace', sigma=100):
         # Check whether the two files exist
         if not os.path.isfile(parfile) or not os.path.isfile(timfile):
             raise IOError, "Cannot find parfile (%s) or timfile (%s)!" % (parfile, timfile)
@@ -266,15 +266,27 @@ class DataFile(object):
         if iterations > 1:
             t2pulsar.fit(iters=iterations)
 
-        self.writeData(psrGroup, 'TOAs', np.double(np.array(t2pulsar.toas()))*86400, overwrite=overwrite)    # Seconds
-        self.writeData(psrGroup, 'prefitRes', np.double(t2pulsar.prefit.residuals), overwrite=overwrite)  # Seconds
-        self.writeData(psrGroup, 'postfitRes', np.double(t2pulsar.residuals()), overwrite=overwrite)  # Seconds
-        self.writeData(psrGroup, 'toaErr', np.double(1e-6*t2pulsar.toaerrs), overwrite=overwrite)    # Seconds
-        self.writeData(psrGroup, 'freq', np.double(t2pulsar.freqs), overwrite=overwrite)    # MHz
+        # determine whether or not to drop points
+        dat = t2pulsar.residuals()/t2pulsar.toaerrs/1e-6
+        t2pulsar.deleted = np.abs(dat) > sigma
+        
+        # fit again
+        t2pulsar.fit()
+
+        self.writeData(psrGroup, 'TOAs', np.double(np.array(t2pulsar.toas()[t2pulsar.deleted==0]))*86400, \
+                       overwrite=overwrite)    # Seconds
+        self.writeData(psrGroup, 'prefitRes', np.double(t2pulsar.prefit.residuals[t2pulsar.deleted==0]), \
+                       overwrite=overwrite)  # Seconds
+        self.writeData(psrGroup, 'postfitRes', np.double(t2pulsar.residuals()[t2pulsar.deleted==0]), \
+                       overwrite=overwrite)  # Seconds
+        self.writeData(psrGroup, 'toaErr', np.double(1e-6*t2pulsar.toaerrs[t2pulsar.deleted==0]),\
+                       overwrite=overwrite)    # Seconds
+        self.writeData(psrGroup, 'freq', np.double(t2pulsar.freqs[t2pulsar.deleted==0]), \
+                       overwrite=overwrite)    # MHz
 
         # TODO: writing the design matrix should be done irrespective of the fitting flag
         desmat = t2pulsar.designmatrix()
-        self.writeData(psrGroup, 'designmatrix', desmat, overwrite=overwrite)
+        self.writeData(psrGroup, 'designmatrix', desmat[t2pulsar.deleted==0, :], overwrite=overwrite)
 
         # Write the unit conversions for the design matrix (to timing model
         # parameters
@@ -310,7 +322,7 @@ class DataFile(object):
         # Obtain the unique flags in this dataset, and write to file
         uflags = list(set(t2pulsar.flags))
         for flagid in uflags:
-            self.writeData(flagGroup, flagid, t2pulsar.flags[flagid], overwrite=overwrite)
+            self.writeData(flagGroup, flagid, t2pulsar.flags[flagid][t2pulsar.deleted==0], overwrite=overwrite)
 
         if not "efacequad" in flagGroup:
             # Check if the sys-flag is present in this set. If it is, add an
