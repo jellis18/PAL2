@@ -234,7 +234,8 @@ def getMax(samples, weights=None, range=None, bins=50):
 
 # make triangle plot of marginalized posterior distribution
 def triplot(chain, color=True, weights=None, interpolate=False, smooth=True, \
-           labels=None, figsize=(11,8.5), title=None, inj=None, tex=True, cmap='YlOrBr'):
+           labels=None, figsize=(11,8.5), title=None, inj=None, tex=True, \
+            incMaxPost=True, cmap='YlOrBr'):
 
     """
 
@@ -283,6 +284,9 @@ def triplot(chain, color=True, weights=None, interpolate=False, smooth=True, \
                                   weights=weights, interpolate=interpolate, \
                                   smooth=smooth)
                     axarr[ii][jj].set_ylim(ymin=0)
+                    if incMaxPost:
+                        mx = getMax(chain[:,parameters[ii]], weights=weights)
+                        axarr[ii][jj].set_title('%5.4g'%(mx))
 
                     if inj is not None:
                         axarr[ii][ii].axvline(inj[ii], lw=2, color='k')

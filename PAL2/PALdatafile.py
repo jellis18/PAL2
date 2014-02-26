@@ -471,6 +471,9 @@ class DataFile(object):
         psr.Mmat = np.array(self.getData(psrname, 'designmatrix'))
         #psr.unitconversion = np.array(self.getData(psrname, 'unitConversion', required=False))
 
+        #TODO: TEST!!!!!!!
+        #psr.residuals -= psr.toaerrs*np.mean(psr.residuals/psr.toaerrs)
+
         # We do not read the (co)G-matrix anymore here. Happens when
         # initialising the model
 
