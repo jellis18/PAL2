@@ -158,7 +158,8 @@ def makesubplot2d(ax, samples1, samples2, cmap, color=True, weights=None, smooth
         #contourcolors = ('darkblue', 'darkblue', 'darkblue')
         contourcolors = ('black', 'black', 'black')
         contourlinestyles = ('-', '--', '-.')
-        contourlinewidths = (2.0, 2.0, 2.0)
+        #contourlinewidths = (2.0, 2.0, 2.0)
+        contourlinewidths = (1.5, 1.5, 1.5)
         contourlabels = [r'1 $\sigma$', r'2 $\sigma$',r'3 $\sigma$']
         
         contlabels = (contourlabels[0], contourlabels[1], contourlabels[2])
@@ -244,8 +245,12 @@ def triplot(chain, color=True, weights=None, interpolate=False, smooth=True, \
     """
 
     # rcParams settings
-    plt.rcParams['ytick.labelsize'] = 10.0
-    plt.rcParams['xtick.labelsize'] = 10.0
+    if chain.shape[1] < 10:
+        plt.rcParams['ytick.labelsize'] = 10.0
+        plt.rcParams['xtick.labelsize'] = 10.0
+    else:
+        plt.rcParams['ytick.labelsize'] = 8.0
+        plt.rcParams['xtick.labelsize'] = 8.0
     if tex:
         plt.rcParams['text.usetex'] = True
     plt.rcParams['figure.figsize'] = figsize
@@ -286,7 +291,7 @@ def triplot(chain, color=True, weights=None, interpolate=False, smooth=True, \
                     axarr[ii][jj].set_ylim(ymin=0)
                     if incMaxPost:
                         mx = getMax(chain[:,parameters[ii]], weights=weights)
-                        axarr[ii][jj].set_title('%5.4g'%(mx))
+                        axarr[ii][jj].set_title('%5.4g'%(mx), fontsize=10)
 
                     if inj is not None:
                         axarr[ii][ii].axvline(inj[ii], lw=2, color='k')

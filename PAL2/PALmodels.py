@@ -1658,7 +1658,8 @@ class PTAmodels(object):
             except np.linalg.LinAlgError:
                 U, s, Vh = sl.svd(Phi)
                 if not np.all(s > 0):
-                    raise ValueError("ERROR: Phi singular according to SVD")
+                    return -np.inf
+                    #raise ValueError("ERROR: Phi singular according to SVD")
                 self.logdetPhi = np.sum(np.log(s))
                 self.Phiinv = np.dot(Vh.T, np.dot(np.diag(1.0/s), U.T))
 
@@ -1678,7 +1679,8 @@ class PTAmodels(object):
         except np.linalg.LinAlgError:
             U, s, Vh = sl.svd(Sigma)
             if not np.all(s > 0):
-                raise ValueError("ERROR: Sigma singular according to SVD")
+                return -np.inf
+                #raise ValueError("ERROR: Sigma singular according to SVD")
             logdet_Sigma = np.sum(np.log(s))
             expval2 = np.dot(Vh.T, np.dot(np.diag(1.0/s), np.dot(U.T, d)))
 

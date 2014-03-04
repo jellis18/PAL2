@@ -214,8 +214,22 @@ class Pulsar(object):
     def constructCompressionMatrix(self, compression=None, \
                                    nfmodes=-1, ndmodes=-1, threshold=1.0):
 
-
+        
         if compression == 'average':
+
+            self.avetoas, self.aveerr, self.Qmat = \
+                    PALutils.dailyAveMatrix(self.toas, self.toaerrs, dt=10)
+                                                                           
+
+            # projection
+            QG = np.dot(self.Qmat.T, self.Gmat)
+            GQQG = np.dot(QG.T, QG)
+
+
+            # Construct an orthogonal basis, and singular values
+            Vmat, svec, Vhsvd = sl.svd(GQQG)
+
+        elif compression == 'jitter':
 
             self.avetoas, self.Umat = PALutils.exploderMatrix(self.toas, freqs=None, dt=1200)
 
@@ -318,9 +332,12 @@ class Pulsar(object):
             if np.sum(inds) > 0:
                 # We can compress
                 l = np.flatnonzero( inds )[0] + 1
+                print 'Using {0} basis components for puslar {1} using {2} compression'\
+                        .format(l, self.name, compression)
             else:
                 # We cannot compress, keep all
                 l = self.Umat.shape[1]
+                l = len(svec)
 
 
             # H is the compression matrix
@@ -335,6 +352,8 @@ class Pulsar(object):
             Vmat, s, Vh = sl.svd(H)
             self.Hmat = Vmat[:, :l]
             self.Hcmat = Vmat[:, l:]
+
+            print self.Hmat.shape, self.Hcmat.shape, self.Gmat.shape, self.Gcmat.shape
 
             # For compression-complements, construct Ho and Hoc
             if Ho.shape[1] > 0:
@@ -529,6 +548,8 @@ class Pulsar(object):
 
 
     # TODO: add frequency line stuff
+
+    #def readNoiseFromFile()
 
 
 

@@ -322,7 +322,8 @@ class DataFile(object):
         # Obtain the unique flags in this dataset, and write to file
         uflags = list(set(t2pulsar.flags))
         for flagid in uflags:
-            self.writeData(flagGroup, flagid, t2pulsar.flags[flagid][t2pulsar.deleted==0], overwrite=overwrite)
+            self.writeData(flagGroup, flagid, t2pulsar.flags[flagid][t2pulsar.deleted==0], \
+                           overwrite=overwrite)
 
         if not "efacequad" in flagGroup:
             # Check if the sys-flag is present in this set. If it is, add an
@@ -344,17 +345,50 @@ class DataFile(object):
         
         if not "efacequad_freq" in flagGroup:
             efacequad_freq = []
-            nobs = len(t2pulsar.toas())
-            pulsarname = map(str, [t2pulsar.name] * nobs)
+            nobs = len(t2pulsar.toas()[t2pulsar.deleted==0])
+            #pulsarname = map(str, [t2pulsar.name] * nobs)
+            pulsarname = t2pulsar.name
+
+
+            for ii in range(nobs):
+
+                if 'group' in flagGroup and flagGroup['group'][ii] != '':
+                    efacequad_freq.append('-'.join((pulsarname, flagGroup['group'][ii])))
+                
+                elif 'sys' in flagGroup and flagGroup['sys'][ii] != '':
+                    efacequad_freq.append('-'.join((pulsarname, flagGroup['sys'][ii])))
+                
+                elif 'f' in flagGroup and flagGroup['f'][ii] != '':
+                    efacequad_freq.append('-'.join((pulsarname, flagGroup['f'][ii])))
+                
+                elif 'fe' in flagGroup and 'be' in flagGroup and \
+                        flagGroup['fe'][ii] != '' and flagGroup['be'] != '':
+                    fflag = '-'.join((flagGroup['fe'][ii], flagGroup['be'][ii]))
+                    efacequad_freq.append('-'.join((pulsarname, fflag)))
+                
+                elif 'avgroup' in flagGroup and flagGroup['avgroup'][ii] != '':
+                    efacequad_freq.append('-'.join((pulsarname, flagGroup['avgroup'][ii])))
+
+                else:
+                    print 'WARNING: no flagGroup found for TOA {0} \
+                            in pulsar {1}'.format(ii, pulsarname)
+                    efacequad_freq.append(pulsarname)
+            
+
             
             # create "f" flag from fe and be flags
-            if "fe" in flagGroup and 'be' in flagGroup:
-                fflag = map('-'.join, zip(flagGroup['fe'], flagGroup['be']))
-                efacequad_freq = map('-'.join, zip(pulsarname, fflag))
-            elif "f" in flagGroup:
-                efacequad_freq = map('-'.join, zip(pulsarname, flagGroup['f']))
-            else:
-                efacequad_freq = pulsarname
+            #if "group" in flagGroup:
+            #    efacequad = map('-'.join, zip(pulsarname, flagGroup['group']))
+            #elif "sys" in flagGroup:
+            #    efacequad = map('-'.join, zip(pulsarname, flagGroup['sys']))
+            #elif "fe" in flagGroup and 'be' in flagGroup:
+            #    fflag = map('-'.join, zip(flagGroup['fe'], flagGroup['be']))
+            #    efacequad_freq = map('-'.join, zip(pulsarname, fflag))
+            #elif "f" in flagGroup:
+            #    efacequad_freq = map('-'.join, zip(pulsarname, flagGroup['f']))
+            #else:
+            #    print 'WARNING: no flags found, using pulsarname as default'
+            #    efacequad_freq = pulsarname
 
             self.writeData(flagGroup, "efacequad_freq", efacequad_freq, overwrite=overwrite)
 

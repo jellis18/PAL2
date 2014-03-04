@@ -7,6 +7,46 @@ import scipy.interpolate as interp
 #import numexpr as ne
 import sys,os
 
+# compute f_p statistic
+def fpStat(psr, f0):
+    """ 
+    Computes the Fp-statistic as defined in Ellis, Siemens, Creighton (2012)
+    
+    @param psr: List of pulsar object instances
+    @param f0: Gravitational wave frequency
+
+    @return: Value of the Fp statistic evaluated at f0
+
+    """
+
+    fstat=0.
+    npsr = len(psr)
+
+    # define N vectors from Ellis et al, 2012 N_i=(x|A_i) for each pulsar
+    N = np.zeros(2)
+    M = np.zeros((2, 2))
+    for ii,p in enumerate(psr):
+
+        # Define A vector
+        A = np.zeros((2, p.ntoa))
+        A[0,:] = 1./f0**(1./3.) * np.sin(2*np.pi*f0*p.toas)
+        A[1,:] = 1./f0**(1./3.) * np.cos(2*np.pi*f0*p.toas)
+
+        N = np.array([np.dot(A[0,:], np.dot(p.invCov, p.residuals)), \
+                      np.dot(A[1,:], np.dot(p.invCov, p.residuals))]) 
+        
+        # define M matrix M_ij=(A_i|A_j)
+        for jj in range(2):
+            for kk in range(2):
+                M[jj,kk] = np.dot(A[jj,:], np.dot(p.invCov, A[kk,:]))
+        
+        # take inverse of M
+        Minv = np.linalg.inv(M)
+        fstat += 0.5 * np.dot(N, np.dot(Minv, N))
+
+    # return F-statistic
+    return fstat
+
 def createAntennaPatternFuncs(psr, gwtheta, gwphi):
     """
     Function to create pulsar antenna pattern functions as defined
@@ -335,10 +375,11 @@ def createRmatrix(designmatrix, err):
     """
 
     W = np.diag(1/err)
+    w = 1/err
 
-    u, s, v = sl.svd(np.dot(W, designmatrix),full_matrices=False)
+    u, s, v = sl.svd((w * designmatrix.T).T,full_matrices=False)
 
-    return np.eye(len(err)) - np.dot(np.linalg.inv(W), np.dot(u, np.dot(u.T, W))) 
+    return np.eye(len(err)) - (1/w * np.dot(u, np.dot(u.T, W)).T).T 
 
 
 def createGmatrix(designmatrix):
