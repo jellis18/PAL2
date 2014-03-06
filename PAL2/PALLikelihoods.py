@@ -301,6 +301,37 @@ def optStat(psr, ORF, gam=4.33333):
     # return optimal statistic and snr
     return Opt, sigma, snr
 
+def shannonStatistic(psr, gam=4.33333):
+    """
+    Computes the detection statistic from Shannon et al (2013) nature paper
+
+    @param psr: List of pulsar object instances
+    @param gam: Power Spectral index of GBW (default = 13/3, ie SMBMBs)
+
+    @return: Opt: statistic value (A_gw^2)
+    """
+
+    #TODO: maybe compute ORF in code instead of reading it in. Would be less
+    # of a risk but a bit slower...
+
+    k = 0
+    npsr = len(psr)
+    top = 0
+    bot = 0
+    for ct, p in enumerate(psr):
+        
+        # form time lag matrix
+        tm = PALutils.createTimeLags(p.toas, p.toas)
+
+        # create GW covariance matrix without overall amplitude A^2
+        SI = PALutils.createRedNoiseCovarianceMatrix(tm, 1, gam)
+
+        top += np.dot(p.res, np.dot(p.invCov, np.dot(SI, np.dot(p.invCov, p.res))))
+        bot += np.trace(np.dot(p.invCov, SI)**2)
+
+    # return test statistic
+    return top/bot
+
 def crossPower(psr, gam=13/3):
     """
 

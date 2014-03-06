@@ -650,15 +650,14 @@ def sumTermCovarianceMatrix_fast(tm, fL, gam):
 
     return sum
 
-
-def createGHmatrix(toa, err, res, G, fidelity):
+def createGHmatrix(toa, err, res, G, fidelity, Amp = None):
     """
     Create "H" compression matrix as defined in van Haasteren 2013(b).
     Multiplies with "G" matrix to create the "GH" matrix, which can simply replace
     the "G" matrix in all likelihoods which are marginalised over the timing-model
 
 
-    @param toa: times-of-arrival (in days) for psr
+    @param toa: times-of-arrival (in seconds) for psr
     @param err: error bars on toas (in seconds)
     @param res: residuals (in seconds) of psr
     @param G: G matrix as defined in van Haasteren et al 2013(a)
@@ -689,8 +688,10 @@ def createGHmatrix(toa, err, res, G, fidelity):
     
     # computing a rough estimate of the GWB amplitude for a strain-spectrum slope of -2/3
     Tspan = toa.max() - toa.min()
-    sigma_gwb = np.std(res) * 1e-15
-    Amp = (sigma_gwb/(1.37*(10**(-9)))) / (Tspan**(5/3))
+    if Amp is None:
+        sigma_gwb = np.std(res) * 1e-15 * 1e9
+        Amp = sigma_gwb * 0.89 * Tspan**(0.6)
+    #Amp = (sigma_gwb/(1.37*(10**(-9)))) / (Tspan**(5/3))
     
     # looping over eigenvalues until the fidelity criterion of van Haasteren 2013(b) 
     # is satisfied; only the 'principal' eigenvectors are retained

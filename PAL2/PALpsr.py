@@ -212,7 +212,14 @@ class Pulsar(object):
     """
 
     def constructCompressionMatrix(self, compression=None, \
-                                   nfmodes=-1, ndmodes=-1, threshold=1.0):
+                                   nfmodes=-1, ndmodes=-1, threshold=0.99, \
+                                   targetAmp=1e-14):
+
+        # initialize matrices
+        self.Hmat = self.Gmat
+        self.Hcmat = self.Gcmat
+        self.Homat = np.zeros((self.Hmat.shape[0], 0))      # There is no complement
+        self.Hocmat = np.zeros((self.Hmat.shape[0], 0))
 
         
         if compression == 'average':
@@ -303,27 +310,79 @@ class Pulsar(object):
             Vmat, svec, Vhsvd = sl.svd(GFFG)
 
         
-       # elif compression =='red':
+        elif compression =='red':
 
-       #     # weight matrix
-       #     w = self.toaerrs**2
-       #     GNG = np.dot(self.Gmat.T, (w*self.Gmat.T).T)
+            # use all frequencies
+            ntoas = len(self.toas)
+            nfreqs = int(ntoas/2)
 
-       #     # form the unscaled covariance matrix of GWB-induced residuals
+            # hard code noise spectral index to GWB index
+            noiseSi = 4.333
+
+            # set Maximum observing time span
+            Tmax = np.max(self.toas) - np.min(self.toas)
+
+            # Construct the Fourier modes, and the frequency coefficients (for
+            # noiseAmp=1)
+            Fmat, Ffreqs = PALutils.createfourierdesignmatrix(self.toas, \
+                                                nfreqs, freq=True, Tspan=Tmax)
+            freqpy = Ffreqs * PAL_spy
+            pcdoubled = (PAL_spy**3 / (12*np.pi*np.pi * Tmax)) * freqpy ** (-noiseSi)
+
+
+            # Check whether the Gmatrix exists
+            if self.Gmat is None:
+                U, s, Vh = sl.svd(self.Mmat)
+                Gmat = U[:, self.Mmat.shape[1]:]
+            else:
+                Gmat = self.Gmat
+
+            # Find the Cholesky decomposition of the projected radiometer-noise
+            # covariance matrix
+            GNG = np.dot(Gmat.T, (self.toaerrs**2 * Gmat.T).T)
+            try:
+                L = sl.cholesky(GNG).T
+                cf = sl.cho_factor(L)
+                Li = sl.cho_solve(cf, np.eye(GNG.shape[0]))
+            except np.linalg.LinAlgError as err:
+                raise ValueError("ERROR: GNG singular according to Cholesky")
+
+            # Construct the transformed Phi-matrix, and perform SVD. That matrix
+            # should have a few singular values (nfreqs not precisely determined)
+            LGF = np.dot(Li, np.dot(Gmat.T, Fmat))
+            Phiw = np.dot(LGF, (pcdoubled * LGF).T)
+            U, s, Vh = sl.svd(Phiw)
+
+            # get number of eigenvectors to keep
+            fisherelements = s**2 / (1 + targetAmp**2 * s)**2
+            cumev = np.cumsum(fisherelements)
+            totrms = np.sum(fisherelements)
+
+            l = int((np.flatnonzero( (cumev/totrms) >= threshold )[0] + 1)/2)
+
+            print 'Constructing compression matrix for PSR {0} using {1} components for targetAmp = {2}'.format(self.name, l, targetAmp)
+
+            # construct H
+            H = np.dot(Li, U[:,:l])
+            GH = np.dot(Gmat, H)
+            self.Hmat = GH
+            #GHHG = np.dot(GH, GH.T)
+
+            # Construct an orthogonal basis, and singular values
+            #Vmat, svec, Vhsvd = sl.svd(GHHG)
         
-        
-        # NO compression
-        elif compression == 'None' or compression is None:
-            self.Hmat = self.Gmat
-            self.Hcmat = self.Gcmat
-            self.Homat = np.zeros((self.Hmat.shape[0], 0))      # There is no complement
-            self.Hocmat = np.zeros((self.Hmat.shape[0], 0))
+        ## NO compression
+        #elif compression == 'None' or compression is None:
+        #    self.Hmat = self.Gmat
+        #    self.Hcmat = self.Gcmat
+        #    self.Homat = np.zeros((self.Hmat.shape[0], 0))      # There is no complement
+        #    self.Hocmat = np.zeros((self.Hmat.shape[0], 0))
         else:
             raise IOError, "Invalid compression argument"
 
 
         # construct compression matrix
-        if compression is not None and compression != 'None':
+        if compression is not None and compression != 'None' and compression != 'red':
         
             # Decide how many basis vectors we'll take.
             cumrms = np.cumsum(svec)
@@ -338,7 +397,6 @@ class Pulsar(object):
                 # We cannot compress, keep all
                 l = self.Umat.shape[1]
                 l = len(svec)
-
 
             # H is the compression matrix
             Bmat = Vmat[:, :l].copy()
@@ -388,7 +446,7 @@ class Pulsar(object):
     """
     def createPulsarAuxiliaries(self, h5df, Tmax, nfreqs, ndmfreqs, \
             twoComponent=False, nSingleFreqs=0, nSingleDMFreqs=0, \
-            compression='None', likfunc='mark3', write='no'):
+            compression='None', likfunc='mark3', write='no', targetAmp=1e-14):
 
         # For creating the auxiliaries it does not really matter: we are now
         # creating all quantities per default
@@ -499,7 +557,7 @@ class Pulsar(object):
 
         # Construct the compression matrix
         self.constructCompressionMatrix(compression, nfmodes=2*nf,
-                ndmodes=2*ndmf, threshold=1.0)
+                ndmodes=2*ndmf, threshold=1.0, targetAmp=targetAmp)
 
         if write != 'no':
             h5df.addData(self.name, 'PAL_Gmat', self.Gmat)

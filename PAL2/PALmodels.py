@@ -8,6 +8,7 @@ import os, sys, time
 import json
 import tempfile
 import scipy.linalg as sl
+import scipy.sparse
 
 import PALutils
 import PALdatafile
@@ -137,6 +138,7 @@ class PTAmodels(object):
             dmFrequencyLines=None, \
             orderFrequencyLines=False, \
             compression = 'None', \
+            targetAmp = 1e-14, \
             evalCompressionComplement = False, \
             likfunc='mark1'):
         
@@ -409,6 +411,7 @@ class PTAmodels(object):
             "numNoiseFreqs":[nfreqs for ii in range(len(self.psr))],
             "numDMFreqs":[ndmfreqs for ii in range(len(self.psr))],
             "compression":compression,
+            "targetAmp":targetAmp,
             "orderFrequencyLines":orderFrequencyLines,
             "evalCompressionComplement":evalCompressionComplement,
             "likfunc":likfunc,
@@ -796,6 +799,7 @@ class PTAmodels(object):
         orderFrequencyLines = fullmodel['orderFrequencyLines']
         likfunc = fullmodel['likfunc']
         signals = fullmodel['signals']
+        targetAmp = fullmodel['targetAmp']
 
         if len(self.psr) < 1:
             raise IOError, "No pulsars loaded"
@@ -882,7 +886,7 @@ class PTAmodels(object):
                                 nSingleFreqs=numSingleFreqs[pindex], \
                                 nSingleDMFreqs=numSingleDMFreqs[pindex], \
                                 likfunc=likfunc, compression=compression, \
-                                write='no')
+                                write='no', targetAmp=targetAmp)
 
         # Initialise the ptasignal objects
         self.ptasignals = []
