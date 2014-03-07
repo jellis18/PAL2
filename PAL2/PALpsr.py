@@ -357,8 +357,9 @@ class Pulsar(object):
             fisherelements = s**2 / (1 + targetAmp**2 * s)**2
             cumev = np.cumsum(fisherelements)
             totrms = np.sum(fisherelements)
+            
 
-            l = int((np.flatnonzero( (cumev/totrms) >= threshold )[0] + 1)/2)
+            l = int(np.sum(cumev/totrms <= threshold) + 1)
 
             print 'Constructing compression matrix for PSR {0} using {1} components for targetAmp = {2}'.format(self.name, l, targetAmp)
 
@@ -557,7 +558,7 @@ class Pulsar(object):
 
         # Construct the compression matrix
         self.constructCompressionMatrix(compression, nfmodes=2*nf,
-                ndmodes=2*ndmf, threshold=1.0, targetAmp=targetAmp)
+                ndmodes=2*ndmf, threshold=0.99, targetAmp=targetAmp)
 
         if write != 'no':
             h5df.addData(self.name, 'PAL_Gmat', self.Gmat)
