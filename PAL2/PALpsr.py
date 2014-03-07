@@ -373,11 +373,11 @@ class Pulsar(object):
             #Vmat, svec, Vhsvd = sl.svd(GHHG)
         
         ## NO compression
-        #elif compression == 'None' or compression is None:
-        #    self.Hmat = self.Gmat
-        #    self.Hcmat = self.Gcmat
-        #    self.Homat = np.zeros((self.Hmat.shape[0], 0))      # There is no complement
-        #    self.Hocmat = np.zeros((self.Hmat.shape[0], 0))
+        elif compression == 'None' or compression is None:
+            self.Hmat = self.Gmat
+            self.Hcmat = self.Gcmat
+            self.Homat = np.zeros((self.Hmat.shape[0], 0))      # There is no complement
+            self.Hocmat = np.zeros((self.Hmat.shape[0], 0))
         else:
             raise IOError, "Invalid compression argument"
 

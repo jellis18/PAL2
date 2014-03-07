@@ -355,6 +355,9 @@ class DataFile(object):
                 if 'group' in flagGroup and flagGroup['group'][ii] != '':
                     efacequad_freq.append('-'.join((pulsarname, flagGroup['group'][ii])))
                 
+                elif 'avgroup' in flagGroup and flagGroup['avgroup'][ii] != '':
+                    efacequad_freq.append('-'.join((pulsarname, flagGroup['avgroup'][ii])))
+
                 elif 'sys' in flagGroup and flagGroup['sys'][ii] != '':
                     efacequad_freq.append('-'.join((pulsarname, flagGroup['sys'][ii])))
                 
@@ -366,9 +369,6 @@ class DataFile(object):
                     fflag = '-'.join((flagGroup['fe'][ii], flagGroup['be'][ii]))
                     efacequad_freq.append('-'.join((pulsarname, fflag)))
                 
-                elif 'avgroup' in flagGroup and flagGroup['avgroup'][ii] != '':
-                    efacequad_freq.append('-'.join((pulsarname, flagGroup['avgroup'][ii])))
-
                 else:
                     print 'WARNING: no flagGroup found for TOA {0} \
                             in pulsar {1}'.format(ii, pulsarname)
