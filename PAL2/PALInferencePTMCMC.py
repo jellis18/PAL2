@@ -70,7 +70,7 @@ class PTSampler(object):
         
 
     def sample(self, p0, Niter, ladder=None, Tmin=1, Tmax=10, Tskip=100, \
-               isave=1000, covUpdate=5000, SCAMweight=20, \
+               isave=1000, covUpdate=1000, SCAMweight=20, \
                AMweight=20, DEweight=20, burn=10000, \
                maxIter=None, thin=10):
 

@@ -480,7 +480,41 @@ def createTimeLags(toa1, toa2, round=True):
         
     return tm
 
-def exploderMatrix(toas, freqs=None, dt=1200, flags=None):
+def exploderMatrix(times, freqs=None, dt=10, flags=None):
+    isort = np.argsort(times)
+    
+    bucket_ref = [times[isort[0]]]
+    bucket_ind = [[isort[0]]]
+    
+    for i in isort[1:]:
+        if times[i] - bucket_ref[-1] < dt:
+            bucket_ind[-1].append(i)
+        else:
+            bucket_ref.append(times[i])
+            bucket_ind.append([i])
+    
+    avetoas = np.array([np.mean(times[l]) for l in bucket_ind],'d')
+    if flags is not None:
+        aveflags = np.array([flags[l[0]] for l in bucket_ind])
+    if freqs is not None:
+        avefreqs = np.array([np.mean(freqs[l]) for l in bucket_ind],'d')
+
+    
+    U = np.zeros((len(times),len(bucket_ind)),'d')
+    for i,l in enumerate(bucket_ind):
+        U[l,i] = 1
+        
+    if freqs is not None and flags is not None:
+        return avetoas, avefreqs, aveflags, U
+    elif freqs is not None and flags is None:
+        return avetoas, avefreqs, U
+    elif freqs is None and flags is not None:
+        return avetoas, aveflags, U
+    else:
+        return avetoas, U
+    
+
+def exploderMatrix_slow(toas, freqs=None, dt=1200, flags=None):
     """
     Compute exploder matrix for daily averaging
 

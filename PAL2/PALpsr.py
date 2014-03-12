@@ -447,11 +447,15 @@ class Pulsar(object):
     """
     def createPulsarAuxiliaries(self, h5df, Tmax, nfreqs, ndmfreqs, \
             twoComponent=False, nSingleFreqs=0, nSingleDMFreqs=0, \
-            compression='None', likfunc='mark3', write='no', targetAmp=1e-14):
+            compression='None', likfunc='mark1', write='no', targetAmp=1e-14):
+
 
         # For creating the auxiliaries it does not really matter: we are now
         # creating all quantities per default
         self.twoComponentNoise = twoComponent
+
+        # construct average quantities
+        useAverage = likfunc == 'mark2'
 
         # default for detresiduals
         self.detresiduals = self.residuals.copy()
@@ -482,19 +486,21 @@ class Pulsar(object):
             h5df.addData(self.name, 'PAL_Tmax', [Tmax])
         
         # Create the daily averaged residuals
-        (self.avetoas, self.avefreqs, self.aveflags, self.Umat) = \
-                PALutils.exploderMatrix(self.toas, freqs=self.freqs, \
-                                    flags=np.array(self.flags), dt=10)
+        if useAverage:
+            (self.avetoas, self.avefreqs, self.aveflags, self.Umat) = \
+                        PALutils.exploderMatrix(self.toas, freqs=self.freqs, \
+                                            flags=np.array(self.flags), dt=10)
 
         # create daily averaged residual matrix
-        (self.avetoas, self.aveerr, self.Qmat) = PALutils.dailyAveMatrix(self.toas, self.toaerrs, dt=10)
+        #(self.avetoas, self.aveerr, self.Qmat) = PALutils.dailyAveMatrix(self.toas, self.toaerrs, dt=10)
 
         # Create the Fourier design matrices for noise
         if nf > 0:
             (self.Fmat, self.Ffreqs) = PALutils.createfourierdesignmatrix(self.toas, \
                                                             nf, Tspan=Tmax, freq=True)
-            (self.FAvmat, tmp) = PALutils.createfourierdesignmatrix(self.avetoas, \
-                                                            nf, Tspan=Tmax, freq=True)
+            if useAverage:
+                (self.FAvmat, tmp) = PALutils.createfourierdesignmatrix(self.avetoas, \
+                                                                nf, Tspan=Tmax, freq=True)
             self.kappa = np.zeros(2*nf)
         else:
             self.Fmat = np.zeros((len(self.toas), 0))
@@ -505,13 +511,14 @@ class Pulsar(object):
         if ndmf > 0:
             (self.Fdmmat, self.Fdmfreqs) = PALutils.createfourierdesignmatrix(self.toas, \
                                                             ndmf, Tspan=Tmax, freq=True)
-            (self.FdmAvmat, tmp) = PALutils.createfourierdesignmatrix(self.avetoas, \
-                                                            ndmf, Tspan=Tmax, freq=True)
+            if useAverage:
+                (self.FdmAvmat, tmp) = PALutils.createfourierdesignmatrix(self.avetoas, \
+                                                                ndmf, Tspan=Tmax, freq=True)
+                self.DAvmat = np.diag(PAL_DMk / (self.avefreqs**2))
+                self.DFAv = (np.diag(self.DAvmat) * self.FdmAvmat.T).T
+                
             self.Dmat = np.diag(PAL_DMk / (self.freqs**2))
             self.DF = (np.diag(self.Dmat) * self.Fdmmat.T).T
-
-            self.DAvmat = np.diag(PAL_DMk / (self.avefreqs**2))
-            self.DFAv = (np.diag(self.DAvmat) * self.FdmAvmat.T).T
 
             self.kappadm = np.zeros(2*ndmf)
         else:
@@ -524,13 +531,16 @@ class Pulsar(object):
         # create total F matrix if both red and DM
         if ndmf > 0 and nf > 0:
             self.Ftot = np.concatenate((self.Fmat, self.DF), axis=1)
-            self.FtotAv = np.concatenate((self.FAvmat, self.DFAv), axis=1)
+            if useAverage:
+                self.FtotAv = np.concatenate((self.FAvmat, self.DFAv), axis=1)
         elif ndmf > 0 and nf == 0:
             self.Ftot = self.DF
-            self.FtotAv = self.DFAv
+            if useAverage:
+                self.FtotAv = self.DFAv
         elif ndmf == 0 and nf > 0:
             self.Ftot = self.Fmat
-            self.FtotAv = self.FAvmat
+            if useAverage:
+                self.FtotAv = self.FAvmat
 
 
 
@@ -551,10 +561,10 @@ class Pulsar(object):
         self.Gmat = U[:, self.Mmat.shape[1]:].copy()
         self.Gcmat = U[:, :self.Mmat.shape[1]].copy()
 
-        R = PALutils.createRmatrix(self.Mmat, self.toaerrs)
-        self.QR = np.dot(self.Qmat.T, R)
-        self.QRr = np.dot(self.QR, self.residuals)
-        self.QRF = np.dot(self.QR, self.Ftot)
+        #R = PALutils.createRmatrix(self.Mmat, self.toaerrs)
+        #self.QR = np.dot(self.Qmat.T, R)
+        #self.QRr = np.dot(self.QR, self.residuals)
+        #self.QRF = np.dot(self.QR, self.Ftot)
 
         # Construct the compression matrix
         self.constructCompressionMatrix(compression, nfmodes=2*nf,
@@ -572,12 +582,11 @@ class Pulsar(object):
         self.Gr = np.dot(self.Hmat.T, self.residuals)
         self.GGr = np.dot(self.Hmat, self.Gr)
         self.GtF = np.dot(self.Hmat.T, self.Ftot)
-
-        GtU = np.dot(self.Hmat.T, self.Umat)
-        #self.UtF = np.dot(self.Umat.T, self.Ftot)
-        self.UtF = self.FtotAv
         
-
+        if useAverage:
+            GtU = np.dot(self.Hmat.T, self.Umat)
+            self.UtF = self.FtotAv
+        
         
         # two component noise stuff
         if self.twoComponentNoise:
@@ -586,8 +595,9 @@ class Pulsar(object):
             #self.Wvec, self.Amat = sl.eigh(GNG) 
 
             self.AGr = np.dot(self.Amat.T, self.Gr)
-            self.AGU = np.dot(self.Amat.T, GtU)
             self.AGF = np.dot(self.Amat.T, self.GtF)
+            if useAverage:
+                self.AGU = np.dot(self.Amat.T, GtU)
             
 
             # Diagonalise HotEfHo
@@ -596,14 +606,16 @@ class Pulsar(object):
                 self.Wovec, self.Aomat = sl.eigh(HotNeHo)
 
                 Hor = np.dot(self.Homat.T, self.residuals)
-                HotU = np.dot(self.Homat.T, self.Umat)
                 self.AoGr = np.dot(self.Aomat.T, Hor)
-                self.AoGU = np.dot(self.Aomat.T, HotU)
+                if useAverage:
+                    HotU = np.dot(self.Homat.T, self.Umat)
+                    self.AoGU = np.dot(self.Aomat.T, HotU)
             else:
                 self.Wovec = np.zeros(0)
                 self.Aomat = np.zeros((self.Amat.shape[0], 0))
                 self.AoGr = np.zeros((0, self.Gr.shape[0]))
-                self.AoGU = np.zeros((0, GtU.shape[1]))
+                if useAverage:
+                    self.AoGU = np.zeros((0, GtU.shape[1]))
 
 
     # TODO: add frequency line stuff

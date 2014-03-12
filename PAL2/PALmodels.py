@@ -821,6 +821,7 @@ class PTAmodels(object):
             Tstart = np.min([np.min(p.toas), Tstart])
             Tfinish = np.max([np.max(p.toas), Tfinish])
         Tmax = Tfinish - Tstart
+        self.Tmax = Tmax
 
         # If the compressionComplement is defined, overwrite the default
         if evalCompressionComplement != 'None':
@@ -857,7 +858,7 @@ class PTAmodels(object):
             #if dmModel[pindex] != 'None':
             #if numDMFreqs[pindex] > 0:
             #    p.addDMQuadratic()
-
+            print p.name
 
             # We'll try to read the necessary quantities from the HDF5 file
             try:
@@ -1366,9 +1367,9 @@ class PTAmodels(object):
                 sigdiag.append(10**kappa_tot)
 
             # convert to array and flatten
-            Phi = np.array(sigdiag).flatten()
-            self.Phiinv = np.diag(1/Phi)
-            self.logdetPhi = np.sum(np.log(Phi))
+            self.Phi = np.array(sigdiag).flatten()
+            self.Phiinv = np.diag(1/self.Phi)
+            self.logdetPhi = np.sum(np.log(self.Phi))
 
 
         # correlated signals (not as easy)
@@ -1438,10 +1439,6 @@ class PTAmodels(object):
             # symmeterize Phi
             self.Phiinv = self.Phiinv + self.Phiinv.T - np.diag(np.diag(self.Phiinv))
 
-        # TODO: make this usable for multiple puslars
-        if self.npsr == 1 and constructPhi:
-
-            self.Phi = np.diag(1/np.diag(self.Phiinv))
 
 
 
@@ -1455,7 +1452,252 @@ class PTAmodels(object):
         for ct, p in enumerate(self.psr):
             p.detresiduals = p.residuals.copy()
 
+    """
+    Optimal Statistic
 
+    """
+
+    def optimalStatistic(self, parameters):
+
+        # set pulsar white noise parameters
+        self.setPsrNoise(parameters, incJitter=False)
+
+        # set red noise, DM and GW parameters
+        self.constructPhiMatrix(parameters, constructPhi=True)
+
+        # get correlation matrix
+        ORF = PALutils.computeORF(self.psr)
+
+        # loop over all pulsars
+        Y = []
+        X = []
+        Z = []
+        FGGNGGF = []
+        for ct, p in enumerate(self.psr):
+
+            if p.twoComponentNoise:
+                
+                # equivalent to F^TG(G^TNG)^{-1}G^T\delta t in two component basis
+                X.append(np.dot(p.AGF.T, p.AGr/p.Nwvec))
+
+                # compute F^TG(G^TNG)^{-1}G^TF
+                right = ((1/p.Nwvec) * p.AGF.T).T
+                FGGNGGF.append(np.dot(p.AGF.T, right))
+
+            else:   
+
+                # G(G^TNG)^{-1}G^T = N^{-1} - N^{-1}G_c(G_c^TN^{-1}G_c)^{-1}N^{-1}
+                Nir = p.detresiduals / p.Nvec
+                NiGc = ((1.0/p.Nvec) * p.Hcmat.T).T
+                GcNiGc = np.dot(p.Hcmat.T, NiGc)
+                NiF = ((1.0/p.Nvec) * p.Ftot.T).T
+                GcNir = np.dot(NiGc.T, p.detresiduals)
+                GcNiF = np.dot(NiGc.T, p.Ftot)
+
+                try:
+                    cf = sl.cho_factor(GcNiGc)
+                    logdet_N = np.sum(np.log(p.Nvec)) + 2*np.sum(np.log(np.diag(cf[0])))
+                    GcNiGcr = sl.cho_solve(cf, GcNir)
+                    GcNiGcF = sl.cho_solve(cf, GcNiF)
+                    NiGcNiGcr = np.dot(NiGc, GcNiGcr)
+
+                except np.linalg.LinAlgError:
+                    print "MAJOR ERROR"
+                
+                #F^TG(G^TNG)^{-1}G^T\delta t 
+                X.append(np.dot(p.Ftot.T, Nir - NiGcNiGcr))
+
+                # compute F^TG(G^TNG)^{-1}G^TF
+                FGGNGGF.append(np.dot(NiF.T, p.Ftot) - np.dot(GcNiF.T, GcNiGcF))
+
+            
+            # compute relevant quantities
+            nf = len(p.Ffreqs) + len(p.Fdmfreqs)
+            phiinv = 1/self.Phi[ct*nf:(ct*nf+nf)]
+            Sigma = np.diag(phiinv) + FGGNGGF[ct]
+        
+            # cholesky decomp for second term in exponential
+            try:
+                cf = sl.cho_factor(Sigma)
+                right = sl.cho_solve(cf, FGGNGGF[ct])
+            except np.linalg.LinAlgError:
+                U, s, Vh = sl.svd(Sigma)
+                if not np.all(s > 0):
+                    raise ValueError("ERROR: Sigma singular according to SVD")
+                right = np.dot(Vh.T, np.dot(np.diag(1.0/s), np.dot(U.T, FGGNGGF[ct])))
+
+            Y.append(X[ct] - np.dot(X[ct], right))
+
+            Z.append(FGGNGGF[ct] - np.dot(FGGNGGF[ct], right))
+
+
+        # cross correlations
+        top = 0
+        bot = 0
+        rho, sig, xi = [], [], []
+        for ii in range(self.npsr):
+            for jj in range(ii+1, self.npsr):
+
+                fgw = self.psr[ii].Ffreqs
+
+                # get Amplitude and spectral index
+                Amp = 1
+                gamma = 13/3
+                
+                f1yr = 1/3.16e7
+                pcdoubled = Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
+                                     fgw**(-gamma)/self.Tmax
+
+                phiIJ =  0.5 * np.concatenate((pcdoubled, \
+                                    np.zeros(len(self.psr[ii].Fdmfreqs))))
+
+
+                top = np.dot(Y[ii], phiIJ * Y[jj])
+                bot = np.trace(np.dot((Z[ii]*phiIJ.T).T, (Z[jj]*phiIJ.T).T))
+
+                # cross correlation and uncertainty
+                rho.append(top/bot)
+                sig.append(1/np.sqrt(bot))
+                xi.append(PALutils.angularSeparation(self.psr[ii].theta[0], self.psr[ii].phi[0] \
+                                                  , self.psr[jj].theta[0], self.psr[jj].phi[0]))
+
+        # return Opt, sigma, snr
+
+        #return top/bot, 1/np.sqrt(bot), top/np.sqrt(bot)
+        return np.array(xi), np.array(rho), np.array(sig), \
+                np.sum(np.array(rho)*ORF/np.array(sig)**2)/np.sum(ORF**2/np.array(sig)**2), \
+                1/np.sqrt(np.sum(ORF**2/np.array(sig)**2))
+
+    """
+    Optimal Statistic
+
+    """
+
+    def optimalStatisticCoarse(self, parameters):
+
+        # set pulsar white noise parameters
+        self.setPsrNoise(parameters, incJitter=False)
+
+        # set red noise, DM and GW parameters
+        self.constructPhiMatrix(parameters, constructPhi=True)
+
+        # get correlation matrix
+        ORF = PALutils.computeORF(self.psr)
+
+        # compute the white noise terms in the log likelihood
+        Y = []
+        X = []
+        Z = []
+        UGGNGGU = []
+        for ct, p in enumerate(self.psr):
+
+            if p.twoComponentNoise:
+                
+                # equivalent to F^TG(G^TNG)^{-1}G^T\delta t in two component basis
+                X.append(np.dot(p.AGU.T, p.AGr/p.Nwvec))
+
+                # compute F^TG(G^TNG)^{-1}G^TF
+                right = ((1/p.Nwvec) * p.AGU.T).T
+                UGGNGGU.append(np.dot(p.AGU.T, right))
+
+            else:   
+
+                # G(G^TNG)^{-1}G^T = N^{-1} - N^{-1}G_c(G_c^TN^{-1}G_c)^{-1}N^{-1}
+                Nir = p.detresiduals / p.Nvec
+                NiGc = ((1.0/p.Nvec) * p.Hcmat.T).T
+                GcNiGc = np.dot(p.Hcmat.T, NiGc)
+                NiU = ((1.0/p.Nvec) * p.Umat.T).T
+                GcNir = np.dot(NiGc.T, p.detresiduals)
+                GcNiU = np.dot(NiGc.T, p.Umat)
+
+                try:
+                    cf = sl.cho_factor(GcNiGc)
+                    logdet_N = np.sum(np.log(p.Nvec)) + 2*np.sum(np.log(np.diag(cf[0])))
+                    GcNiGcr = sl.cho_solve(cf, GcNir)
+                    GcNiGcU = sl.cho_solve(cf, GcNiU)
+                    NiGcNiGcr = np.dot(NiGc, GcNiGcr)
+
+                except np.linalg.LinAlgError:
+                    print "MAJOR ERROR"
+                
+                #F^TG(G^TNG)^{-1}G^T\delta t 
+                X.append(np.dot(p.Umat.T, Nir - NiGcNiGcr))
+
+                # compute F^TG(G^TNG)^{-1}G^TF
+                UGGNGGU.append(np.dot(NiU.T, p.Umat) - np.dot(GcNiU.T, GcNiGcU))
+
+            # construct modified phi matrix
+            nf = len(p.Ffreqs) + len(p.Fdmfreqs)
+            Phi0 = self.Phi[ct*nf:(ct*nf+nf)]
+            UPhiU = np.dot(self.psr[0].UtF, np.dot(Phi0, self.psr[0].UtF.T))
+            Phi = UPhiU + np.diag(self.psr[0].Qamp) 
+            
+            try:
+                cf = sl.cho_factor(Phi)
+                phiinv = sl.cho_solve(cf, np.identity(Phi.shape[0]))
+            except np.linalg.LinAlgError:
+                U, s, Vh = sl.svd(Phi)
+                if not np.all(s > 0):
+                    return -np.inf
+                    #raise ValueError("ERROR: Phi singular according to SVD")
+                phiinv = np.dot(Vh.T, np.dot(np.diag(1.0/s), U.T))
+
+
+            Sigma = np.diag(phiinv) + UGGNGGU[ct]
+        
+            # cholesky decomp for second term in exponential
+            try:
+                cf = sl.cho_factor(Sigma)
+                right = sl.cho_solve(cf, UGGNGGU[ct])
+            except np.linalg.LinAlgError:
+                U, s, Vh = sl.svd(Sigma)
+                if not np.all(s > 0):
+                    raise ValueError("ERROR: Sigma singular according to SVD")
+                right = np.dot(Vh.T, np.dot(np.diag(1.0/s), np.dot(U.T, UGGNGGU[ct])))
+
+            Y.append(X[ct] - np.dot(X[ct], right))
+
+            Z.append(UGGNGGU[ct] - np.dot(UGGNGGU[ct], right))
+
+
+        # cross correlations
+        top = 0
+        bot = 0
+        rho, sig, xi = [], [], []
+        for ii in range(self.npsr):
+            for jj in range(ii+1, self.npsr):
+
+                fgw = self.psr[ii].Ffreqs
+
+                # get Amplitude and spectral index
+                Amp = 1
+                gamma = 13/3
+                
+                f1yr = 1/3.16e7
+                pcdoubled = Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
+                                     fgw**(-gamma)/self.Tmax
+
+                phiIJ =  0.5 * np.concatenate((pcdoubled, \
+                                    np.zeros(len(self.psr[ii].Fdmfreqs))))
+
+
+                top = np.dot(Y[ii], phiIJ * Y[jj])
+                bot = np.trace(np.dot((Z[ii]*phiIJ.T).T, (Z[jj]*phiIJ.T).T))
+
+                # cross correlation and uncertainty
+                rho.append(top/bot)
+                sig.append(1/np.sqrt(bot))
+                xi.append(PALutils.angularSeparation(self.psr[ii].theta[0], self.psr[ii].phi[0] \
+                                                  , self.psr[jj].theta[0], self.psr[jj].phi[0]))
+
+        # return Opt, sigma, snr
+
+        #return top/bot, 1/np.sqrt(bot), top/np.sqrt(bot)
+        return np.array(xi), np.array(rho), np.array(sig), \
+                np.sum(np.array(rho)*ORF/np.array(sig)**2)/np.sum(ORF**2/np.array(sig)**2), \
+                1/np.sqrt(np.sum(ORF**2/np.array(sig)**2))
+
+             
 
     """
     mark 1 log likelihood. Note that this is not the same as mark1 in piccard
@@ -1486,7 +1728,7 @@ class PTAmodels(object):
         # compute the white noise terms in the log likelihood
         FGGNGGF = []
         for ct, p in enumerate(self.psr):
-
+                        
             if p.twoComponentNoise:
                 
                 # equivalent to F^TG(G^TNG)^{-1}G^T\delta t in two component basis
@@ -1536,7 +1778,7 @@ class PTAmodels(object):
 
                 # compute F^TG(G^TNG)^{-1}G^TF
                 FGGNGGF.append(np.dot(NiF.T, p.Ftot) - np.dot(GcNiF.T, GcNiGcF))
-                
+
                 
             # first component of likelihood function
             loglike += -0.5 * (logdet_N + rGGNGGr)
@@ -1770,5 +2012,40 @@ class PTAmodels(object):
 
         else:
             prior += -np.inf
+
+        return prior
+
+    """
+    Very simple uniform prior on all parameters except flag in GW amplitude
+
+    """
+
+    def mark2LogPrior(self, parameters):
+
+        prior = 0
+        if np.all(parameters >= self.pmin) and np.all(parameters <= self.pmax):
+            prior += -np.sum(np.log(self.pmax-self.pmin))
+
+        else:
+            prior += -np.inf
+
+        #TODO:find better way of finding the amplitude
+        for ss, sig in enumerate(self.ptasignals):
+
+            # short hand
+            psrind = sig['pulsarind']
+            parind = sig['parindex']
+            npars = sig['npars']
+            
+            # parameters for this signal
+            sparameters = sig['pstart'].copy()
+
+            # which ones are varying
+            sparameters[sig['bvary']] = parameters[parind:parind+npars]
+
+            if sig['corr'] == 'gr':
+
+                prior += np.log(10**sparameters[0])
+
 
         return prior
