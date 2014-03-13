@@ -1041,8 +1041,8 @@ class PTAmodels(object):
 
             # noise vectors
             p.Nvec = np.zeros(len(p.toas))
-            p.Nwvec = np.zeros(p.Hmat.shape[1])
-            p.Nwovec = np.zeros(p.Homat.shape[1])
+            p.Nwvec = np.zeros(p.nbasis)
+            p.Nwovec = np.zeros(p.nobasis)
 
         # number of GW frequencies
         self.ngwf = np.max(self.npf)
@@ -1628,9 +1628,9 @@ class PTAmodels(object):
 
             # construct modified phi matrix
             nf = len(p.Ffreqs) + len(p.Fdmfreqs)
-            Phi0 = self.Phi[ct*nf:(ct*nf+nf)]
-            UPhiU = np.dot(self.psr[0].UtF, np.dot(Phi0, self.psr[0].UtF.T))
-            Phi = UPhiU + np.diag(self.psr[0].Qamp) 
+            Phi0 = np.diag(self.Phi[ct*nf:(ct*nf+nf)])
+            UPhiU = np.dot(p.UtF, np.dot(Phi0, p.UtF.T))
+            Phi = UPhiU + np.diag(p.Qamp) 
             
             try:
                 cf = sl.cho_factor(Phi)
@@ -1643,7 +1643,7 @@ class PTAmodels(object):
                 phiinv = np.dot(Vh.T, np.dot(np.diag(1.0/s), U.T))
 
 
-            Sigma = np.diag(phiinv) + UGGNGGU[ct]
+            Sigma = phiinv + UGGNGGU[ct]
         
             # cholesky decomp for second term in exponential
             try:
@@ -1668,22 +1668,26 @@ class PTAmodels(object):
             for jj in range(ii+1, self.npsr):
 
                 fgw = self.psr[ii].Ffreqs
+                nf = len(fgw)
+                nfdm = len(self.psr[ii].Fdmfreqs)
 
                 # get Amplitude and spectral index
                 Amp = 1
                 gamma = 13/3
                 
                 f1yr = 1/3.16e7
-                pcdoubled = Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
+                pcdoubled = 0.5 * Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
                                      fgw**(-gamma)/self.Tmax
-
-                phiIJ =  0.5 * np.concatenate((pcdoubled, \
-                                    np.zeros(len(self.psr[ii].Fdmfreqs))))
-
-
-                top = np.dot(Y[ii], phiIJ * Y[jj])
-                bot = np.trace(np.dot((Z[ii]*phiIJ.T).T, (Z[jj]*phiIJ.T).T))
-
+                    
+                Phi = np.zeros(nf+nfdm)
+                #di = np.diag_indices(nf)
+                Phi[:nf] = pcdoubled
+        
+                phiIJ = np.dot(self.psr[ii].UtF, (Phi * self.psr[jj].UtF).T)
+        
+                top = np.dot(Y[ii], np.dot(phiIJ, Y[jj]))
+                bot = np.trace(np.dot(Z[ii], np.dot(phiIJ, np.dot(Z[jj], phiIJ.T))))
+            
                 # cross correlation and uncertainty
                 rho.append(top/bot)
                 sig.append(1/np.sqrt(bot))
@@ -2044,7 +2048,6 @@ class PTAmodels(object):
             sparameters[sig['bvary']] = parameters[parind:parind+npars]
 
             if sig['corr'] == 'gr':
-
                 prior += np.log(10**sparameters[0])
 
 

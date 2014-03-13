@@ -514,17 +514,17 @@ class Pulsar(object):
             if useAverage:
                 (self.FdmAvmat, tmp) = PALutils.createfourierdesignmatrix(self.avetoas, \
                                                                 ndmf, Tspan=Tmax, freq=True)
-                self.DAvmat = np.diag(PAL_DMk / (self.avefreqs**2))
-                self.DFAv = (np.diag(self.DAvmat) * self.FdmAvmat.T).T
+                self.DAvmat = PAL_DMk / (self.avefreqs**2)
+                self.DFAv = (self.DAvmat * self.FdmAvmat.T).T
                 
-            self.Dmat = np.diag(PAL_DMk / (self.freqs**2))
-            self.DF = (np.diag(self.Dmat) * self.Fdmmat.T).T
+            Dmat = PAL_DMk / (self.freqs**2)
+            self.DF = (Dmat * self.Fdmmat.T).T
 
             self.kappadm = np.zeros(2*ndmf)
         else:
             self.Fdmmat = np.zeros((len(self.freqs), 0))
             self.Fdmfreqs = np.zeros(0)
-            self.Dmat = np.diag(PAL_DMk / (self.freqs**2))
+            Dmat = PAL_DMk / (self.freqs**2)
             self.DF = np.zeros((len(self.freqs), 0))
             self.kappadm = np.zeros(2*ndmf)
 
@@ -581,7 +581,7 @@ class Pulsar(object):
         # basic quantities
         self.Gr = np.dot(self.Hmat.T, self.residuals)
         self.GGr = np.dot(self.Hmat, self.Gr)
-        self.GtF = np.dot(self.Hmat.T, self.Ftot)
+        GtF = np.dot(self.Hmat.T, self.Ftot)
         
         if useAverage:
             GtU = np.dot(self.Hmat.T, self.Umat)
@@ -591,32 +591,45 @@ class Pulsar(object):
         # two component noise stuff
         if self.twoComponentNoise:
             GNG = np.dot(self.Hmat.T, ((self.toaerrs**2) * self.Hmat.T).T)
-            self.Amat, self.Wvec, v = sl.svd(GNG)
+            Amat, self.Wvec, v = sl.svd(GNG)
             #self.Wvec, self.Amat = sl.eigh(GNG) 
 
-            self.AGr = np.dot(self.Amat.T, self.Gr)
-            self.AGF = np.dot(self.Amat.T, self.GtF)
+            self.AGr = np.dot(Amat.T, self.Gr)
+            self.AGF = np.dot(Amat.T, GtF)
             if useAverage:
-                self.AGU = np.dot(self.Amat.T, GtU)
+                self.AGU = np.dot(Amat.T, GtU)
             
 
             # Diagonalise HotEfHo
             if self.Homat.shape[1] > 0:
                 HotNeHo = np.dot(self.Homat.T, ((self.toaerrs**2) * self.Homat.T).T)
-                self.Wovec, self.Aomat = sl.eigh(HotNeHo)
+                self.Wovec, Aomat = sl.eigh(HotNeHo)
 
                 Hor = np.dot(self.Homat.T, self.residuals)
-                self.AoGr = np.dot(self.Aomat.T, Hor)
+                self.AoGr = np.dot(Aomat.T, Hor)
                 if useAverage:
                     HotU = np.dot(self.Homat.T, self.Umat)
-                    self.AoGU = np.dot(self.Aomat.T, HotU)
+                    self.AoGU = np.dot(Aomat.T, HotU)
             else:
                 self.Wovec = np.zeros(0)
-                self.Aomat = np.zeros((self.Amat.shape[0], 0))
+                Aomat = np.zeros((Amat.shape[0], 0))
                 self.AoGr = np.zeros((0, self.Gr.shape[0]))
                 if useAverage:
                     self.AoGU = np.zeros((0, GtU.shape[1]))
+        
+        # clear out G and Gc maatrices
+        self.Gmat = None
+        self.Gcmat = None
+        self.Hocmat
 
+        # get shape of Hmat for later use
+        self.nbasis = self.Hmat.shape[1]
+        self.Hmat = None
+        
+        # get shape of Hmat for later use
+        self.nobasis = self.Homat.shape[1]
+        self.Hmat = None
+     
 
     # TODO: add frequency line stuff
 
