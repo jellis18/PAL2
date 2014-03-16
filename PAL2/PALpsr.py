@@ -361,6 +361,9 @@ class Pulsar(object):
 
             l = int(np.sum(cumev/totrms <= threshold) + 1)
 
+            if targetAmp == 0:
+                l = 5
+
             print 'Constructing compression matrix for PSR {0} using {1} components for targetAmp = {2}'.format(self.name, l, targetAmp)
 
             # construct H
@@ -447,7 +450,8 @@ class Pulsar(object):
     """
     def createPulsarAuxiliaries(self, h5df, Tmax, nfreqs, ndmfreqs, \
             twoComponent=False, nSingleFreqs=0, nSingleDMFreqs=0, \
-            compression='None', likfunc='mark1', write='no', targetAmp=1e-14):
+            compression='None', likfunc='mark1', write='no', \
+            targetAmp=1e-14, memsave=True):
 
 
         # For creating the auxiliaries it does not really matter: we are now
@@ -616,19 +620,16 @@ class Pulsar(object):
                 self.AoGr = np.zeros((0, self.Gr.shape[0]))
                 if useAverage:
                     self.AoGU = np.zeros((0, GtU.shape[1]))
-        
-        # clear out G and Gc maatrices
-        self.Gmat = None
-        self.Gcmat = None
-        self.Hocmat
-
-        # get shape of Hmat for later use
+       
         self.nbasis = self.Hmat.shape[1]
-        self.Hmat = None
-        
-        # get shape of Hmat for later use
         self.nobasis = self.Homat.shape[1]
-        self.Hmat = None
+        if memsave:
+            # clear out G and Gc maatrices
+            self.Gmat = None
+            self.Gcmat = None
+            self.Hocmat
+            self.Hmat = None
+            self.Hmat = None
      
 
     # TODO: add frequency line stuff

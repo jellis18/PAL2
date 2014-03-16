@@ -791,7 +791,7 @@ class PTAmodels(object):
                                 from the HDF5 file
     @param verbose:             Give some extra information about progress
     """
-    def initModel(self, fullmodel, fromFile=False, verbose=False):
+    def initModel(self, fullmodel, fromFile=False, verbose=False, memsave=True):
         numNoiseFreqs = fullmodel['numNoiseFreqs']
         numDMFreqs = fullmodel['numDMFreqs']
         compression = fullmodel['compression']
@@ -887,7 +887,7 @@ class PTAmodels(object):
                                 nSingleFreqs=numSingleFreqs[pindex], \
                                 nSingleDMFreqs=numSingleDMFreqs[pindex], \
                                 likfunc=likfunc, compression=compression, \
-                                write='no', targetAmp=targetAmp)
+                                write='no', targetAmp=targetAmp, memsave=memsave)
 
         # Initialise the ptasignal objects
         self.ptasignals = []
@@ -1003,7 +1003,6 @@ class PTAmodels(object):
     """
     Determine intial covariance matrix for jumps
 
-
     """
     def initJumpCovariance(self):
 
@@ -1011,7 +1010,7 @@ class PTAmodels(object):
         for ct, sig in enumerate(self.ptasignals):
             if np.any(sig['bvary']):
                 for step in sig['pwidth'][sig['bvary']]:
-                    cov_diag.append((step/5)**2)
+                    cov_diag.append((step)**2)
                     
         return np.diag(cov_diag)
 
@@ -1047,7 +1046,8 @@ class PTAmodels(object):
         # number of GW frequencies
         self.ngwf = np.max(self.npf)
         self.gwfreqs = self.psr[np.argmax(self.npf)].Ffreqs
-
+        nftot = self.ngwf + np.max(self.npfdm)
+        self.Phiinv = np.zeros((nftot*self.npsr, nftot*self.npsr))
 
         #for ii in range(self.npsr):
         #    if not self.likfunc in ['mark2']:
@@ -1429,15 +1429,22 @@ class PTAmodels(object):
                 smallMatrix[ii,:,:] = sl.cho_solve(L, np.eye(self.npsr))
                 self.logdetPhi += np.sum(2*np.log(np.diag(L[0])))
 
+            ## now fill in real covariance matrix
+            #self.Phiinv = np.zeros((self.npsr*nftot, self.npsr*nftot))
+            #for ii in range(self.npsr):
+            #    for jj in range(ii, self.npsr):
+            #        for kk in range(0,nftot):
+            #            self.Phiinv[kk+ii*nftot, kk+jj*nftot] = smallMatrix[kk,ii,jj]
+            
             # now fill in real covariance matrix
-            self.Phiinv = np.zeros((self.npsr*nftot, self.npsr*nftot))
+            ind2 = [np.arange(jj*nftot, jj*nftot+nftot) for jj in range(self.npsr)]
             for ii in range(self.npsr):
-                for jj in range(ii, self.npsr):
-                    for kk in range(0,nftot):
-                        self.Phiinv[kk+ii*nftot, kk+jj*nftot] = smallMatrix[kk,ii,jj]
+                ind1 = np.arange(ii*nftot, ii*nftot+nftot)
+                for jj in range(0, self.npsr):
+                    self.Phiinv[ind1,ind2[jj]] = smallMatrix[:,ii,jj]
             
             # symmeterize Phi
-            self.Phiinv = self.Phiinv + self.Phiinv.T - np.diag(np.diag(self.Phiinv))
+            #self.Phiinv = self.Phiinv + self.Phiinv.T - np.diag(self.Phiinv.diagonal())
 
 
 
@@ -2049,6 +2056,45 @@ class PTAmodels(object):
 
             if sig['corr'] == 'gr':
                 prior += np.log(10**sparameters[0])
+
+
+        return prior
+    
+    """
+    Very simple uniform prior on all parameters except flag in RN and GW
+    amplitudes
+
+    """
+
+    def mark3LogPrior(self, parameters):
+
+        prior = 0
+        if np.all(parameters >= self.pmin) and np.all(parameters <= self.pmax):
+            prior += -np.sum(np.log(self.pmax-self.pmin))
+
+        else:
+            prior += -np.inf
+
+        #TODO:find better way of finding the amplitude
+        for ss, sig in enumerate(self.ptasignals):
+
+            # short hand
+            psrind = sig['pulsarind']
+            parind = sig['parindex']
+            npars = sig['npars']
+            
+            # parameters for this signal
+            sparameters = sig['pstart'].copy()
+
+            # which ones are varying
+            sparameters[sig['bvary']] = parameters[parind:parind+npars]
+
+            if sig['corr'] == 'gr':
+                prior += np.log(10**sparameters[0])
+            
+            if sig['stype'] == 'powerlaw' and sig['corr'] == 'single':
+                if sig['bvary'][0]:
+                    prior += np.log(10**sparameters[0])
 
 
         return prior
