@@ -729,12 +729,17 @@ def createGHmatrix(toa, err, res, G, fidelity, Amp = None):
     
     # looping over eigenvalues until the fidelity criterion of van Haasteren 2013(b) 
     # is satisfied; only the 'principal' eigenvectors are retained
-    index = np.amax(np.where(np.cumsum((eigVal/(1+(Amp**2.0)*eigVal))**2.0)/ \
-                             np.sum((eigVal/(1.0+(Amp**2.0)*eigVal))**2.0).real \
-                             <= fidelity)[0]) 
+    fisherelements = eigVal**2 / (1 + Amp**2 * eigVal)**2
+    cumev = np.cumsum(fisherelements)
+    totrms = np.sum(fisherelements)
+
+    l = int((np.flatnonzero( (cumev/totrms) >= fidelity )[0] + 1))
+    #index = np.amax(np.where(np.cumsum((eigVal/(1+(Amp**2.0)*eigVal))**2.0)/ \
+    #                         np.sum((eigVal/(1.0+(Amp**2.0)*eigVal))**2.0).real \
+    #                         <= fidelity)[0]) 
     
     # forming the data-compression matrix
-    H = np.dot(sl.sqrtm(sl.inv(GCnoiseG)).real,eigVec.T[:index+1].T.real)
+    H = np.dot(sl.sqrtm(sl.inv(GCnoiseG)).real,eigVec.T[:l].T.real)
     
     return np.dot(G,H)
 

@@ -212,7 +212,7 @@ class Pulsar(object):
     """
 
     def constructCompressionMatrix(self, compression=None, \
-                                   nfmodes=-1, ndmodes=-1, threshold=0.99, \
+                                   nfmodes=-1, ndmodes=-1, threshold=1.0, \
                                    targetAmp=1e-14):
 
         # initialize matrices
@@ -238,19 +238,9 @@ class Pulsar(object):
 
         elif compression == 'jitter':
 
-            self.avetoas, self.Umat = PALutils.exploderMatrix(self.toas, freqs=None, dt=1200)
+            self.avetoas, self.Umat = PALutils.exploderMatrix(self.toas, freqs=None, dt=10)
 
-            # weighted fit?
-            # TODO: should we do this?
-            w = 1/self.toaerrs**0
-
-            # projection
-            UWU = np.dot(self.Umat.T, (w*self.Umat.T).T)
-            cf = sl.cho_factor(UWU)
-            UWUi = sl.cho_solve(cf, np.eye(UWU.shape[0]))
-            P = np.dot(self.Umat, np.dot(UWUi, self.Umat.T * w))
-            PuG = np.dot(P, self.Gmat)
-            GU = np.dot(PuG.T, self.Umat)
+            GU = np.dot(self.Gmat.T, self.Umat)
             GUUG = np.dot(GU, GU.T)
 
             # Construct an orthogonal basis, and singular values
@@ -259,52 +249,33 @@ class Pulsar(object):
     
         elif compression == 'frequencies':
 
-            Ftot = np.zeros((len(self.toas), 0))
+            # use all frequencies
+            ntoas = len(self.toas)
+            nfreqs = int(ntoas/2)
 
-            # Decide on the (dm)frequencies to include
-            if nfmodes == -1:
-                # Include all, and only all, frequency modes
+            # hard code noise spectral index to GWB index
+            noiseSi = 4.33
 
-                # Produce an orthogonal basis for the frequencies
-                l = self.Fmat.shape[1]
-                Vmat, svec, Vhsvd = sl.svd(self.Fmat)
-                Ftot = np.append(Ftot, Vmat[:, :l].copy(), axis=1)
+            # set Maximum observing time span
+            Tmax = np.max(self.toas) - np.min(self.toas)
 
-            elif nfmodes == 0:
+            # Construct the Fourier modes, and the frequency coefficients (for
+            # noiseAmp=1)
+            Fmat, Ffreqs = PALutils.createfourierdesignmatrix(self.toas, \
+                                                nfreqs, freq=True, Tspan=Tmax)
+            freqpy = Ffreqs * PAL_spy
+            pcdoubled = (PAL_spy**3 / (12*np.pi*np.pi * Tmax)) * freqpy ** (-noiseSi)
 
-                # Why would anyone do this?
-                pass
 
+            # Check whether the Gmatrix exists
+            if self.Gmat is None:
+                U, s, Vh = sl.svd(self.Mmat)
+                Gmat = U[:, self.Mmat.shape[1]:]
             else:
+                Gmat = self.Gmat
 
-                # Produce an orthogonal basis for the frequencies
-                l = nfmodes
-                Vmat, svec, Vhsvd = sl.svd(self.Fmat)
-                Ftot = np.append(Ftot, Vmat[:, :l].copy(), axis=1)
-
-            if ndmodes == -1:
-                # Include all, and only all, frequency modes
-
-                # Produce an orthogonal basis for the frequencies
-                l = self.DF.shape[1]
-                Vmat, svec, Vhsvd = sl.svd(self.DF)
-                Ftot = np.append(Ftot, Vmat[:, :l].copy(), axis=1)
-
-            elif ndmodes == 0:
-
-                # Do not include DM in the compression
-                pass
-
-            else:
-
-                # Produce an orthogonal basis for the frequencies
-                l = self.DF.shape[1]
-                Vmat, svec, Vhsvd = sl.svd(self.DF)
-                Ftot = np.append(Ftot, Vmat[:, :l].copy(), axis=1)
-
-
-            GF = np.dot(self.Gmat.T, Ftot)
-            GFFG = np.dot(GF, GF.T)
+            GF = np.dot(Gmat.T, Fmat)
+            GFFG = np.dot(GF, (pcdoubled * GF).T)
 
             # Construct an orthogonal basis, and singular values
             Vmat, svec, Vhsvd = sl.svd(GFFG)
@@ -312,15 +283,22 @@ class Pulsar(object):
         
         elif compression =='red':
 
+
             # use all frequencies
             ntoas = len(self.toas)
             nfreqs = int(ntoas/2)
 
             # hard code noise spectral index to GWB index
-            noiseSi = 4.333
-
+            noiseSi = 4.33
+            
             # set Maximum observing time span
             Tmax = np.max(self.toas) - np.min(self.toas)
+            
+            # option to construct targetAmp from weighted rms
+            if targetAmp == 0:
+                rms = self.rms()
+                targetAmp = np.sqrt(noiseSi-1)/2.05e-9 * (Tmax/3.16e7)**(2/(noiseSi-1)) \
+                        * 1e-15 * rms
 
             # Construct the Fourier modes, and the frequency coefficients (for
             # noiseAmp=1)
@@ -358,11 +336,8 @@ class Pulsar(object):
             cumev = np.cumsum(fisherelements)
             totrms = np.sum(fisherelements)
             
+            l = int((np.flatnonzero( (cumev/totrms) >= threshold )[0] + 1))
 
-            l = int(np.sum(cumev/totrms <= threshold) + 1)
-
-            if targetAmp == 0:
-                l = 5
 
             print 'Constructing compression matrix for PSR {0} using {1} components for targetAmp = {2}'.format(self.name, l, targetAmp)
 
@@ -370,11 +345,7 @@ class Pulsar(object):
             H = np.dot(Li, U[:,:l])
             GH = np.dot(Gmat, H)
             self.Hmat = GH
-            #GHHG = np.dot(GH, GH.T)
 
-            # Construct an orthogonal basis, and singular values
-            #Vmat, svec, Vhsvd = sl.svd(GHHG)
-        
         ## NO compression
         elif compression == 'None' or compression is None:
             self.Hmat = self.Gmat
@@ -414,8 +385,6 @@ class Pulsar(object):
             Vmat, s, Vh = sl.svd(H)
             self.Hmat = Vmat[:, :l]
             self.Hcmat = Vmat[:, l:]
-
-            print self.Hmat.shape, self.Hcmat.shape, self.Gmat.shape, self.Gcmat.shape
 
             # For compression-complements, construct Ho and Hoc
             if Ho.shape[1] > 0:
@@ -546,8 +515,6 @@ class Pulsar(object):
             if useAverage:
                 self.FtotAv = self.FAvmat
 
-
-
         # Write these quantities to disk
         if write != 'no':
             h5df.addData(self.name, 'PAL_Fmat', self.Fmat)
@@ -630,6 +597,19 @@ class Pulsar(object):
             self.Hocmat
             self.Hmat = None
             self.Hmat = None
+    
+    
+    def rms(self):
+
+        """
+        Return weighted RMS in seconds
+
+        """
+
+        W = 1/self.toaerrs**2
+
+        return np.sqrt(np.sum(self.residuals**2*W)/np.sum(W))
+
      
 
     # TODO: add frequency line stuff

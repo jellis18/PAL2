@@ -1845,6 +1845,8 @@ class PTAmodels(object):
         
         # compute the white noise terms in the log likelihood
         UGGNGGU = []
+        FJ = []
+        FJF = []
         for ct, p in enumerate(self.psr):
 
             if p.twoComponentNoise:
@@ -1901,8 +1903,18 @@ class PTAmodels(object):
             # first component of likelihood function
             loglike += -0.5 * (logdet_N + rGGNGGr)
 
-        # cheat for now
-        #TODO: make this more general
+            # keep track of jitter terms needed later
+            if self.npsr > 1:
+                if ct == 0:
+                    Jinv = 1/p.Qamp
+                else:
+                    Jinv = np.append(Jinv, 1/p.Qamp)
+
+                FJ.append(p.UtF.T * 1/p.Qamp)
+                FJF.append(np.dot(FJ[ct], p.UtF))
+
+
+        # if only using one pulsar
         if self.npsr == 1:
             Phi0 = np.diag(1/np.diag(self.Phiinv))
             UPhiU = np.dot(self.psr[0].UtF, np.dot(Phi0, self.psr[0].UtF.T))
@@ -1910,23 +1922,71 @@ class PTAmodels(object):
             
             try:
                 cf = sl.cho_factor(Phi)
-                self.logdetPhi = 2*np.sum(np.log(np.diag(cf[0])))
-                self.Phiinv = sl.cho_solve(cf, np.identity(Phi.shape[0]))
+                logdetPhi = 2*np.sum(np.log(np.diag(cf[0])))
+                Phiinv = sl.cho_solve(cf, np.identity(Phi.shape[0]))
             except np.linalg.LinAlgError:
                 U, s, Vh = sl.svd(Phi)
                 if not np.all(s > 0):
                     return -np.inf
                     #raise ValueError("ERROR: Phi singular according to SVD")
-                self.logdetPhi = np.sum(np.log(s))
-                self.Phiinv = np.dot(Vh.T, np.dot(np.diag(1.0/s), U.T))
+                logdetPhi = np.sum(np.log(s))
+                Phiinv = np.dot(Vh.T, np.dot(np.diag(1.0/s), U.T))
 
         else:
-            raise ValueError("ERROR: Have not yet implemented jitter for multiple pulsars")
+            
+            #UtF = [p.UtF.T for p in self.psr]
+            #try:
+            #    cf = sl.cho_factor(self.Phiinv)
+            #    PhiF = sl.cho_solve(cf, sl.block_diag(*UtF))
+            #except np.linalg.LinAlgError:
+            #    U, s, Vh = sl.svd(self.Phiinv)
+            #    if not np.all(s > 0):
+            #        return -np.inf
+            #        #raise ValueError("ERROR: Phi singular according to SVD")
+            #    PhiF = np.dot(Vh.T, np.dot(np.diag(1.0/s), np.dot(U.T, sl.block_diag(*UtF))))
+
+            #Phi = np.dot(sl.block_diag(*UtF).T, PhiF) + np.diag(1/Jinv) 
+            #try:
+            #    cf = sl.cho_factor(Phi)
+            #    logdetPhi = 2*np.sum(np.log(np.diag(cf[0])))
+            #    Phiinv = sl.cho_solve(cf, np.identity(Phi.shape[0]))
+            #except np.linalg.LinAlgError:
+            #    U, s, Vh = sl.svd(Phi)
+            #    if not np.all(s > 0):
+            #        return -np.inf
+            #        #raise ValueError("ERROR: Phi singular according to SVD")
+            #    logdetPhi = np.sum(np.log(s))
+            #    Phiinv = np.dot(Vh.T, np.dot(np.diag(1.0/s), U.T))
+
+
+
+            Phi0 = self.Phiinv + sl.block_diag(*FJF)
+            logdet_J = np.sum(np.log(1/Jinv))
+
+            # cholesky decomp for second term in exponential
+            try:
+                cf = sl.cho_factor(Phi0)
+                logdet_Phi0 = 2*np.sum(np.log(np.diag(cf[0])))
+                PhiinvFJ = sl.cho_solve(cf, sl.block_diag(*FJ))
+            except np.linalg.LinAlgError:
+                U, s, Vh = sl.svd(Phi0)
+                if not np.all(s > 0):
+                    return -np.inf
+                    #raise ValueError("ERROR: Sigma singular according to SVD")
+                logdet_Phi0 = np.sum(np.log(s))
+                PhiinvFJ = np.dot(Vh.T, np.dot(np.diag(1.0/s), np.dot(U.T, sl.block_diag(*FJ))))
+
+            # get new Phiinv
+            Phiinv = -np.dot(sl.block_diag(*FJ).T, PhiinvFJ)
+            di = np.diag_indices(len(Jinv))
+            Phiinv[di] += Jinv 
+            logdetPhi = self.logdetPhi + logdet_Phi0 + logdet_J
+
 
         # compute the red noise, DMV and GWB terms in the log likelihood
         
         # compute sigma
-        Sigma = sl.block_diag(*UGGNGGU) + self.Phiinv
+        Sigma = sl.block_diag(*UGGNGGU) + Phiinv
 
         # cholesky decomp for second term in exponential
         try:
@@ -1934,15 +1994,17 @@ class PTAmodels(object):
             logdet_Sigma = 2*np.sum(np.log(np.diag(cf[0])))
             expval2 = sl.cho_solve(cf, d)
         except np.linalg.LinAlgError:
-            U, s, Vh = sl.svd(Sigma)
-            if not np.all(s > 0):
-                return -np.inf
-                #raise ValueError("ERROR: Sigma singular according to SVD")
-            logdet_Sigma = np.sum(np.log(s))
-            expval2 = np.dot(Vh.T, np.dot(np.diag(1.0/s), np.dot(U.T, d)))
+            print 'Cholesky Failed when inverting Sigma'
+            return -np.inf
+            #U, s, Vh = sl.svd(Sigma)
+            #if not np.all(s > 0):
+            #    return -np.inf
+            #    #raise ValueError("ERROR: Sigma singular according to SVD")
+            #logdet_Sigma = np.sum(np.log(s))
+            #expval2 = np.dot(Vh.T, np.dot(np.diag(1.0/s), np.dot(U.T, d)))
 
 
-        loglike += -0.5 * (self.logdetPhi + logdet_Sigma) + 0.5 * (np.dot(d, expval2)) 
+        loglike += -0.5 * (logdetPhi + logdet_Sigma) + 0.5 * (np.dot(d, expval2)) 
 
         return loglike
 
