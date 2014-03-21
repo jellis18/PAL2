@@ -71,6 +71,8 @@ class Pulsar(object):
         self.parfile_content = None
         self.timfile_content = None
         self.t2psr = None
+        self.incRed = False
+        self.incDM = False
 
         self.raj = 0                    # psr right ascension
         self.decj = 0                   # psr declination
@@ -430,6 +432,11 @@ class Pulsar(object):
         # construct average quantities
         useAverage = likfunc == 'mark2'
 
+        if compression == 'red':
+            threshold = 0.99
+        else:
+            threshold = 1.0
+
         # default for detresiduals
         self.detresiduals = self.residuals.copy()
 
@@ -469,6 +476,7 @@ class Pulsar(object):
 
         # Create the Fourier design matrices for noise
         if nf > 0:
+            self.incRed = True
             (self.Fmat, self.Ffreqs) = PALutils.createfourierdesignmatrix(self.toas, \
                                                             nf, Tspan=Tmax, freq=True)
             if useAverage:
@@ -482,6 +490,7 @@ class Pulsar(object):
 
         # Create the Fourier design matrices for DM variations
         if ndmf > 0:
+            self.incDM = True
             (self.Fdmmat, self.Fdmfreqs) = PALutils.createfourierdesignmatrix(self.toas, \
                                                             ndmf, Tspan=Tmax, freq=True)
             if useAverage:
@@ -539,7 +548,7 @@ class Pulsar(object):
 
         # Construct the compression matrix
         self.constructCompressionMatrix(compression, nfmodes=2*nf,
-                ndmodes=2*ndmf, threshold=0.99, targetAmp=targetAmp)
+                ndmodes=2*ndmf, threshold=threshold, targetAmp=targetAmp)
 
         if write != 'no':
             h5df.addData(self.name, 'PAL_Gmat', self.Gmat)
@@ -562,13 +571,13 @@ class Pulsar(object):
         # two component noise stuff
         if self.twoComponentNoise:
             GNG = np.dot(self.Hmat.T, ((self.toaerrs**2) * self.Hmat.T).T)
-            Amat, self.Wvec, v = sl.svd(GNG)
+            self.Amat, self.Wvec, v = sl.svd(GNG)
             #self.Wvec, self.Amat = sl.eigh(GNG) 
 
-            self.AGr = np.dot(Amat.T, self.Gr)
-            self.AGF = np.dot(Amat.T, GtF)
+            self.AGr = np.dot(self.Amat.T, self.Gr)
+            self.AGF = np.dot(self.Amat.T, GtF)
             if useAverage:
-                self.AGU = np.dot(Amat.T, GtU)
+                self.AGU = np.dot(self.Amat.T, GtU)
             
 
             # Diagonalise HotEfHo
@@ -583,7 +592,7 @@ class Pulsar(object):
                     self.AoGU = np.dot(Aomat.T, HotU)
             else:
                 self.Wovec = np.zeros(0)
-                Aomat = np.zeros((Amat.shape[0], 0))
+                Aomat = np.zeros((self.Amat.shape[0], 0))
                 self.AoGr = np.zeros((0, self.Gr.shape[0]))
                 if useAverage:
                     self.AoGU = np.zeros((0, GtU.shape[1]))
@@ -597,6 +606,7 @@ class Pulsar(object):
             self.Hocmat
             self.Hmat = None
             self.Hmat = None
+            self.Amat = None
     
     
     def rms(self):

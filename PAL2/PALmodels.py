@@ -858,7 +858,6 @@ class PTAmodels(object):
             #if dmModel[pindex] != 'None':
             #if numDMFreqs[pindex] > 0:
             #    p.addDMQuadratic()
-            print p.name
 
             # We'll try to read the necessary quantities from the HDF5 file
             try:
@@ -1024,6 +1023,7 @@ class PTAmodels(object):
         # First figure out how large we have to make the arrays
         self.npsr = len(self.psr)
         self.npf = np.zeros(self.npsr, dtype=np.int)
+        self.npftot = np.zeros(self.npsr, dtype=np.int)
         self.npu = np.zeros(self.npsr, dtype=np.int)
         self.npff = np.zeros(self.npsr, dtype=np.int)
         self.npfdm = np.zeros(self.npsr, dtype=np.int)
@@ -1037,6 +1037,7 @@ class PTAmodels(object):
             # number of red and DM frequencies
             self.npf[ii] = len(p.Ffreqs)
             self.npfdm[ii] = len(p.Fdmfreqs)
+            self.npftot[ii] = self.npf[ii] + self.npfdm[ii]
 
             # noise vectors
             p.Nvec = np.zeros(len(p.toas))
@@ -1048,6 +1049,7 @@ class PTAmodels(object):
         self.gwfreqs = self.psr[np.argmax(self.npf)].Ffreqs
         nftot = self.ngwf + np.max(self.npfdm)
         self.Phiinv = np.zeros((nftot*self.npsr, nftot*self.npsr))
+        self.Phi = np.zeros((nftot*self.npsr, nftot*self.npsr))
 
         #for ii in range(self.npsr):
         #    if not self.likfunc in ['mark2']:
@@ -1142,7 +1144,7 @@ class PTAmodels(object):
                         Should only be included if using 'average' compression
 
     """
-    def setPsrNoise(self, parameters, incJitter=True):
+    def setPsrNoise(self, parameters, incJitter=True, twoComponent=True):
 
         # For every pulsar, set the noise vector to zero
         for p in self.psr:
@@ -1160,7 +1162,7 @@ class PTAmodels(object):
             # short hand
             parind = sig['parindex']    # parameter index
             psrind = sig['pulsarind']   # pulsar index
-    
+            
             # efac signal
             if sig['stype'] == 'efac':
 
@@ -1171,9 +1173,10 @@ class PTAmodels(object):
                 # if not, use reference value
                 else:
                     pefac = sig['pstart'][0]
+
                 
                 # if two component noise, fill weighted noise vectors
-                if self.psr[psrind].twoComponentNoise:
+                if self.psr[psrind].twoComponentNoise and twoComponent:
                     self.psr[psrind].Nwvec += self.psr[psrind].Wvec * pefac**2
                     self.psr[psrind].Nwovec += self.psr[psrind].Wovec * pefac**2
 
@@ -1192,7 +1195,7 @@ class PTAmodels(object):
                     pequadsqr = 10**(2*sig['pstart'][0])
 
                 # if two component noise, use weighted noise vectors
-                if self.psr[psrind].twoComponentNoise:
+                if self.psr[psrind].twoComponentNoise and twoComponent:
                     self.psr[psrind].Nwvec += pequadsqr
                     self.psr[psrind].Nwovec += pequadsqr
                 
@@ -1228,9 +1231,9 @@ class PTAmodels(object):
     TODO: this code only works if all pulsars have the same number of frequencies
     want to make this more flexible
     """
-    def constructPhiMatrix(self, parameters, constructPhi=False):
+    def constructPhiMatrix(self, parameters, constructPhi=False, incCorrelations=True):
+
         
-        tstart = time.time()
         # Loop over all signals and determine rho (GW signals) and kappa (red + DM signals)
         rho = None
         for ss, sig in enumerate(self.ptasignals):
@@ -1336,7 +1339,6 @@ class PTAmodels(object):
                     self.psr[psrind].kappadm = pcdoubled
 
 
-        tstart = time.time()
         # now that we have obtained rho and kappa, we can construct Phiinv
         sigdiag = []
         sigoffdiag = []
@@ -1348,23 +1350,69 @@ class PTAmodels(object):
             for ii, p in enumerate(self.psr):
 
                 # have both red noise and DM variations
-                if np.any(p.kappa) and np.any(p.kappadm):
-                    kappa_tot = np.concatenate((p.kappa, p.kappadm))
+                if p.incRed and p.incDM:
+                #if np.any(p.kappa) and np.any(p.kappadm):
+                    p.kappa_tot = np.concatenate((p.kappa, p.kappadm))
                 
                 # red noise but no dm
-                elif np.any(p.kappa) and ~np.any(p.kappadm):
-                    kappa_tot = p.kappa
+                elif p.incRed and not(p.incDM):
+                #elif np.any(p.kappa) and ~np.any(p.kappadm):
+                    p.kappa_tot = p.kappa.copy()
                 
                 # dm but no red noise
-                elif ~np.any(p.kappa) and np.any(p.kappadm):
-                    kappa_tot = p.kappadm
+                elif not(p.incRed) and p.incDM:
+                #elif ~np.any(p.kappa) and np.any(p.kappadm):
+                    p.kappa_tot = p.kappadm.copy()
                 
                 # neither
                 else:
-                    kappa_tot = np.ones(p.kappa.shape) * -40
+                    p.kappa_tot = np.ones(p.kappa.shape) * -40
 
                 # append to signal diagonal
-                sigdiag.append(10**kappa_tot)
+                sigdiag.append(10**p.kappa_tot)
+
+            # convert to array and flatten
+            self.Phi = np.array(sigdiag).flatten()
+            self.Phiinv = np.diag(1/self.Phi)
+            self.logdetPhi = np.sum(np.log(self.Phi))
+
+        # Do not include correlations but include GWB in red noise
+        if rho is not None and not(incCorrelations):
+
+            # loop over all pulsars
+            for ii, p in enumerate(self.psr):
+
+                # have both red noise and DM variations
+                if p.incRed and p.incDM:
+                #if np.any(p.kappa) and np.any(p.kappadm):
+                    p.kappa_tot = np.concatenate((p.kappa, p.kappadm))
+                
+                # red noise but no dm
+                elif p.incRed and not(p.incDM):
+                #elif np.any(p.kappa) and ~np.any(p.kappadm):
+                    p.kappa_tot = p.kappa.copy()
+                
+                # dm but no red noise
+                elif not(p.incRed) and p.incDM:
+                #elif ~np.any(p.kappa) and np.any(p.kappadm):
+                    p.kappa_tot = p.kappadm.copy()
+                
+                # neither
+                else:
+                    p.kappa_tot = np.ones(p.kappa.shape) * -40
+
+                # get number of DM freqs (not included in GW spectrum)
+                ndmfreq = np.sum(p.kappadm != 0)
+
+                # append to rho
+                if ndmfreq > 0:
+                    self.gwamp = np.concatenate((10**rho, np.zeros(ndmfreq)))
+                else:
+                    self.gwamp = 10**rho
+
+
+                # append to signal diagonal
+                sigdiag.append(10**p.kappa_tot+self.gwamp)
 
             # convert to array and flatten
             self.Phi = np.array(sigdiag).flatten()
@@ -1372,23 +1420,27 @@ class PTAmodels(object):
             self.logdetPhi = np.sum(np.log(self.Phi))
 
 
+
         # correlated signals (not as easy)
-        if rho is not None:
+        if rho is not None and incCorrelations:
         
             for ii, p in enumerate(self.psr):
 
                 # have both red noise and DM variations
-                if np.any(p.kappa) and np.any(p.kappadm):
-                    kappa_tot = np.concatenate((p.kappa, p.kappadm))
+                if p.incRed and p.incDM:
+                #if np.any(p.kappa) and np.any(p.kappadm):
+                    p.kappa_tot = np.concatenate((p.kappa, p.kappadm))
                 
                 # red noise but no dm
-                elif np.any(p.kappa) and ~np.any(p.kappadm):
-                    kappa_tot = p.kappa
+                elif p.incRed and not(p.incDM):
+                #elif np.any(p.kappa) and ~np.any(p.kappadm):
+                    p.kappa_tot = p.kappa.copy()
                 
                 # dm but no red noise
-                elif ~np.any(p.kappa) and np.any(p.kappadm):
-                    kappa_tot = p.kappadm
-
+                elif not(p.incRed) and p.incDM:
+                #elif ~np.any(p.kappa) and np.any(p.kappadm):
+                    p.kappa_tot = p.kappadm.copy()
+                
                 # for now, assume that GW freqs is the same as 
                 # number of freqs per pulsar
 
@@ -1397,24 +1449,31 @@ class PTAmodels(object):
 
                 # append to rho
                 if ndmfreq > 0:
-                    gwamp = np.concatenate((10**rho, np.zeros(ndmfreq)))
+                    self.gwamp = np.concatenate((10**rho, np.zeros(ndmfreq)))
                 else:
-                    gwamp = 10**rho
+                    self.gwamp = 10**rho
 
                 # append to diagonal elements
-                if len(kappa_tot) > 0:
-                    sigdiag.append(10**kappa_tot + gwamp)
+                if len(p.kappa_tot) > 0:
+                    sigdiag.append(10**p.kappa_tot + self.gwamp)
                 else:
-                    sigdiag.append(gwamp)
+                    sigdiag.append(self.gwamp)
                 
                 # append to off diagonal elements
-                sigoffdiag.append(gwamp)
+                sigoffdiag.append(self.gwamp)
 
 
             # compute Phi inverse from Lindley's code
             nftot = self.ngwf + np.max(self.npfdm)
             smallMatrix = np.zeros((nftot, self.npsr, self.npsr))
             for ii in range(self.npsr):
+                #smallMatrix[:,ii,ii] = self.corrmat[ii,ii] * sigdiag[ii]
+                #if ii < self.npsr -1:
+                #    jj = np.arange(ii+1, self.npsr) 
+                #    print type(jj)
+                #    smallMatrix[:,ii,jj] = self.corrmat[ii,jj] * sigoffdiag[ii]
+                #    smallMatrix[:,jj,ii] = smallMatrix[:,ii,jj]
+
                 for jj in range(ii, self.npsr):
                     if ii == jj:
                         smallMatrix[:,ii,jj] = self.corrmat[ii,jj] * sigdiag[jj]
@@ -1429,12 +1488,6 @@ class PTAmodels(object):
                 smallMatrix[ii,:,:] = sl.cho_solve(L, np.eye(self.npsr))
                 self.logdetPhi += np.sum(2*np.log(np.diag(L[0])))
 
-            ## now fill in real covariance matrix
-            #self.Phiinv = np.zeros((self.npsr*nftot, self.npsr*nftot))
-            #for ii in range(self.npsr):
-            #    for jj in range(ii, self.npsr):
-            #        for kk in range(0,nftot):
-            #            self.Phiinv[kk+ii*nftot, kk+jj*nftot] = smallMatrix[kk,ii,jj]
             
             # now fill in real covariance matrix
             ind2 = [np.arange(jj*nftot, jj*nftot+nftot) for jj in range(self.npsr)]
@@ -1442,10 +1495,6 @@ class PTAmodels(object):
                 ind1 = np.arange(ii*nftot, ii*nftot+nftot)
                 for jj in range(0, self.npsr):
                     self.Phiinv[ind1,ind2[jj]] = smallMatrix[:,ii,jj]
-            
-            # symmeterize Phi
-            #self.Phiinv = self.Phiinv + self.Phiinv.T - np.diag(self.Phiinv.diagonal())
-
 
 
 
@@ -1460,6 +1509,63 @@ class PTAmodels(object):
             p.detresiduals = p.residuals.copy()
 
     """
+    Simulate residuals for a single pulsar
+    """
+    def simData(self, parameters, setup=False):
+
+        
+        # only need to do this if parameters change
+        self.setPsrNoise(parameters, incJitter=False, twoComponent=False)
+        if setup:
+
+            # set red noise, DM and GW parameters
+            self.gwamp = 0
+            self.corrmat = np.eye(self.npsr)
+            self.constructPhiMatrix(parameters, constructPhi=True)
+
+            # construct cholesky decomp on ORF
+            self.corrmatCho = sl.cholesky(self.corrmat)
+        
+        if np.any(self.gwamp):
+            y = np.random.randn(self.npsr, self.ngwf)
+            ypsr = np.dot(self.corrmatCho, y)
+
+        # begin loop over all pulsars
+        findex = 0
+        res = []
+        for ct, p in enumerate(self.psr):
+
+            # number of frequencies
+            npftot = self.npftot[ct]
+            
+            # white noise
+            n = np.sqrt(p.Nvec)
+            w = np.random.randn(len(p.toas))
+            white = n*w
+
+            # red noise
+            phi = np.sqrt(10**p.kappa_tot)
+            x = np.random.randn(npftot)
+            red = np.dot(p.Ftot, phi*x)
+
+            # gwb noise
+            if np.any(self.gwamp):
+                gwphi = np.sqrt(self.gwamp)
+                phiy = gwphi*ypsr[ct,:] 
+                gwb = np.dot(p.Ftot, phiy)
+            else:
+                gwb = 0
+            
+            # add residuals
+            res.append(white+red+gwb)
+
+            # increment frequency index
+            findex += npftot
+
+        return res
+
+
+    """
     Optimal Statistic
 
     """
@@ -1470,7 +1576,7 @@ class PTAmodels(object):
         self.setPsrNoise(parameters, incJitter=False)
 
         # set red noise, DM and GW parameters
-        self.constructPhiMatrix(parameters, constructPhi=True)
+        self.constructPhiMatrix(parameters, constructPhi=True, incCorrelations=False)
 
         # get correlation matrix
         ORF = PALutils.computeORF(self.psr)
@@ -1583,10 +1689,10 @@ class PTAmodels(object):
     def optimalStatisticCoarse(self, parameters):
 
         # set pulsar white noise parameters
-        self.setPsrNoise(parameters, incJitter=False)
+        self.setPsrNoise(parameters, incJitter=False, incCorrelations=False)
 
         # set red noise, DM and GW parameters
-        self.constructPhiMatrix(parameters, constructPhi=True)
+        self.constructPhiMatrix(parameters)
 
         # get correlation matrix
         ORF = PALutils.computeORF(self.psr)
@@ -1934,32 +2040,6 @@ class PTAmodels(object):
 
         else:
             
-            #UtF = [p.UtF.T for p in self.psr]
-            #try:
-            #    cf = sl.cho_factor(self.Phiinv)
-            #    PhiF = sl.cho_solve(cf, sl.block_diag(*UtF))
-            #except np.linalg.LinAlgError:
-            #    U, s, Vh = sl.svd(self.Phiinv)
-            #    if not np.all(s > 0):
-            #        return -np.inf
-            #        #raise ValueError("ERROR: Phi singular according to SVD")
-            #    PhiF = np.dot(Vh.T, np.dot(np.diag(1.0/s), np.dot(U.T, sl.block_diag(*UtF))))
-
-            #Phi = np.dot(sl.block_diag(*UtF).T, PhiF) + np.diag(1/Jinv) 
-            #try:
-            #    cf = sl.cho_factor(Phi)
-            #    logdetPhi = 2*np.sum(np.log(np.diag(cf[0])))
-            #    Phiinv = sl.cho_solve(cf, np.identity(Phi.shape[0]))
-            #except np.linalg.LinAlgError:
-            #    U, s, Vh = sl.svd(Phi)
-            #    if not np.all(s > 0):
-            #        return -np.inf
-            #        #raise ValueError("ERROR: Phi singular according to SVD")
-            #    logdetPhi = np.sum(np.log(s))
-            #    Phiinv = np.dot(Vh.T, np.dot(np.diag(1.0/s), U.T))
-
-
-
             Phi0 = self.Phiinv + sl.block_diag(*FJF)
             logdet_J = np.sum(np.log(1/Jinv))
 
@@ -1969,12 +2049,14 @@ class PTAmodels(object):
                 logdet_Phi0 = 2*np.sum(np.log(np.diag(cf[0])))
                 PhiinvFJ = sl.cho_solve(cf, sl.block_diag(*FJ))
             except np.linalg.LinAlgError:
-                U, s, Vh = sl.svd(Phi0)
-                if not np.all(s > 0):
-                    return -np.inf
+                print 'Cholesky Failed when inverting Phi0'
+                return -np.inf
+                #U, s, Vh = sl.svd(Phi0)
+                #if not np.all(s > 0):
+                #    return -np.inf
                     #raise ValueError("ERROR: Sigma singular according to SVD")
-                logdet_Phi0 = np.sum(np.log(s))
-                PhiinvFJ = np.dot(Vh.T, np.dot(np.diag(1.0/s), np.dot(U.T, sl.block_diag(*FJ))))
+                #logdet_Phi0 = np.sum(np.log(s))
+                #PhiinvFJ = np.dot(Vh.T, np.dot(np.diag(1.0/s), np.dot(U.T, sl.block_diag(*FJ))))
 
             # get new Phiinv
             Phiinv = -np.dot(sl.block_diag(*FJ).T, PhiinvFJ)
