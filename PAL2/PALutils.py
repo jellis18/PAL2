@@ -1142,7 +1142,7 @@ def createGWB(psr, Amp, gam, DM=False, noCorr=False, seed=None):
         np.random.seed(seed)
 
     # get maximum number of points
-    npts = np.max([p.ntoa for p in psr])
+    npts = np.max([len(p.toas) for p in psr])
     
     # get maximum number of epochs
     #npts = np.max([exploderMatrix(p.toas)[1].shape[1] for p in psr])

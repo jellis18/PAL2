@@ -1529,6 +1529,8 @@ class PTAmodels(object):
         if np.any(self.gwamp):
             y = np.random.randn(self.npsr, self.ngwf)
             ypsr = np.dot(self.corrmatCho, y)
+            gwbs = PALutils.createGWB(self.psr, 10**parameters[-2], parameters[-1], \
+                                      DM=False, noCorr=False, seed=None)
 
         # begin loop over all pulsars
         findex = 0
@@ -1550,9 +1552,10 @@ class PTAmodels(object):
 
             # gwb noise
             if np.any(self.gwamp):
-                gwphi = np.sqrt(self.gwamp)
-                phiy = gwphi*ypsr[ct,:] 
-                gwb = np.dot(p.Ftot, phiy)
+                gwb = gwbs[ct]
+                #gwphi = np.sqrt(self.gwamp)
+                #phiy = gwphi*ypsr[ct,:] 
+                #gwb = np.dot(p.Ftot, phiy)
             else:
                 gwb = 0
             
