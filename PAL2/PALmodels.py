@@ -1830,7 +1830,7 @@ class PTAmodels(object):
 
     """
 
-    def mark1LogLikelihood(self, parameters):
+    def mark1LogLikelihood(self, parameters, incCorrelations=True):
 
         loglike = 0
 
@@ -1838,7 +1838,7 @@ class PTAmodels(object):
         self.setPsrNoise(parameters, incJitter=False)
 
         # set red noise, DM and GW parameters
-        self.constructPhiMatrix(parameters)
+        self.constructPhiMatrix(parameters, incCorrelations=incCorrelations)
 
         # set deterministic sources
         if self.haveDetSources:
