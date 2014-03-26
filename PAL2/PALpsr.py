@@ -251,9 +251,6 @@ class Pulsar(object):
     
         elif compression == 'frequencies':
 
-            # use all frequencies
-            ntoas = len(self.toas)
-            nfreqs = int(ntoas/2)
 
             # hard code noise spectral index to GWB index
             noiseSi = 4.33
@@ -263,9 +260,8 @@ class Pulsar(object):
 
             # Construct the Fourier modes, and the frequency coefficients (for
             # noiseAmp=1)
-            Fmat, Ffreqs = PALutils.createfourierdesignmatrix(self.toas, \
-                                                nfreqs, freq=True, Tspan=Tmax)
-            freqpy = Ffreqs * PAL_spy
+            Fmat = self.Ftot
+            freqpy = self.Ffreqs * PAL_spy
             pcdoubled = (PAL_spy**3 / (12*np.pi*np.pi * Tmax)) * freqpy ** (-noiseSi)
 
 
@@ -298,7 +294,8 @@ class Pulsar(object):
             
             # option to construct targetAmp from weighted rms
             if targetAmp == 0:
-                rms = self.rms()
+                #rms = self.rms()
+                rms = np.std(self.residuals)
                 targetAmp = np.sqrt(noiseSi-1)/2.05e-9 * (Tmax/3.16e7)**(2/(noiseSi-1)) \
                         * 1e-15 * rms
 
@@ -368,6 +365,7 @@ class Pulsar(object):
             if np.sum(inds) > 0:
                 # We can compress
                 l = np.flatnonzero( inds )[0] + 1
+                l = 16
                 print 'Using {0} basis components for puslar {1} using {2} compression'\
                         .format(l, self.name, compression)
             else:
@@ -385,7 +383,7 @@ class Pulsar(object):
             # We use this version of Hmat, and not H from above, in case of
             # linear dependences...
             Vmat, s, Vh = sl.svd(H)
-            self.Hmat = Vmat[:, :l]
+            self.Hmat = Vmat[:,:l]
             self.Hcmat = Vmat[:, l:]
 
             # For compression-complements, construct Ho and Hoc
@@ -435,7 +433,7 @@ class Pulsar(object):
         if compression == 'red':
             threshold = 0.99
         else:
-            threshold = 1.0
+            threshold = 0.9999
 
         # default for detresiduals
         self.detresiduals = self.residuals.copy()
@@ -470,6 +468,11 @@ class Pulsar(object):
             (self.avetoas, self.avefreqs, self.aveflags, self.Umat) = \
                         PALutils.exploderMatrix(self.toas, freqs=self.freqs, \
                                             flags=np.array(self.flags), dt=10)
+            
+            # for now just call again with tobs to get average tobs
+            (self.avetoas, self.avefreqs, self.avetobs, self.Umat) = \
+                        PALutils.exploderMatrix(self.toas, freqs=self.freqs, \
+                                            flags=np.array(self.tobsflags), dt=10)
 
         # create daily averaged residual matrix
         #(self.avetoas, self.aveerr, self.Qmat) = PALutils.dailyAveMatrix(self.toas, self.toaerrs, dt=10)
@@ -604,7 +607,6 @@ class Pulsar(object):
             self.Gmat = None
             self.Gcmat = None
             self.Hocmat
-            self.Hmat = None
             self.Hmat = None
             self.Amat = None
     

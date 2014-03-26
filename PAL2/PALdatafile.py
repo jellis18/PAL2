@@ -324,6 +324,20 @@ class DataFile(object):
         for flagid in uflags:
             self.writeData(flagGroup, flagid, t2pulsar.flags[flagid][t2pulsar.deleted==0], \
                            overwrite=overwrite)
+        
+        if not "tobs" in flagGroup:
+            # look for tobs flag for integration time
+            tobs = []
+            nobs = len(t2pulsar.toas())
+            pulsarname = map(str, [t2pulsar.name] * nobs)
+
+            if "tobs" in flagGroup:
+                tobs = map(float, flagGroup['tobs'])
+            else:
+                print 'No tobs flag for PSR {0}, using 20 mins'.format(t2pulsar.name)
+                tobs = 1200*np.ones(nobs)
+
+            self.writeData(flagGroup, "tobs", tobs, overwrite=overwrite)
 
         if not "efacequad" in flagGroup:
             # Check if the sys-flag is present in this set. If it is, add an
@@ -482,6 +496,7 @@ class DataFile(object):
         psr.ptmpars = np.array(self.getData(psrname, 'tmp_valpre'))
         psr.ptmparerrs = np.array(self.getData(psrname, 'tmp_errpre'))
         psr.flags = map(str, self.getData(psrname, 'efacequad', 'Flags'))
+        psr.tobsflags = map(float, self.getData(psrname, 'tobs', 'Flags'))
 
         # add this for frequency dependent terms
         #TODO: should eventually change psr.flags to a dictionary
@@ -494,6 +509,10 @@ class DataFile(object):
         psr.decj = np.array(self.getData(psrname, 'tmp_valpre'))[decjind]
         psr.theta = np.pi/2 - psr.decj
         psr.phi = psr.raj
+        
+        # period of pulsar
+        perind = np.flatnonzero(np.array(psr.ptmdescription) == 'F0')
+        psr.period = 1/np.array(self.getData(psrname, 'tmp_valpre'))[perind]
 
         # Obtain residuals, TOAs, etc.
         psr.toas = np.array(self.getData(psrname, 'TOAs'))

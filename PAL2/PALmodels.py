@@ -129,8 +129,8 @@ class PTAmodels(object):
             incCW=False, \
             varyEfac=True, separateEfacs=False, separateEfacsByFreq=False, \
             incEquad=False,separateEquads=False, separateEquadsByFreq=False, \
-            incCEquad=False, \
             incJitter=False, separateJitter=False, separateJitterByFreq=False, \
+            incJitterEquad=False, separateJitterEquad=False, separateJitterEquadByFreq=False, \
             incSingleFreqNoise=False, numSingleFreqLines=1, \
             incSingleFreqDMNoise=False, numSingleFreqDMLines=1, \
             singlePulsarMultipleFreqNoise=None, \
@@ -210,6 +210,45 @@ class PTAmodels(object):
                             "flagname":"jitter",
                             "flagvalue":flagval,
                             "bvary":[True],
+                            "pmin":[0],
+                            "pmax":[5],
+                            "pwidth":[0.1],
+                            "pstart":[0.333]
+                            })
+                        signals.append(newsignal)
+                else:
+                    newsignal = OrderedDict({
+                        "stype":"jitter",
+                        "corr":"single",
+                        "pulsarind":ii,
+                        "flagname":"pulsarname",
+                        "flagvalue":p.name,
+                        "bvary":[True],
+                        "pmin":[0],
+                        "pmax":[5],
+                        "pwidth":[0.1],
+                        "pstart":[0.333]
+                        })
+                    signals.append(newsignal)
+            
+            if incJitterEquad:
+                if separateJitterEquad or separateJitterEquadByFreq:
+                    if separateJitterEquad and ~separateJitterEquadByFreq:
+                        pass
+
+                    # if both set, default to fflags
+                    else:
+                        p.flags = p.fflags
+
+                    uflagvals = list(set(p.flags))  # Unique flags
+                    for flagval in uflagvals:
+                        newsignal = OrderedDict({
+                            "stype":"jitter_equad",
+                            "corr":"single",
+                            "pulsarind":ii,
+                            "flagname":"jitter_equad",
+                            "flagvalue":flagval,
+                            "bvary":[True],
                             "pmin":[-10.0],
                             "pmax":[-4.0],
                             "pwidth":[0.1],
@@ -218,7 +257,7 @@ class PTAmodels(object):
                         signals.append(newsignal)
                 else:
                     newsignal = OrderedDict({
-                        "stype":"jitter",
+                        "stype":"jitter_equad",
                         "corr":"single",
                         "pulsarind":ii,
                         "flagname":"pulsarname",
@@ -247,7 +286,7 @@ class PTAmodels(object):
                             "stype":"equad",
                             "corr":"single",
                             "pulsarind":ii,
-                            "flagname":"jitter",
+                            "flagname":"equad",
                             "flagvalue":flagval,
                             "bvary":[True],
                             "pmin":[-10.0],
@@ -318,7 +357,7 @@ class PTAmodels(object):
                     DMModel = 'dmspectrum'
                 elif dmModel=='powerlaw':
                     bvary = [True, True, False]
-                    pmin = [-14.0, 0.02, 1.0e-11]
+                    pmin = [-14.0, 1.02, 1.0e-11]
                     pmax = [-6.5, 6.98, 3.0e-9]
                     pstart = [-13.0, 2.01, 1.0e-10]
                     pwidth = [0.1, 0.1, 5.0e-11]
@@ -473,6 +512,10 @@ class PTAmodels(object):
         elif signal['stype'] == 'jitter':
             # Jitter
             self.addSignalJitter(signal)
+        
+        elif signal['stype'] == 'jitter_equad':
+            # Jitter
+            self.addSignalJitterEquad(signal)
 
         elif signal['stype'] in ['powerlaw', 'spectrum', 'spectralModel']:
             # Any time-correlated signal
@@ -538,7 +581,7 @@ class PTAmodels(object):
 
         self.ptasignals.append(signal.copy())
 
-        """
+    """
     Add an Jitter signal (can be split up based on backend like efac)
 
     Required keys in signal
@@ -560,7 +603,45 @@ class PTAmodels(object):
         if not all(k in signal for k in keys):
             raise ValueError("ERROR: Not all signal keys are present in jitter signal. \
                              Keys: {0}. Required: {1}".format(signal.keys(), keys))
+        
+        # eq 5 from cordes and shannon measurement model paper
+        Wims = 0.1 * self.psr[signal['pulsarind']].period*1e3
+        N6 = self.psr[signal['pulsarind']].avetobs/self.psr[signal['pulsarind']].period/1e6
+        mI = 1
+        sigmaJ = 0.28e-6 * Wims * 1/np.sqrt(N6) * np.sqrt((1+mI**2)/2) 
+        signal['Jvec'] = sigmaJ**2
 
+        if signal['flagname'] != 'pulsarname':
+            # This jitter only applies to some average TOAs, not all of 'm
+            ind = np.array(self.psr[signal['pulsarind']].aveflags) != signal['flagvalue']
+            signal['Jvec'][ind] = 0.0
+
+        self.ptasignals.append(signal.copy())
+    
+    """
+    Add an Jitter Equad signal (can be split up based on backend like efac)
+
+    Required keys in signal
+    @param psrind:      Index of the pulsar this efac applies to
+    @param index:       Index of first parameter in total parameters array
+    @param flagname:    Name of the flag this efac applies to (field-name)
+    @param flagvalue:   Value of the flag this efac applies to (e.g. CPSR2)
+    @param bvary:       List of indicators, specifying whether parameters can vary
+    @param pmin:        Minimum bound of prior domain
+    @param pmax:        Maximum bound of prior domain
+    @param pwidth:      Typical width of the parameters (e.g. initial stepsize)
+    @param pstart:      Typical start position for the parameters
+
+    """
+    def addSignalJitterEquad(self, signal):
+        # Assert that all the correct keys are there...
+        keys = ['pulsarind', 'stype', 'corr', 'flagname', 'flagvalue', 'bvary', \
+                'pmin', 'pmax', 'pwidth', 'pstart', 'parindex']
+        if not all(k in signal for k in keys):
+            raise ValueError("ERROR: Not all signal keys are present in jitter equad signal. \
+                             Keys: {0}. Required: {1}".format(signal.keys(), keys))
+        
+        # This is the 'jitter' that we have used before
         signal['Jvec'] = np.ones(len(self.psr[signal['pulsarind']].avetoas))
 
         if signal['flagname'] != 'pulsarname':
@@ -930,6 +1011,10 @@ class PTAmodels(object):
                 elif sig['stype'] == 'jitter':
                     flagname = sig['flagname']
                     flagvalue = 'jitter_'+sig['flagvalue']
+                
+                elif sig['stype'] == 'jitter_equad':
+                    flagname = sig['flagname']
+                    flagvalue = 'jitter_q_'+sig['flagvalue']
 
                 elif sig['stype'] == 'spectrum':
                     flagname = 'frequency'
@@ -1204,6 +1289,19 @@ class PTAmodels(object):
 
             # jitter signal
             elif sig['stype'] == 'jitter':
+
+                # is this parameter being varied
+                if sig['npars'] == 1:
+                    pequadsqr = parameters[parind]**2
+
+                # if not use reference value
+                else:
+                    pequadsqr = sig['pstart'][0]**2
+
+                self.psr[psrind].Qamp += sig['Jvec'] * pequadsqr
+            
+            # jitter equad signal
+            elif sig['stype'] == 'jitter_equad':
 
                 # is this parameter being varied
                 if sig['npars'] == 1:
@@ -2242,6 +2340,5 @@ class PTAmodels(object):
             if sig['stype'] == 'powerlaw' and sig['corr'] == 'single':
                 if sig['bvary'][0]:
                     prior += np.log(10**sparameters[0])
-
 
         return prior
