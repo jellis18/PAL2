@@ -209,169 +209,59 @@ class Pulsar(object):
                         None/average/frequencies/avefrequencies
     @param nfmodes:     when using frequencies, use this number if not -1
     @param ndmodes:     when using dm frequencies, use this number if not -1
+    @param likfunc:     which likelihood function is being used. Only useful when it
+                        is mark4/not mark4. TODO: parameter can be removed?
     @param threshold:   To which fidelity will we compress the basis functions [1.0]
-
+    @param tmpars:      When compressing to a list of timing model parameters,
+                        this list of parameters is used.
     """
-
-    def constructCompressionMatrix(self, compression=None, \
-                                   nfmodes=-1, ndmodes=-1, threshold=1.0, \
-                                   targetAmp=1e-14):
-
-        # initialize matrices
-        self.Hmat = self.Gmat
-        self.Hcmat = self.Gcmat
-        self.Homat = np.zeros((self.Hmat.shape[0], 0))      # There is no complement
-        self.Hocmat = np.zeros((self.Hmat.shape[0], 0))
-
-        
+    # TODO: selection of timing-model parameters should apply to _all_ forms of
+    # compression. Still possible to do frequencies and include timing model
+    # parameters, as long as we include the complement function
+    def constructCompressionMatrix(self, compression='None', \
+            nfmodes=-1, ndmodes=-1, likfunc='mark4', threshold=1.0, \
+            tmpars = None):
         if compression == 'average':
-
-            self.avetoas, self.aveerr, self.Qmat = \
-                    PALutils.dailyAveMatrix(self.toas, self.toaerrs, dt=10)
-                                                                           
-
-            # projection
-            QG = np.dot(self.Qmat.T, self.Gmat)
-            GQQG = np.dot(QG.T, QG)
-
-
-            # Construct an orthogonal basis, and singular values
-            Vmat, svec, Vhsvd = sl.svd(GQQG)
-
-        elif compression == 'jitter':
-
-            self.avetoas, self.Umat = PALutils.exploderMatrix(self.toas, freqs=None, dt=10)
-
+            
+            (self.avetoas, self.Umat) = PALutils.exploderMatrix(self.toas, dt=10)
+        
             GU = np.dot(self.Gmat.T, self.Umat)
             GUUG = np.dot(GU, GU.T)
 
             # Construct an orthogonal basis, and singular values
             Vmat, svec, Vhsvd = sl.svd(GUUG)
 
-    
-        elif compression == 'frequencies':
-
-
-            # hard code noise spectral index to GWB index
-            noiseSi = 4.33
-
-            # set Maximum observing time span
-            Tmax = np.max(self.toas) - np.min(self.toas)
-
-            # Construct the Fourier modes, and the frequency coefficients (for
-            # noiseAmp=1)
-            Fmat = self.Ftot
-            freqpy = self.Ffreqs * PAL_spy
-            pcdoubled = (PAL_spy**3 / (12*np.pi*np.pi * Tmax)) * freqpy ** (-noiseSi)
-
-
-            # Check whether the Gmatrix exists
-            if self.Gmat is None:
-                U, s, Vh = sl.svd(self.Mmat)
-                Gmat = U[:, self.Mmat.shape[1]:]
-            else:
-                Gmat = self.Gmat
-
-            GF = np.dot(Gmat.T, Fmat)
-            GFFG = np.dot(GF, (pcdoubled * GF).T)
-
-            # Construct an orthogonal basis, and singular values
-            Vmat, svec, Vhsvd = sl.svd(GFFG)
-
-        
-        elif compression =='red':
-
-
-            # use all frequencies
-            ntoas = len(self.toas)
-            nfreqs = int(ntoas/2)
-
-            # hard code noise spectral index to GWB index
-            noiseSi = 4.33
-            
-            # set Maximum observing time span
-            Tmax = np.max(self.toas) - np.min(self.toas)
-            
-            # option to construct targetAmp from weighted rms
-            if targetAmp == 0:
-                #rms = self.rms()
-                rms = np.std(self.residuals)
-                targetAmp = np.sqrt(noiseSi-1)/2.05e-9 * (Tmax/3.16e7)**(2/(noiseSi-1)) \
-                        * 1e-15 * rms
-
-            # Construct the Fourier modes, and the frequency coefficients (for
-            # noiseAmp=1)
-            Fmat, Ffreqs = PALutils.createfourierdesignmatrix(self.toas, \
-                                                nfreqs, freq=True, Tspan=Tmax)
-            freqpy = Ffreqs * PAL_spy
-            pcdoubled = (PAL_spy**3 / (12*np.pi*np.pi * Tmax)) * freqpy ** (-noiseSi)
-
-
-            # Check whether the Gmatrix exists
-            if self.Gmat is None:
-                U, s, Vh = sl.svd(self.Mmat)
-                Gmat = U[:, self.Mmat.shape[1]:]
-            else:
-                Gmat = self.Gmat
-
-            # Find the Cholesky decomposition of the projected radiometer-noise
-            # covariance matrix
-            GNG = np.dot(Gmat.T, (self.toaerrs**2 * Gmat.T).T)
-            try:
-                L = sl.cholesky(GNG).T
-                cf = sl.cho_factor(L)
-                Li = sl.cho_solve(cf, np.eye(GNG.shape[0]))
-            except np.linalg.LinAlgError as err:
-                raise ValueError("ERROR: GNG singular according to Cholesky")
-
-            # Construct the transformed Phi-matrix, and perform SVD. That matrix
-            # should have a few singular values (nfreqs not precisely determined)
-            LGF = np.dot(Li, np.dot(Gmat.T, Fmat))
-            Phiw = np.dot(LGF, (pcdoubled * LGF).T)
-            U, s, Vh = sl.svd(Phiw)
-
-            # get number of eigenvectors to keep
-            fisherelements = s**2 / (1 + targetAmp**2 * s)**2
-            cumev = np.cumsum(fisherelements)
-            totrms = np.sum(fisherelements)
-            
-            l = int((np.flatnonzero( (cumev/totrms) >= threshold )[0] + 1))
-
-
-            print 'Constructing compression matrix for PSR {0} using {1} components for targetAmp = {2}'.format(self.name, l, targetAmp)
-
-            # construct H
-            H = np.dot(Li, U[:,:l])
-            GH = np.dot(Gmat, H)
-            self.Hmat = GH
-
-        ## NO compression
-        elif compression == 'None' or compression is None:
-            self.Hmat = self.Gmat
-            self.Hcmat = self.Gcmat
-            self.Homat = np.zeros((self.Hmat.shape[0], 0))      # There is no complement
-            self.Hocmat = np.zeros((self.Hmat.shape[0], 0))
-        else:
-            raise IOError, "Invalid compression argument"
-
-
-        # construct compression matrix
-        if compression is not None and compression != 'None' and compression != 'red':
-        
-            # Decide how many basis vectors we'll take.
+            # Decide how many basis vectors we'll take. (Would be odd if this is
+            # not the number of columns of self.U. How to test? For now, use
+            # 99.9% of rms power
             cumrms = np.cumsum(svec)
             totrms = np.sum(svec)
+            #print "svec:   ", svec
+            #print "cumrms: ", cumrms
+            #print "totrms: ", totrms
             inds = (cumrms/totrms) >= threshold
             if np.sum(inds) > 0:
                 # We can compress
                 l = np.flatnonzero( inds )[0] + 1
-                l = 16
-                print 'Using {0} basis components for puslar {1} using {2} compression'\
-                        .format(l, self.name, compression)
             else:
                 # We cannot compress, keep all
                 l = self.Umat.shape[1]
-                l = len(svec)
+
+            print "Number of U basis vectors for " + \
+                    self.name + ": " + str(self.Umat.shape) + \
+                    " --> " + str(l)
+            """
+            ll = self.Umat.shape[1]
+
+            print "Umat: ", self.Umat.shape
+            print "CumRMS:    ", cumrms
+            print "cumrms[l] / tot = ", cumrms[l] / totrms
+            print "svec range:   ", svec[130:150]
+            print "cumrms range: ", cumrms[130:150]
+            print "designmatrix: ", self.Mmat.shape
+            print "TMPars: ", self.ptmdescription
+            plt.plot(np.arange(120,ll+10), np.log10(svec[120:ll+10]), 'k-')
+            """
 
             # H is the compression matrix
             Bmat = Vmat[:, :l].copy()
@@ -382,8 +272,9 @@ class Pulsar(object):
             # Use another SVD to construct not only Hmat, but also Hcmat
             # We use this version of Hmat, and not H from above, in case of
             # linear dependences...
+            #svec, Vmat = sl.eigh(H)
             Vmat, s, Vh = sl.svd(H)
-            self.Hmat = Vmat[:,:l]
+            self.Hmat = Vmat[:, :l]
             self.Hcmat = Vmat[:, l:]
 
             # For compression-complements, construct Ho and Hoc
@@ -394,6 +285,95 @@ class Pulsar(object):
             else:
                 self.Homat = np.zeros((Vmat.shape[0], 0))
                 self.Hocmat = np.eye(Vmat.shape[0])
+
+        elif compression == 'frequencies':
+            # Use a power-law spectrum with spectral-index of 4.33
+            freqpy = self.Ffreqs * PAL_spy
+            phivec = (PAL_spy**3 / (12*np.pi*np.pi * self.Tmax)) * freqpy ** (-4.33)
+
+            GF = np.dot(self.Gmat.T, self.Fmat * phivec)
+            GFFG = np.dot(GF, GF.T)
+            Vmat, svec, Vhsvd = sl.svd(GFFG)
+
+            cumrms = np.cumsum(svec)
+            totrms = np.sum(svec)
+            # print "Freqs: ", cumrms / totrms
+            l = np.flatnonzero( (cumrms/totrms) >= threshold )[0] + 1
+            
+            l = int(self.Fmat.shape[1]/2)
+            print 'Using {0} components for PSR {1}'.format(l, self.name)
+
+            # H is the compression matrix
+            Bmat = Vmat[:, :l].copy()
+            Bomat = Vmat[:, l:].copy()
+            H = np.dot(self.Gmat, Bmat)
+            Ho = np.dot(self.Gmat, Bomat)
+
+            # Use another SVD to construct not only Hmat, but also Hcmat
+            # We use this version of Hmat, and not H from above, in case of
+            # linear dependences...
+            #svec, Vmat = sl.eigh(H)
+            Vmat, s, Vh = sl.svd(H)
+            self.Hmat = Vmat[:, :l]
+            self.Hcmat = Vmat[:, l:]
+
+            # For compression-complements, construct Ho and Hoc
+            Vmat, s, Vh = sl.svd(Ho)
+            self.Homat = Vmat[:, :Ho.shape[1]]
+            self.Hocmat = Vmat[:, Ho.shape[1]:]
+
+        elif compression == 'dmfrequencies' or compression == 'avefrequencies':
+            print "WARNING: compression on DM frequencies not normalised correctly!"
+
+            Ftot = np.zeros((len(self.toas), 0))
+
+            # Decide on the (dm)frequencies to include
+            if nfmodes == -1:
+                # Include all, and only all, frequency modes
+                #Ftot = np.append(Ftot, self.Fmat, axis=1)
+
+                # Produce an orthogonal basis for the frequencies
+                l = self.Fmat.shape[1]
+                Vmat, svec, Vhsvd = sl.svd(self.Fmat)
+                Ftot = np.append(Ftot, Vmat[:, :l].copy(), axis=1)
+            elif nfmodes == 0:
+                # Why would anyone do this?
+                pass
+            else:
+                # Should we check whether nfmodes is not too large?
+                #Ftot = np.append(Ftot, self.Fmat[:, :nfmodes], axis=1)
+
+                # Produce an orthogonal basis for the frequencies
+                l = nfmodes
+                Vmat, svec, Vhsvd = sl.svd(self.Fmat)
+                Ftot = np.append(Ftot, Vmat[:, :l].copy(), axis=1)
+
+            if ndmodes == -1:
+                # Include all, and only all, frequency modes
+                # Ftot = np.append(Ftot, self.DF, axis=1)
+
+                # Produce an orthogonal basis for the frequencies
+                l = self.DF.shape[1]
+                Vmat, svec, Vhsvd = sl.svd(self.DF)
+                Ftot = np.append(Ftot, Vmat[:, :l].copy(), axis=1)
+            elif ndmodes == 0:
+                # Do not include DM in the compression
+                pass
+            else:
+                # Should we check whether nfmodes is not too large?
+                # Ftot = np.append(Ftot, self.DF[:, :ndmodes], axis=1)
+
+                # Produce an orthogonal basis for the frequencies
+                l = self.DF.shape[1]
+                Vmat, svec, Vhsvd = sl.svd(self.DF)
+                Ftot = np.append(Ftot, Vmat[:, :l].copy(), axis=1)
+
+        elif compression == 'dont':     # Do not compress
+            pass
+        else:
+            raise IOError, "Invalid compression argument"
+
+  
 
     """
     For every pulsar, quite a few Auxiliary quantities (like GtF etc.) are
@@ -426,6 +406,9 @@ class Pulsar(object):
         # For creating the auxiliaries it does not really matter: we are now
         # creating all quantities per default
         self.twoComponentNoise = twoComponent
+
+        # get Tmax
+        self.Tmax = Tmax
 
         # construct average quantities
         useAverage = likfunc == 'mark2'
@@ -551,7 +534,7 @@ class Pulsar(object):
 
         # Construct the compression matrix
         self.constructCompressionMatrix(compression, nfmodes=2*nf,
-                ndmodes=2*ndmf, threshold=threshold, targetAmp=targetAmp)
+                ndmodes=2*ndmf, threshold=threshold)
 
         if write != 'no':
             h5df.addData(self.name, 'PAL_Gmat', self.Gmat)

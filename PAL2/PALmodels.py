@@ -2132,12 +2132,13 @@ class PTAmodels(object):
                 logdetPhi = 2*np.sum(np.log(np.diag(cf[0])))
                 Phiinv = sl.cho_solve(cf, np.identity(Phi.shape[0]))
             except np.linalg.LinAlgError:
-                U, s, Vh = sl.svd(Phi)
-                if not np.all(s > 0):
-                    return -np.inf
+                print 'Cholesky failed when inverting phi'
+                #U, s, Vh = sl.svd(Phi)
+                #if not np.all(s > 0):
+                return -np.inf
                     #raise ValueError("ERROR: Phi singular according to SVD")
-                logdetPhi = np.sum(np.log(s))
-                Phiinv = np.dot(Vh.T, np.dot(np.diag(1.0/s), U.T))
+                #logdetPhi = np.sum(np.log(s))
+                #Phiinv = np.dot(Vh.T, np.dot(np.diag(1.0/s), U.T))
 
         else:
             
@@ -2342,3 +2343,19 @@ class PTAmodels(object):
                     prior += np.log(10**sparameters[0])
 
         return prior
+
+
+    #################################################################################
+    
+    # MCMC jump proposals
+
+    #def drawFromRedNoisePriorLog(self, parameters, iter, beta):
+    #    
+    #    # post-jump parameters
+    #    q = parameters.copy()
+
+    #    # find number of red noise amplitudes
+    #    nred = self.getNumberOfSignalsFromDict(self.ptasignals, stype='powerlaw')
+
+    #    # which parameters to jump
+    #    ind = np.unique(np.random.randint())
