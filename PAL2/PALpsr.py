@@ -368,7 +368,10 @@ class Pulsar(object):
                 Vmat, svec, Vhsvd = sl.svd(self.DF)
                 Ftot = np.append(Ftot, Vmat[:, :l].copy(), axis=1)
 
-        elif compression == 'dont':     # Do not compress
+        elif compression == 'dont' or compression is None or compression == 'None':     # Do not compress
+            self.Hmat = self.Gmat
+            self.Hcmat = self.Gcmat
+            self.Homat = np.zeros(self.Gmat.shape)
             pass
         else:
             raise IOError, "Invalid compression argument"
