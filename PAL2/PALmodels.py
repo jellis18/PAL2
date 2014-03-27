@@ -131,6 +131,10 @@ class PTAmodels(object):
             incEquad=False,separateEquads=False, separateEquadsByFreq=False, \
             incJitter=False, separateJitter=False, separateJitterByFreq=False, \
             incJitterEquad=False, separateJitterEquad=False, separateJitterEquadByFreq=False, \
+            efacPrior='uniform', equadPrior='log', jitterPrior='uniform', jitterEquadPrior='log', \
+            redAmpPrior='log', redSiPrior='uniform', GWAmpPrior='log', GWSiPrior='uniform', \
+            DMAmpPrior='log', DMSiPrior='uniform', redSpectrumPrior='log', DMSpectrumPrior='log', \
+            GWspectrumPrior='log', \
             incSingleFreqNoise=False, numSingleFreqLines=1, \
             incSingleFreqDMNoise=False, numSingleFreqDMLines=1, \
             singlePulsarMultipleFreqNoise=None, \
@@ -174,7 +178,8 @@ class PTAmodels(object):
                         "pmin":[0.001],
                         "pmax":[50.0],
                         "pwidth":[0.1],
-                        "pstart":[1.0]
+                        "pstart":[1.0],
+                        "prior":efacPrior
                         })
                     signals.append(newsignal)
             else:
@@ -188,7 +193,8 @@ class PTAmodels(object):
                     "pmin":[0.001],
                     "pmax":[50.0],
                     "pwidth":[0.1],
-                    "pstart":[1.0]
+                    "pstart":[1.0], 
+                    "prior":efacPrior
                     })
                 signals.append(newsignal)
             
@@ -213,7 +219,8 @@ class PTAmodels(object):
                             "pmin":[0],
                             "pmax":[5],
                             "pwidth":[0.1],
-                            "pstart":[0.333]
+                            "pstart":[0.333],
+                            "prior":jitterPrior
                             })
                         signals.append(newsignal)
                 else:
@@ -227,7 +234,8 @@ class PTAmodels(object):
                         "pmin":[0],
                         "pmax":[5],
                         "pwidth":[0.1],
-                        "pstart":[0.333]
+                        "pstart":[0.333],
+                        "prior":jitterPrior
                         })
                     signals.append(newsignal)
             
@@ -252,7 +260,8 @@ class PTAmodels(object):
                             "pmin":[-10.0],
                             "pmax":[-4.0],
                             "pwidth":[0.1],
-                            "pstart":[-8.0]
+                            "pstart":[-8.0],
+                            "prior":jitterEquadPrior
                             })
                         signals.append(newsignal)
                 else:
@@ -266,7 +275,8 @@ class PTAmodels(object):
                         "pmin":[-10.0],
                         "pmax":[-4.0],
                         "pwidth":[0.1],
-                        "pstart":[-8.0]
+                        "pstart":[-8.0],
+                        "prior":jitterEquadPrior
                         })
                     signals.append(newsignal)
 
@@ -292,7 +302,8 @@ class PTAmodels(object):
                             "pmin":[-10.0],
                             "pmax":[-4.0],
                             "pwidth":[0.1],
-                            "pstart":[-8.0]
+                            "pstart":[-8.0],
+                            "prior":equadPrior
                             })
                         signals.append(newsignal)
                 else:
@@ -306,7 +317,8 @@ class PTAmodels(object):
                         "pmin":[-10.0],
                         "pmax":[-4.0],
                         "pwidth":[0.1],
-                        "pstart":[-8.0]
+                        "pstart":[-8.0],
+                        "prior":equadPrior
                         })
                     signals.append(newsignal)
 
@@ -319,12 +331,14 @@ class PTAmodels(object):
                     pmax = [-7.0]*nfreqs
                     pstart = [-10.0]*nfreqs
                     pwidth = [0.1]*nfreqs
+                    prior = [redSpectrumPrior]*nfreqs
                 elif noiseModel=='powerlaw':
                     bvary = [True, True, False]
                     pmin = [-20.0, 0.02, 1.0e-11]
                     pmax = [-10.0, 6.98, 3.0e-9]
                     pstart = [-14.0, 2.01, 1.0e-10]
                     pwidth = [0.1, 0.1, 5.0e-11]
+                    prior = [redAmpPrior, redSiPrior, 'log']
                 elif noiseModel=='spectralModel':
                     bvary = [True, True, True]
                     pmin = [-28.0, 0.0, -4.0]
@@ -342,7 +356,8 @@ class PTAmodels(object):
                     "pmin":pmin,
                     "pmax":pmax,
                     "pwidth":pwidth,
-                    "pstart":pstart
+                    "pstart":pstart,
+                    "prior":prior
                     })
                 signals.append(newsignal)
 
@@ -354,6 +369,7 @@ class PTAmodels(object):
                     pmax = [-3.0]*ndmfreqs
                     pstart = [-7.0]*ndmfreqs
                     pwidth = [0.1]*ndmfreqs
+                    prior = [DMSpectrumPrior]*nfreqs
                     DMModel = 'dmspectrum'
                 elif dmModel=='powerlaw':
                     bvary = [True, True, False]
@@ -361,6 +377,7 @@ class PTAmodels(object):
                     pmax = [-6.5, 6.98, 3.0e-9]
                     pstart = [-13.0, 2.01, 1.0e-10]
                     pwidth = [0.1, 0.1, 5.0e-11]
+                    prior = [DMAmpPrior, DMSiPrior, 'log']
                     DMModel = 'dmpowerlaw'
 
                 newsignal = OrderedDict({
@@ -373,7 +390,8 @@ class PTAmodels(object):
                     "pmin":pmin,
                     "pmax":pmax,
                     "pwidth":pwidth,
-                    "pstart":pstart
+                    "pstart":pstart,
+                    "prior":prior
                     })
                 signals.append(newsignal)
 
@@ -390,7 +408,8 @@ class PTAmodels(object):
                         "pmin":[-9.0, -18.0],
                         "pmax":[-5.0, -9.0],
                         "pwidth":[-0.1, -0.1],
-                        "pstart":[-7.0, -10.0]
+                        "pstart":[-7.0, -10.0],
+                        "prior":'log'
                         })
                     signals.append(newsignal)
 
@@ -407,7 +426,8 @@ class PTAmodels(object):
                         "pmin":[-9.0, -18.0],
                         "pmax":[-5.0, -9.0],
                         "pwidth":[-0.1, -0.1],
-                        "pstart":[-7.0, -10.0]
+                        "pstart":[-7.0, -10.0],
+                        "prior":'log'
                         })
                     signals.append(newsignal)
 
@@ -422,12 +442,14 @@ class PTAmodels(object):
                 pmax = [-7.0]*nfreqs
                 pstart = [-10.0]*nfreqs
                 pwidth = [0.1]*nfreqs
+                prior = [GWspectrumPrior]*nfreqs
             elif gwbModel=='powerlaw':
                 bvary = [True, True, False]
                 pmin = [-17.0, 1.02, 1.0e-11]
                 pmax = [-10.0, 6.98, 3.0e-9]
                 pstart = [-15.0, 2.01, 1.0e-10]
                 pwidth = [0.1, 0.1, 5.0e-11]
+                prior = [GWAmpPrior, GWSiPrior, 'log']
 
             newsignal = OrderedDict({
                 "stype":gwbModel,
@@ -437,7 +459,8 @@ class PTAmodels(object):
                 "pmin":pmin,
                 "pmax":pmax,
                 "pwidth":pwidth,
-                "pstart":pstart
+                "pstart":pstart,
+                "prior":prior
                 })
             signals.append(newsignal)
 
@@ -2255,6 +2278,14 @@ class PTAmodels(object):
         #print 'Total time = {0} s\n'.format(time.time()-tstart_tot)
 
         return loglike
+    
+    """
+    Zero log likelihood for prior testing purposes
+    """
+    def zeroLogLikelihood(self, parameters):
+
+        return 0
+
         
     """
     Very simple uniform prior on all parameters
@@ -2307,9 +2338,8 @@ class PTAmodels(object):
         return prior
     
     """
-    Very simple uniform prior on all parameters except flag in RN and GW
-    amplitudes
-
+    Very simple uniform prior on all amplitudes, can also include flat in 
+    Amplitudes of red noise
     """
 
     def mark3LogPrior(self, parameters):
@@ -2336,11 +2366,13 @@ class PTAmodels(object):
             sparameters[sig['bvary']] = parameters[parind:parind+npars]
 
             if sig['corr'] == 'gr':
-                prior += np.log(10**sparameters[0])
+                if sig['prior'][0] == 'uniform':
+                    prior += np.log(10**sparameters[0])
             
             if sig['stype'] == 'powerlaw' and sig['corr'] == 'single':
                 if sig['bvary'][0]:
-                    prior += np.log(10**sparameters[0])
+                    if sig['prior'][0] == 'uniform':
+                        prior += np.log(10**sparameters[0])
 
         return prior
 
@@ -2348,14 +2380,118 @@ class PTAmodels(object):
     #################################################################################
     
     # MCMC jump proposals
+    
+    # TODO: make one single proposal that can take stype as argument, will have to change MCMC code...
 
-    #def drawFromRedNoisePriorLog(self, parameters, iter, beta):
-    #    
-    #    # post-jump parameters
-    #    q = parameters.copy()
+    # red noise draws
+    def drawFromRedNoisePrior(self, parameters, iter, beta):
+        
+        # post-jump parameters
+        q = parameters.copy()
 
-    #    # find number of red noise amplitudes
-    #    nred = self.getNumberOfSignalsFromDict(self.ptasignals, stype='powerlaw')
+        # transition probability
+        qxy = 0
 
-    #    # which parameters to jump
-    #    ind = np.unique(np.random.randint())
+        # find number of signals
+        nsigs = np.sum(self.getNumberOfSignalsFromDict(self.ptasignals, stype='powerlaw', \
+                                                       corr='single'))
+        signum = self.getSignalNumbersFromDict(self.ptasignals, stype='powerlaw', \
+                                               corr='single')
+
+        # which parameters to jump
+        ind = np.unique(np.random.randint(0, nsigs, nsigs))
+
+        # draw params from prior
+        for ii in ind:
+
+            # get signal
+            sig = self.ptasignals[signum[ii]]
+            parind = sig['parindex']
+            npars = sig['npars']
+
+            # jump in amplitude if varying
+            if sig['bvary'][0]:
+
+                # log prior
+                if sig['prior'][0] == 'log':
+                    q[parind] = np.random.uniform(self.pmin[parind], self.pmax[parind])
+                    qxy += 0
+
+                elif sig['prior'][0] == 'uniform':
+                    q[parind] = np.log10(np.random.uniform(10**self.pmin[parind], \
+                                                           10**self.pmax[parind]))
+                    qxy += np.log(10**parameters[parind]/10**q[parind])
+                    
+                else:
+                    print 'Prior type not recognized for parameter'
+                    q[parind] = parameters[parind]
+        
+            # jump in spectral index if varying
+            if sig['bvary'][1]:
+
+                if sig['prior'][1] == 'uniform':
+                    q[parind+1] = np.random.uniform(self.pmin[parind+1], self.pmax[parind+1])
+                    qxy += 0
+
+                else:
+                    q[parind+1] = parameters[parind+1]
+
+        
+        return q, qxy
+
+
+    # GWB draws draws
+    def drawFromGWBPrior(self, parameters, iter, beta):
+        
+        # post-jump parameters
+        q = parameters.copy()
+
+        # transition probability
+        qxy = 0
+
+        # find number of signals
+        nsigs = 1
+        signum = self.getSignalNumbersFromDict(self.ptasignals, stype='powerlaw', corr='gr')
+
+        # which parameters to jump
+        ind = np.unique(np.random.randint(0, nsigs, nsigs))
+
+        # draw params from prior
+        for ii in ind:
+
+            # get signal
+            sig = self.ptasignals[signum[ii]]
+            parind = sig['parindex']
+            npars = sig['npars']
+
+            # jump in amplitude if varying
+            if sig['bvary'][0]:
+
+                # log prior
+                if sig['prior'][0] == 'log':
+                    q[parind] = np.random.uniform(self.pmin[parind], self.pmax[parind])
+                    qxy += 0
+
+                elif sig['prior'][0] == 'uniform':
+                    q[parind] = np.log10(np.random.uniform(10**self.pmin[parind], 10**self.pmax[parind]))
+                    qxy += np.log(10**parameters[parind]/10**q[parind])
+                    
+                else:
+                    print 'Prior type not recognized for parameter'
+                    q[parind] = parameters[parind]
+        
+            # jump in spectral index if varying
+            if sig['bvary'][1]:
+
+                if sig['prior'][1] == 'uniform':
+                    q[parind+1] = np.random.uniform(self.pmin[parind+1], self.pmax[parind+1])
+                    qxy += 0
+
+                else:
+                    q[parind+1] = parameters[parind+1]
+
+        
+        return q, qxy
+
+
+

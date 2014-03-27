@@ -290,6 +290,7 @@ class Pulsar(object):
             # Use a power-law spectrum with spectral-index of 4.33
             freqpy = self.Ffreqs * PAL_spy
             phivec = (PAL_spy**3 / (12*np.pi*np.pi * self.Tmax)) * freqpy ** (-4.33)
+            phivec = np.ones(len(freqpy))
 
             GF = np.dot(self.Gmat.T, self.Fmat * phivec)
             GFFG = np.dot(GF, GF.T)
@@ -300,7 +301,7 @@ class Pulsar(object):
             # print "Freqs: ", cumrms / totrms
             l = np.flatnonzero( (cumrms/totrms) >= threshold )[0] + 1
             
-            l = int(self.Fmat.shape[1]/2)
+            #l = int(self.Fmat.shape[1]/2)
             print 'Using {0} components for PSR {1}'.format(l, self.name)
 
             # H is the compression matrix
@@ -419,7 +420,7 @@ class Pulsar(object):
         if compression == 'red':
             threshold = 0.99
         else:
-            threshold = 0.9999
+            threshold = 1-1e-12
 
         # default for detresiduals
         self.detresiduals = self.residuals.copy()
