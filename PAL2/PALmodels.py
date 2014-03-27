@@ -2473,7 +2473,8 @@ class PTAmodels(object):
                     qxy += 0
 
                 elif sig['prior'][0] == 'uniform':
-                    q[parind] = np.log10(np.random.uniform(10**self.pmin[parind], 10**self.pmax[parind]))
+                    q[parind] = np.log10(np.random.uniform(10**self.pmin[parind], \
+                                                           10**self.pmax[parind]))
                     qxy += np.log(10**parameters[parind]/10**q[parind])
                     
                 else:
@@ -2493,5 +2494,89 @@ class PTAmodels(object):
         
         return q, qxy
 
+    # draws from equad prior
+    def drawFromEquadPrior(self, parameters, iter, beta):
+        
+        # post-jump parameters
+        q = parameters.copy()
+
+        # transition probability
+        qxy = 0
+
+        # find number of signals
+        nsigs = np.sum(self.getNumberOfSignalsFromDict(self.ptasignals, stype='equad', \
+                                                       corr='single'))
+        signum = self.getSignalNumbersFromDict(self.ptasignals, stype='equad', \
+                                               corr='single')
+
+        # which parameters to jump
+        ind = np.unique(np.random.randint(0, nsigs, nsigs))
+
+        # draw params from prior
+        for ii in ind:
+
+            # get signal
+            sig = self.ptasignals[signum[ii]]
+            parind = sig['parindex']
+            npars = sig['npars']
+
+            # jump in amplitude if varying
+            if sig['bvary']:
+
+                # log prior
+                if sig['prior'] == 'log':
+                    q[parind] = np.random.uniform(self.pmin[parind], self.pmax[parind])
+                    qxy += 0
+
+                elif sig['prior'] == 'uniform':
+                    q[parind] = np.log10(np.random.uniform(10**self.pmin[parind], \
+                                                           10**self.pmax[parind]))
+                    qxy += np.log(10**parameters[parind]/10**q[parind])
+                    
+                else:
+                    print 'Prior type not recognized for parameter'
+                    q[parind] = parameters[parind]
+        
+        return q, qxy
+    
+    # draws from efac prior
+    def drawFromEfacPrior(self, parameters, iter, beta):
+        
+        # post-jump parameters
+        q = parameters.copy()
+
+        # transition probability
+        qxy = 0
+
+        # find number of signals
+        nsigs = np.sum(self.getNumberOfSignalsFromDict(self.ptasignals, stype='efac', \
+                                                       corr='single'))
+        signum = self.getSignalNumbersFromDict(self.ptasignals, stype='efac', \
+                                               corr='single')
+
+        # which parameters to jump
+        ind = np.unique(np.random.randint(0, nsigs, nsigs))
+
+        # draw params from prior
+        for ii in ind:
+
+            # get signal
+            sig = self.ptasignals[signum[ii]]
+            parind = sig['parindex']
+            npars = sig['npars']
+
+            # jump in amplitude if varying
+            if sig['bvary']:
+
+                # uniform prior
+                if sig['prior'] == 'uniform':
+                    q[parind] = np.random.uniform(self.pmin[parind], self.pmax[parind])
+                    qxy += 0
+                    
+                else:
+                    print 'Prior type not recognized for parameter'
+                    q[parind] = parameters[parind]
+        
+        return q, qxy
 
 

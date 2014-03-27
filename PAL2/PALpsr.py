@@ -300,8 +300,11 @@ class Pulsar(object):
             totrms = np.sum(svec)
             # print "Freqs: ", cumrms / totrms
             l = np.flatnonzero( (cumrms/totrms) >= threshold )[0] + 1
-            
-            #l = int(self.Fmat.shape[1]/2)
+
+            # choose L based on rough cadence of 2 weeks ^-1
+            dt = 14 * 86400
+            Tspan = self.toas.max() - self.toas.min()
+            l = int(Tspan/dt)*2
             print 'Using {0} components for PSR {1}'.format(l, self.name)
 
             # H is the compression matrix
@@ -420,7 +423,7 @@ class Pulsar(object):
         if compression == 'red':
             threshold = 0.99
         else:
-            threshold = 1-1e-12
+            threshold = 1.0
 
         # default for detresiduals
         self.detresiduals = self.residuals.copy()
