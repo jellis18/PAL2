@@ -1123,7 +1123,7 @@ def createfourierdesignmatrix(t, nmodes, freq=False, Tspan=None):
     else:
         return F
 
-def createGWB(psr, Amp, gam, DM=False, noCorr=False, seed=None):
+def createGWB(psr, Amp, gam, DM=False, noCorr=False, seed=None, turnover=False, f0=1e-9):
     """
     Function to create GW incuced residuals from a stochastic GWB as defined
     in Chamberlin, Creighton, Demorest et al. (2013)
@@ -1190,22 +1190,14 @@ def createGWB(psr, Amp, gam, DM=False, noCorr=False, seed=None):
     for ll in range(Npulsars):
         w[ll,:] = np.random.randn(Nf) + 1j*np.random.randn(Nf)
 
-    # Calculate strain spectral index alpha, beta
-    alpha_f = -1./2.*(gam-3)
+    # strain amplitude
+    f1yr = 1/3.16e7
+    alpha = -0.5 * (gam-3)
+    hcf = Amp * (f/f1yr)**(alpha)
+    if turnover:
+        hcf /= (1+(f/f0)**(-5/3))
 
-    # Value of secondary spectral index beta (note: beta = 2+2*alpha)
-    beta_f=2.*alpha_f+2.
-
-    # convert Amp to Omega
-    f1yr_sec = 1./3.16e7
-    Omega_beta = (2./3.)*(np.pi**2.)/(H0**2.)*float(Amp)**2*(1/f1yr_sec)**(2*alpha_f)
-
-    # calculate GW amplitude Omega 
-    Omega=Omega_beta*f**(beta_f)
-
-    # Calculate frequency dependent pre-factor C(f)
-    # could rewrite in terms of A instead of Omega for convenience.
-    C=H0**2./(16.*np.pi**2)/(2.*np.pi)**2 * f**(-5.) * Omega * (dur * howml)
+    C = 1 / 96 / np.pi**2 * hcf**2 / f**3 * dur * howml
 
     ### injection residuals in the frequency domain
     Res_f=np.dot(M,w)
