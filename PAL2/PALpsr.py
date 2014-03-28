@@ -305,7 +305,7 @@ class Pulsar(object):
             dt = 14 * 86400
             Tspan = self.toas.max() - self.toas.min()
             l = int(Tspan/dt)*2
-            if l < len(self.Gmat.shape[1]):
+            if l < self.Gmat.shape[1]:
                 pass
             else:
                 l = self.Gmat.shape[1]
