@@ -30,12 +30,21 @@ class PTSampler(object):
     @param logl: log-likelihood function
     @param logp: log prior function (must be normalized for evidence evaluation)
     @param cov: Initial covariance matrix of model parameters for jump proposals
+    @param loglargs: any additional arguments (apart from the parameter vector) for 
+    log likelihood
+    @param loglkwargs: any additional keyword arguments (apart from the parameter vector) 
+    for log likelihood
+    @param logpargs: any additional arguments (apart from the parameter vector) for 
+    log like prior
+    @param logpkwargs: any additional keyword arguments (apart from the parameter vector) 
+    for log prior
     @param outDir: Full path to output directory for chain files (default = ./chains)
     @param verbose: Update current run-status to the screen (default=True)
 
     """
 
-    def __init__(self, ndim, logl, logp, cov, comm=MPI.COMM_WORLD, \
+    def __init__(self, ndim, logl, logp, cov, loglargs=[], loglkwargs={}, \
+                 logpargs=[], logpkwargs={}, comm=MPI.COMM_WORLD, \
                  outDir='./chains', verbose=True):
 
         # MPI initialization
@@ -44,8 +53,8 @@ class PTSampler(object):
         self.nchain = self.comm.Get_size()
 
         self.ndim = ndim
-        self.logl = logl
-        self.logp = logp
+        self.logl = _function_wrapper(logl, loglargs, loglkwargs)
+        self.logp = _function_wrapper(logp, logpargs, logpkwargs)
         self.outDir = outDir
         self.verbose = verbose
 
@@ -730,6 +739,20 @@ class PTSampler(object):
 
 
 
+class _function_wrapper(object):
+    """
+    This is a hack to make the likelihood function pickleable when ``args``
+    or ``kwargs`` are also included.
+
+    """
+    def __init__(self, f, args, kwargs):
+        self.f = f
+        self.args = args
+        self.kwargs = kwargs
+
+    def __call__(self, x):
+        return self.f(x, *self.args, **self.kwargs)
+   
 
 
 
