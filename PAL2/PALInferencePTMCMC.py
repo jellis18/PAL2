@@ -445,7 +445,7 @@ class PTSampler(object):
         """
         Function to write chain file. File has 3+ndim columns,
         the first is log-posterior (unweighted), log-likelihood,
-        and accepatence probability, followed by parameter values.
+        and acceptance probability, followed by parameter values.
         
         @param fname: chainfile name
         @param iter: Iteration of sampler

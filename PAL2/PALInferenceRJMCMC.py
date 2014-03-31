@@ -21,28 +21,58 @@ class RJMCMCSampler(object):
 
 
     @param models: list of model identifiers (used as keys for dictionaries)
-    @param pars: list of initial parameter vectors for each model
-    @param logp: log prior function (must be normalized for evidence evaluation)
-    @param cov: Initial covariance matrix of model parameters for jump proposals
-    @param outDir: Full path to output directory for chain files (default = ./chains)
+    @param ndims: list of number of dimensionas for each model
+    @param logls: log likelihood function (must be normalized for evidence evaluation)
+    @param logps: log prior function (must be normalized for evidence evaluation)
+    @param covs: Initial covariance matrix of model parameters for jump proposals
+    @param chains: list of chains from single model MCMCs
+    @param outDir: Full path to output directory for chain files (default = ./rj_chains)
 
     """
 
 
-    def __init__(self, models, pars, logls, logps):
-        
-        # initialize dictionaries
-        self.modelDict = {}
+    def __init__(self, models, ndims, logls, logps, chains, outDir='./rj_chains/'):
+
+        # initialize dictionaries and lists
         self.samplerDict = {}
         self.TDJumpDict = {}
+        self.logpDict = {}
+        self.loglDict = {}
+        self.models = models
+        self.outDir = outDir
+        
+        # setup output file
+        if not os.path.exists(self.outDir):
+            try:
+                os.makedirs(self.outDir)
+            except OSError:
+                pass
+        
+        # initialize counters
         self.nmodels = 0
         self.naccepted = 0
+        self.TDproposed = 0
 
+        # fill in dictionaries
+        # TODO for now just use default arguments, later include a
+        # better way to initialize
+        for model, ndim, cov, logl, logp, chain in 
+                    zip(models, ndims, covs, logls, logps, chains):
+
+            # log prior and log likelihood dicts
+            self.logpDict[model] = logp
+            self.loglDict[model] = logl
+
+            # initialize sampler
+            self.addSampler(model, ndim, logl, logp, cov)
+
+            # make TD jump proposals from chains
+            self.constructGaussianKDE(model, chain)
 
     
     def addSampler(self, model, ndim, logl, logp, cov, loglargs=[], loglkwargs={}, \
                     logpargs=[], logpkwargs={}, comm=MPI.COMM_WORLD, \
-                    outDir='./chains', verbose=False):
+                    outDir=None, verbose=False):
         """
         Add sampler class from PALInferencePTMCMC.
 
@@ -63,15 +93,27 @@ class RJMCMCSampler(object):
         @param verbose: Update current run-status to the screen (default=False)
 
         """
+
+        # default output directory
+        if outDir is None:
+            outDir = self.outDir = '/' + str(model) + '/'
+        
+        # setup output file
+        if not os.path.exists(outDir):
+            try:
+                os.makedirs(outDir)
+            except OSError:
+                pass
         
         # add PTMCMC sampler to sampler dictionary
         self.samplerDict[model] = ptmcmc.PTSampler(ndim, logl, logp, cov, \
                                     loglargs=loglargs, loglkwargs=loglkwargs, \
                                     logpargs=logpargs, logpkwargs=logpkwargs, \
                                     comm=comm, outDir=outDir, verbose=verbose)
+        
+        # update counter
+        self.models += 1
 
-        # update model counter
-        self.nmodels += 1
 
     def constructGaussianKDE(self, model, chain):
 
@@ -123,13 +165,30 @@ class RJMCMCSampler(object):
         Return index of model given model key
 
         """
-
         return np.flatnonzero(self.models == model)[0]
 
 
-    def sample(self, model0, p0, Niter, thin=10):
+    def sample(self, model0, p0, Niter, TDprob=0.5, thin=1, isave=1000):
 
+        """
+        Perform RJMCMC sampler
+
+        @param model0: Initial model string
+        @param p0: Initial parameter vector for model0
+        @param Niter: Number of iterations for RJMCMC
+        @param TDprob: Probability of proposing TD jump at each iteration
+        @param thin: How much to thin chain (save every thin'th value)
+        @param isave: How many iterations before writing to file
+
+        """
+        
+        # number of thinned samples
         N = int(Niter/thin)
+        
+        # set up output file
+        fname = self.outDir + '/chain.txt'
+        self._chainfile = open(fname, 'w')
+        self._chainfile.close()
 
         # initialize model chains
         self._modelchain = np.zeros(N)
@@ -160,12 +219,15 @@ class RJMCMCSampler(object):
         self._modelchain[0] = self._getModelIndex(model0)
 
         # start loop over iterations
+        tstart = time.time()
         for ii in range(Niter):
             self.iterations += 1
+            self.iterDict[model0] += 1
         
             # propose TD jump (50% of the time)
             alpha = np.random.rand()
-            if alpha >= 0.5:
+            if alpha >= TDprob:
+                self.TDproposed += 1
                 newpar, newmod, qxy = self.gaussianKDEJump(p0, model0, self.iterations)
 
                 # evaluate likelihood in new model
@@ -176,7 +238,7 @@ class RJMCMCSampler(object):
                     newlnlike = self.loglDict[newmod](newpar) 
                     newlnprob = newlnlike + lp
 
-                # hastings step
+                # trans-dimensional hastings ratio
                 diff = newlnprob - lnprob0 + qxy
                 if diff >= np.log(np.random.rand()):
 
@@ -185,22 +247,55 @@ class RJMCMCSampler(object):
 
                     # update acceptance counter
                     self.naccepted += 1
+                
+                # save new values in individual chains
+                self.samplerDict[model0].updateChains(p0, lnlike0, lnprob0, \
+                                                    self.iterDict[model0], \
+                                                    10, 1000)
 
-
-            
+            # Normal MCMC in model0 
             else:
-                ## Normal MCMC in model0 ##
                 p0, lnlike0, lnprob0 = self.samplerDict[model0].PTMCMCOneStep(
                                                         p0, lnlike0, lnprob0, \
                                                         self.iterDict[model0])
-                # update model iteration counter
-                self.iterDict[model0] += 1
 
             # save model chain
-            self._modelchain[self.iterations] = self._getModelIndex(model0)
+            if self.iterations % thin == 0:
+                ind = int(self.iterations/thin)
+                self._modelchain[ind] = self._getModelIndex(model0)
+
+            # write to file
+            if iter % isave == 0:
+                self._writeToFile(fname, self.iterations, isave, thin)
+
+                sys.stdout.write('\r')
+                sys.stdout.write('Finished %2.2f percent in %f s Acceptance rate = %g'\
+                                 %(self.iterations/Niter*100, time.time() - tstart, \
+                                   self.naccepted/self.TDproposed))
+                sys.stdout.flush()
 
 
+    def _writeToFile(self, fname, iter, isave, thin):
 
+        """
+        Function to write chain file. File has 2 columns,
+        the first is the acceptance rate of TD jumps, and
+        the second is the model number.
+        
+        @param fname: chainfile name
+        @param iter: Iteration of sampler
+        @param isave: Number of iterations between saves
+        @param thin: Fraction at which to thin chain
+
+        """
+
+        self._chainfile = open(fname, 'a+')
+        for jj in range((iter-isave), iter, thin):
+            ind = int(jj/thin)
+            self._chainfile.write('%e\t %d\n'%(self.naccepted/self.TDproposed, \
+                                               self._modelchain[jj])
+            self._chainfile.write('\n')
+        self._chainfile.close()
 
 
 
