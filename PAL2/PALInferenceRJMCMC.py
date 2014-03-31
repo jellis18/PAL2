@@ -36,6 +36,7 @@ class RJMCMCSampler(object):
         self.samplerDict = {}
         self.TDJumpDict = {}
         self.nmodels = 0
+        self.naccepted = 0
 
 
     
@@ -111,10 +112,94 @@ class RJMCMCSampler(object):
 
         # forward-backward jump probability
         p0 = self.TDJumpDict[m0].evaluate(x0)
-        p1 = self.TDJumpDict[m0].evaluate(x1)
+        p1 = self.TDJumpDict[m1].evaluate(x1)
         qxy = np.log(p0/p1)
 
         return x1, m1, qxy
+
+
+    def _getModelIndex(self, model):
+        """
+        Return index of model given model key
+
+        """
+
+        return np.flatnonzero(self.models == model)[0]
+
+
+    def sample(self, model0, p0, Niter, thin=10):
+
+        N = int(Niter/thin)
+
+        # initialize model chains
+        self._modelchain = np.zeros(N)
+        self.iterations = 0
+
+        # initialize iterations dictionary to keep track of which
+        # iteration is used in intra-model MCMCs. Also initialize MCMC
+        # sampler attributes
+        self.iterDict = {}
+        for m in self.models:
+            self.iterDict[m] = 0
+            self.samplerDict[m].initialize(Niter, Niter, thin, 1)
+
+        # get values for initial parameters
+        lp = self.logpDict[model0](p0)
+        if lp == -np.inf:
+            lnprob0 = -np.inf
+        else:
+            lnlike0 = self.loglDict[model0](p0) 
+            lnprob0 = lnlike0 + lp
+
+        # save initial values in single-model MCMC chain
+        self.samplerDict[model0].updateChains(p0, lnlike0, lnprob0, \
+                                              self.iterDict[model0], \
+                                              10, 1000)
+        
+        # save model
+        self._modelchain[0] = self._getModelIndex(model0)
+
+        # start loop over iterations
+        for ii in range(Niter):
+            self.iterations += 1
+        
+            # propose TD jump (50% of the time)
+            alpha = np.random.rand()
+            if alpha >= 0.5:
+                newpar, newmod, qxy = self.gaussianKDEJump(p0, model0, self.iterations)
+
+                # evaluate likelihood in new model
+                lp = self.logpDict[newmod](newpar)
+                if lp == -np.inf:
+                    newlnprob = -np.inf
+                else:
+                    newlnlike = self.loglDict[newmod](newpar) 
+                    newlnprob = newlnlike + lp
+
+                # hastings step
+                diff = newlnprob - lnprob0 + qxy
+                if diff >= np.log(np.random.rand()):
+
+                    # accept jump
+                    p0, lnlike0, lnprob0, model0 = y, newlnlike, newlnprob, newmod
+
+                    # update acceptance counter
+                    self.naccepted += 1
+
+
+            
+            else:
+                ## Normal MCMC in model0 ##
+                p0, lnlike0, lnprob0 = self.samplerDict[model0].PTMCMCOneStep(
+                                                        p0, lnlike0, lnprob0, \
+                                                        self.iterDict[model0])
+                # update model iteration counter
+                self.iterDict[model0] += 1
+
+            # save model chain
+            self._modelchain[self.iterations] = self._getModelIndex(model0)
+
+
 
 
 

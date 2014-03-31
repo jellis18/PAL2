@@ -76,6 +76,88 @@ class PTSampler(object):
 
         # indicator for auxilary jumps
         self.aux = None
+
+    def initialize(self, Niter, maxIter, thin, Tmin):
+        """
+        Initialize MCMC quantities
+
+        @param Niter: total number of iterations
+        @param maxIter: maximum number of iterations
+        @thin: only save every thin'th parameter
+        @Tmin: minumum temperature to use in temperature ladder
+
+        """
+
+        N = int(maxIter/thin)
+
+        self._lnprob = np.zeros(N)
+        self._lnlike = np.zeros(N)
+        self._chain = np.zeros((N, self.ndim))
+        self.naccepted = 0
+        self.swapProposed = 0
+        self.nswap_accepted = 0
+
+        # set up covariance matrix and DE buffers
+        # TODO: better way of allocating this to save memory
+        if self.MPIrank == 0:
+            self._AMbuffer = np.zeros((Niter, self.ndim))
+            self._DEbuffer = np.zeros((self.burn, self.ndim))
+
+        ### setup default jump proposal distributions ###
+
+        # add SCAM
+        self.addProposalToCycle(self.covarianceJumpProposalSCAM, self.SCAMweight)
+        
+        # add AM
+        self.addProposalToCycle(self.covarianceJumpProposalAM, self.AMweight)
+        
+        # randomize cycle
+        self.randomizeProposalCycle()
+
+        # setup default temperature ladder
+        if self.ladder is None:
+            self.ladder = self.temperatureLadder(Tmin)
+    
+        # temperature for current chain
+        self.temp = self.ladder[self.MPIrank]
+
+        # set up output file
+        fname = self.outDir + '/chain_{0}.txt'.format(self.temp)
+        self._chainfile = open(fname, 'w')
+        self._chainfile.close()
+
+    
+    def updateChains(self, p0, lnlike0, lnprob0, iter, thin, isave):
+
+        """
+        Update chains after jump proposals
+
+        """
+        # update buffer
+        if self.MPIrank == 0:
+            self._AMbuffer[iter,:] = p0
+
+        # put results into arrays
+        if iter % thin == 0:
+            ind = int(iter/thin)
+            self._chain[ind,:] = p0
+            self._lnlike[ind] = lnlike0
+            self._lnprob[ind] = lnprob0
+
+        # write to file
+        if iter % isave == 0:
+            self._writeToFile(fname, iter, isave, thin)
+
+            # write output covariance matrix
+            np.save(self.outDir + '/cov.npy', self.cov)
+            if self.MPIrank == 0 and self.verbose:
+                sys.stdout.write('\r')
+                sys.stdout.write('Finished %2.2f percent in %f s Acceptance rate = %g'\
+                                 %(iter/Niter*100, time.time() - tstart, \
+                                   self.naccepted/iter))
+                sys.stdout.flush()
+
+
         
 
     def sample(self, p0, Niter, ladder=None, Tmin=1, Tmax=10, Tskip=100, \
@@ -104,9 +186,11 @@ class PTSampler(object):
 
         """
 
-        # get maximum number of iterations
-        if maxIter is None:
+        # get maximum number of iteration
+        if maxIter is None and self.MPIrank > 0:
             maxIter = 2*Niter
+        elif maxIter is None and self.MPIraink == 0:
+            maxIter = Niter
 
         # set jump parameters
         self.ladder = ladder
@@ -122,46 +206,9 @@ class PTSampler(object):
         
         # if picking up from previous run, don't re-initialize
         if i0 == 0:
-            self._lnprob = np.zeros(N)
-            self._lnlike = np.zeros(N)
-            self._chain = np.zeros((N, self.ndim))
-            self.naccepted = 0
-            self.swapProposed = 0
-            self.nswap_accepted = 0
-
-            # set up covariance matrix and DE buffers
-            # TODO: better way of allocating this to save memory
-            if self.MPIrank == 0:
-                self._AMbuffer = np.zeros((Niter, self.ndim))
-                self._DEbuffer = np.zeros((self.burn, self.ndim))
-
-            ### setup default jump proposal distributions ###
-
-            # add SCAM
-            self.addProposalToCycle(self.covarianceJumpProposalSCAM, self.SCAMweight)
-            
-            # add AM
-            self.addProposalToCycle(self.covarianceJumpProposalAM, self.AMweight)
-            
-            # randomize cycle
-            self.randomizeProposalCycle()
-
-            # setup default temperature ladder
-            if self.ladder is None:
-                self.ladder = self.temperatureLadder(Tmin)
-        
-            # temperature for current chain
-            self.temp = self.ladder[self.MPIrank]
-
-            # set up output file
-            fname = self.outDir + '/chain_{0}.txt'.format(self.temp)
-            self._chainfile = open(fname, 'w')
-            self._chainfile.close()
-
+            self.initialize(Niter, maxIter, thin, Tmin)
 
         ### compute lnprob for initial point in chain ###
-        self._chain[i0,:] = p0
-
         # compute prior
         lp = self.logp(p0)
 
@@ -176,8 +223,7 @@ class PTSampler(object):
             lnprob0 = 1/self.temp * lnlike0 + lp
 
         # record first values
-        self._lnprob[i0] = lnprob0
-        self._lnlike[i0] = lnlike0
+        self.updateChains(p0, lnlike0, lnprob0, i0, thin, isave)
 
         self.comm.barrier()
 
@@ -194,30 +240,6 @@ class PTSampler(object):
             
             # call PTMCMCOneStep
             p0, lnlike0, lnprob0 = self.PTMCMCOneStep(p0, lnlike0, lnprob0, iter)
-
-            # update buffer
-            if self.MPIrank == 0:
-                self._AMbuffer[iter,:] = p0
-            
-            # put results into arrays
-            if iter % thin == 0:
-                ind = int(iter/thin)
-                self._chain[ind,:] = p0
-                self._lnlike[ind] = lnlike0
-                self._lnprob[ind] = lnprob0
-
-            # write to file
-            if iter % isave == 0:
-                self._writeToFile(fname, iter, isave, thin)
-                if self.MPIrank == 0 and self.verbose:
-                    sys.stdout.write('\r')
-                    sys.stdout.write('Finished %2.2f percent in %f s Acceptance rate = %g'\
-                                     %(iter/Niter*100, time.time() - tstart, \
-                                       self.naccepted/iter))
-                    sys.stdout.flush()
-
-                    # write output covariance matrix
-                    np.save(self.outDir + '/cov.npy', self.cov)
 
             # stop
             if self.MPIrank == 0 and iter >= Niter-1:
@@ -293,10 +315,8 @@ class PTSampler(object):
             # randomize cycle
             self.randomizeProposalCycle()
         
-        
         # jump proposal
         y, qxy = self._jump(p0, iter)
-
 
         # compute prior and likelihood
         lp = self.logp(y)
@@ -312,7 +332,6 @@ class PTSampler(object):
 
         # hastings step
         diff = newlnprob - lnprob0 + qxy
-
         if diff >= np.log(np.random.rand()):
 
             # accept jump
@@ -392,6 +411,8 @@ class PTSampler(object):
 
 
         ##################################################################
+
+        self.updateChains(p0, lnlike0, lnprob0, iter, thin, isave)
 
         return p0, lnlike0, lnprob0
 
