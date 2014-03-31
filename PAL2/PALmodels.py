@@ -130,10 +130,13 @@ class PTAmodels(object):
             varyEfac=True, separateEfacs=False, separateEfacsByFreq=False, \
             incEquad=False,separateEquads=False, separateEquadsByFreq=False, \
             incJitter=False, separateJitter=False, separateJitterByFreq=False, \
+            incJitterEpoch = False, nepoch = None, \
             incJitterEquad=False, separateJitterEquad=False, separateJitterEquadByFreq=False, \
-            efacPrior='uniform', equadPrior='log', jitterPrior='uniform', jitterEquadPrior='log', \
+            efacPrior='uniform', equadPrior='log', jitterPrior='uniform', \
+            jitterEquadPrior='log', \
             redAmpPrior='log', redSiPrior='uniform', GWAmpPrior='log', GWSiPrior='uniform', \
-            DMAmpPrior='log', DMSiPrior='uniform', redSpectrumPrior='log', DMSpectrumPrior='log', \
+            DMAmpPrior='log', DMSiPrior='uniform', redSpectrumPrior='log', \
+            DMSpectrumPrior='log', \
             GWspectrumPrior='log', \
             incSingleFreqNoise=False, numSingleFreqLines=1, \
             incSingleFreqDMNoise=False, numSingleFreqDMLines=1, \
@@ -277,6 +280,30 @@ class PTAmodels(object):
                         "pwidth":[0.1],
                         "pstart":[-8.0],
                         "prior":jitterEquadPrior
+                        })
+                    signals.append(newsignal)
+
+
+            if incJitterEpoch:
+                    bvary = [True]*nepoch[ii]
+                    pmin = [-10.0]*nepoch[ii]
+                    pmax = [-4.0]*nepoch[ii]
+                    pstart = [-9.0]*nepoch[ii]
+                    pwidth = [0.5]*nepoch[ii]
+                    prior = [jitterEquadPrior]*nepoch[ii]
+
+                    newsignal = OrderedDict({
+                        "stype":"jitter_epoch",
+                        "corr":"single",
+                        "pulsarind":ii,
+                        "flagname":"pulsarname",
+                        "flagvalue":p.name,
+                        "bvary":bvary,
+                        "pmin":pmin,
+                        "pmax":pmax,
+                        "pwidth":pwidth,
+                        "pstart":pstart,
+                        "prior":prior
                         })
                     signals.append(newsignal)
 
@@ -537,8 +564,12 @@ class PTAmodels(object):
             self.addSignalJitter(signal)
         
         elif signal['stype'] == 'jitter_equad':
-            # Jitter
+            # Jitter equad
             self.addSignalJitterEquad(signal)
+        
+        elif signal['stype'] == 'jitter_epoch':
+            # Jitter by epoch
+            self.addSignalJitterEpoch(signal)
 
         elif signal['stype'] in ['powerlaw', 'spectrum', 'spectralModel']:
             # Any time-correlated signal
@@ -639,6 +670,31 @@ class PTAmodels(object):
             ind = np.array(self.psr[signal['pulsarind']].aveflags) != signal['flagvalue']
             signal['Jvec'][ind] = 0.0
 
+        self.ptasignals.append(signal.copy())
+    
+    """
+    Add an Jitter by Epoch signal (one free jitter parameter per epoch)
+
+    Required keys in signal
+    @param psrind:      Index of the pulsar this efac applies to
+    @param index:       Index of first parameter in total parameters array
+    @param flagname:    Name of the flag this efac applies to (field-name)
+    @param flagvalue:   Value of the flag this efac applies to (e.g. CPSR2)
+    @param bvary:       List of indicators, specifying whether parameters can vary
+    @param pmin:        Minimum bound of prior domain
+    @param pmax:        Maximum bound of prior domain
+    @param pwidth:      Typical width of the parameters (e.g. initial stepsize)
+    @param pstart:      Typical start position for the parameters
+
+    """
+    def addSignalJitterEpoch(self, signal):
+        # Assert that all the correct keys are there...
+        keys = ['pulsarind', 'stype', 'corr', 'flagname', 'flagvalue', 'bvary', \
+                'pmin', 'pmax', 'pwidth', 'pstart', 'parindex']
+        if not all(k in signal for k in keys):
+            raise ValueError("ERROR: Not all signal keys are present in jitter equad signal. \
+                             Keys: {0}. Required: {1}".format(signal.keys(), keys))
+        
         self.ptasignals.append(signal.copy())
     
     """
@@ -1038,6 +1094,10 @@ class PTAmodels(object):
                 elif sig['stype'] == 'jitter_equad':
                     flagname = sig['flagname']
                     flagvalue = 'jitter_q_'+sig['flagvalue']
+                
+                elif sig['stype'] == 'jitter_epoch':
+                    flagname = sig['flagname']
+                    flagvalue = 'jitter_p_' + str(jj)
 
                 elif sig['stype'] == 'spectrum':
                     flagname = 'frequency'
@@ -1336,13 +1396,20 @@ class PTAmodels(object):
 
                 self.psr[psrind].Qamp += sig['Jvec'] * pequadsqr
 
-                if incJitter:
-                    # Need to include it just like the equad (for compressison)
-                    self.psr[psrind].Nvec += sig['Nvec'] * pequadsqr
+            # jitter by epoch signal
+            elif sig['stype'] == 'jitter_epoch':
 
-                    if self.psr[psrind].twoComponentNoise:
-                        self.psr[psrind].Nwvec += pequadsqr
-                        self.psr[psrind].Nwovec += pequadsqr
+                # short hand
+                npars = sig['npars']
+            
+                # parameters for this signal
+                sparameters = sig['pstart'].copy()
+
+                # which ones are varying
+                sparameters[sig['bvary']] = parameters[parind:parind+npars]
+
+                self.psr[psrind].Qamp += 10**(2*sparameters)
+                
 
 
 
@@ -2155,7 +2222,7 @@ class PTAmodels(object):
                 logdetPhi = 2*np.sum(np.log(np.diag(cf[0])))
                 Phiinv = sl.cho_solve(cf, np.identity(Phi.shape[0]))
             except np.linalg.LinAlgError:
-                print 'Cholesky failed when inverting phi'
+                #print 'Cholesky failed when inverting phi'
                 #U, s, Vh = sl.svd(Phi)
                 #if not np.all(s > 0):
                 return -np.inf
@@ -2201,7 +2268,7 @@ class PTAmodels(object):
             logdet_Sigma = 2*np.sum(np.log(np.diag(cf[0])))
             expval2 = sl.cho_solve(cf, d)
         except np.linalg.LinAlgError:
-            print 'Cholesky Failed when inverting Sigma'
+            #print 'Cholesky Failed when inverting Sigma'
             return -np.inf
             #U, s, Vh = sl.svd(Sigma)
             #if not np.all(s > 0):
@@ -2536,6 +2603,58 @@ class PTAmodels(object):
                 else:
                     print 'Prior type not recognized for parameter'
                     q[parind] = parameters[parind]
+        
+        return q, qxy
+    
+    # draws from jitter equad prior
+    def drawFromJitterEquadPrior(self, parameters, iter, beta):
+        
+        # post-jump parameters
+        q = parameters.copy()
+
+        # transition probability
+        qxy = 0
+
+        # find number of signals
+        nsigs = np.sum(self.getNumberOfSignalsFromDict(self.ptasignals, \
+                                    stype='jitter_equad', corr='single'))
+        nsigs += np.sum(self.getNumberOfSignalsFromDict(self.ptasignals, \
+                                    stype='jitter_epoch', corr='single'))
+        signum = self.getSignalNumbersFromDict(self.ptasignals, stype='jitter_equad', \
+                                               corr='single')
+        signum2 = self.getSignalNumbersFromDict(self.ptasignals, stype='jitter_epoch', \
+                                               corr='single')
+        signum = np.concatenate((signum, signum2))
+
+        # which parameters to jump
+        ind = np.unique(np.random.randint(0, nsigs, nsigs))
+
+        # draw params from prior
+        for ii in ind:
+
+            # get signal
+            sig = self.ptasignals[signum[ii]]
+            parind = sig['parindex']
+            npars = sig['npars']
+
+            # jump in amplitude if varying
+            for jj in range(npars):
+                if sig['bvary'][jj]:
+
+                    # log prior
+                    if sig['prior'][jj] == 'log':
+                        q[parind+jj] = np.random.uniform(self.pmin[parind+jj], \
+                                                         self.pmax[parind+jj])
+                        qxy += 0
+
+                    elif sig['prior'][jj] == 'uniform':
+                        q[parind+jj] = np.log10(np.random.uniform(10**self.pmin[parind+jj], \
+                                                               10**self.pmax[parind+jj]))
+                        qxy += np.log(10**parameters[parind+jj]/10**q[parind+jj])
+                        
+                    else:
+                        print 'Prior type not recognized for parameter'
+                        q[parind+jj] = parameters[parind+jj]
         
         return q, qxy
     

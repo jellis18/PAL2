@@ -7,6 +7,7 @@ import numpy as np
 import os, sys, time
 import PALInferencePTMCMC as ptmcmc
 import bayesutils as bu
+import scipy.stats as ss
 
 class RJMCMCSampler(object):
     
@@ -29,7 +30,8 @@ class RJMCMCSampler(object):
 
 
     def __init__(self, models, pars, logls, logps):
-
+        
+        # initialize dictionaries
         self.modelDict = {}
         self.samplerDict = {}
         self.TDJumpDict = {}
@@ -70,15 +72,55 @@ class RJMCMCSampler(object):
         # update model counter
         self.nmodels += 1
 
+    def constructGaussianKDE(self, model, chain):
 
-    def constructSimpleGaussianTDJump(self, model, fixedchain, chaincov):
+        """
+        Construct a gaussian KDE from a previously run MCMC chain.
+        Uses scipy.stats.gaussian_kde
+
+        @param model: name of model
+        @param chain: post burn in mcmc chain size nsamples x nparams
 
         """
 
-        Construct a simple gaussian jump proposal from fixed-dimension
-        chain and covariance matrix. Uses MAP values for mean.
+        self.TDJumpDict[model] = ss.gaussian_kde(chain.T)
 
-        @param model: name of model (used in dictionaries to distinguish models)
+
+
+    def gaussianKDEJump(self, x0, m0, iter):
+
+        """
+        Uses gaussian KDE to propose jump in new model parameter space.
+
+        @param x0: parameter vector in current model
+        @param m0: the current model
+        @param iter: iteration of the RJMCMC chain
+
+        @return x1: proposed parameter vector in new model
+        @return m1: proposed model
+        @return qxy: forward-backward jump probability
+
+        """
+
+        # determine which model to propose jump into
+        ind = np.random.randint(0, self.nmodels)
+        m1 = self.TDJumpDict.keys()[ind]
+
+        # new parameters
+        x1 = self.TDJumpDict[m1].resample(1).flatten()
+
+        # forward-backward jump probability
+        p0 = self.TDJumpDict[m0].evaluate(x0)
+        p1 = self.TDJumpDict[m0].evaluate(x1)
+        qxy = np.log(p0/p1)
+
+        return x1, m1, qxy
+
+
+
+
+
+        
 
 
 

@@ -17,6 +17,7 @@ import numpy as np
 import h5py as h5
 import os, sys
 import tempfile
+import PALutils
 
 try:    # If without libstempo, can still read hdf5 files
     import libstempo
@@ -523,12 +524,11 @@ class DataFile(object):
         psr.freqs = np.array(self.getData(psrname, 'freq'))
         psr.Mmat = np.array(self.getData(psrname, 'designmatrix'))
         #psr.unitconversion = np.array(self.getData(psrname, 'unitConversion', required=False))
+        
+        # get number of epochs (i.e 10 s window)
+        (avetoas, Umat) = PALutils.exploderMatrix(psr.toas, dt=10)
+        psr.nepoch = len(avetoas)
 
-        #TODO: TEST!!!!!!!
-        #psr.residuals -= psr.toaerrs*np.mean(psr.residuals/psr.toaerrs)
-
-        # We do not read the (co)G-matrix anymore here. Happens when
-        # initialising the model
 
         
 
