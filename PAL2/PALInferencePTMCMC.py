@@ -77,16 +77,34 @@ class PTSampler(object):
         # indicator for auxilary jumps
         self.aux = None
 
-    def initialize(self, Niter, maxIter, thin, Tmin):
+    def initialize(self, Niter, ladder=None, Tmin=1, Tmax=10, Tskip=100, \
+               isave=1000, covUpdate=1000, SCAMweight=20, \
+               AMweight=20, DEweight=20, burn=10000, \
+               maxIter=None, thin=10, i0=0):
         """
         Initialize MCMC quantities
 
-        @param Niter: total number of iterations
         @param maxIter: maximum number of iterations
-        @thin: only save every thin'th parameter
         @Tmin: minumum temperature to use in temperature ladder
 
         """
+        # get maximum number of iteration
+        if maxIter is None and self.MPIrank > 0:
+            maxIter = 2*Niter
+        elif maxIter is None and self.MPIrank == 0:
+            maxIter = Niter
+
+        self.ladder = ladder
+        self.covUpdate = covUpdate
+        self.SCAMweight = SCAMweight
+        self.AMweight = AMweight
+        self.DEweight = DEweight
+        self.burn = burn
+        self.Tskip = Tskip
+        self.thin = thin
+        self.isave = isave
+        self.Niter = Niter
+        self.tstart = 0
 
         N = int(maxIter/thin)
 
@@ -100,7 +118,7 @@ class PTSampler(object):
         # set up covariance matrix and DE buffers
         # TODO: better way of allocating this to save memory
         if self.MPIrank == 0:
-            self._AMbuffer = np.zeros((Niter, self.ndim))
+            self._AMbuffer = np.zeros((self.Niter, self.ndim))
             self._DEbuffer = np.zeros((self.burn, self.ndim))
 
         ### setup default jump proposal distributions ###
@@ -122,12 +140,12 @@ class PTSampler(object):
         self.temp = self.ladder[self.MPIrank]
 
         # set up output file
-        fname = self.outDir + '/chain_{0}.txt'.format(self.temp)
-        self._chainfile = open(fname, 'w')
+        self.fname = self.outDir + '/chain_{0}.txt'.format(self.temp)
+        self._chainfile = open(self.fname, 'w')
         self._chainfile.close()
 
     
-    def updateChains(self, p0, lnlike0, lnprob0, iter, thin, isave):
+    def updateChains(self, p0, lnlike0, lnprob0, iter):
 
         """
         Update chains after jump proposals
@@ -138,22 +156,22 @@ class PTSampler(object):
             self._AMbuffer[iter,:] = p0
 
         # put results into arrays
-        if iter % thin == 0:
-            ind = int(iter/thin)
+        if iter % self.thin == 0:
+            ind = int(iter/self.thin)
             self._chain[ind,:] = p0
             self._lnlike[ind] = lnlike0
             self._lnprob[ind] = lnprob0
 
         # write to file
-        if iter % isave == 0:
-            self._writeToFile(fname, iter, isave, thin)
+        if iter % self.isave == 0 and iter > 1:
+            self._writeToFile(iter)
 
             # write output covariance matrix
             np.save(self.outDir + '/cov.npy', self.cov)
-            if self.MPIrank == 0 and self.verbose:
+            if self.MPIrank == 0 and self.verbose and iter > 1:
                 sys.stdout.write('\r')
                 sys.stdout.write('Finished %2.2f percent in %f s Acceptance rate = %g'\
-                                 %(iter/Niter*100, time.time() - tstart, \
+                                 %(iter/self.Niter*100, time.time() - self.tstart, \
                                    self.naccepted/iter))
                 sys.stdout.flush()
 
@@ -169,7 +187,7 @@ class PTSampler(object):
         Function to carry out PTMCMC sampling.
 
         @param p0: Initial parameter vector
-        @param Niter: Number of iterations to use for T = 1 chain
+        @param self.Niter: Number of iterations to use for T = 1 chain
         @param ladder: User defined temperature ladder
         @param Tmin: Minimum temperature in ladder (default=1) 
         @param Tmax: Maximum temperature in ladder (default=10) 
@@ -180,8 +198,8 @@ class PTSampler(object):
         @param AMweight: Weight of AM jumps in overall jump cycle (default=20)
         @param DEweight: Weight of DE jumps in overall jump cycle (default=20)
         @param burn: Burn in time (DE jumps added after this iteration) (default=5000)
-        @param maxIter: Maximum number of iterations for high temperature chains (default=2*Niter)
-        @param thin: Save every thin MCMC samples
+        @param maxIter: Maximum number of iterations for high temperature chains (default=2*self.Niter)
+        @param self.thin: Save every self.thin MCMC samples
         @param i0: Iteration to start MCMC (if i0 !=0, do not re-initialize)
 
         """
@@ -189,24 +207,18 @@ class PTSampler(object):
         # get maximum number of iteration
         if maxIter is None and self.MPIrank > 0:
             maxIter = 2*Niter
-        elif maxIter is None and self.MPIraink == 0:
+        elif maxIter is None and self.MPIrank == 0:
             maxIter = Niter
-
-        # set jump parameters
-        self.ladder = ladder
-        self.covUpdate = covUpdate
-        self.SCAMweight = SCAMweight
-        self.AMweight = AMweight
-        self.DEweight = DEweight
-        self.burn = burn
-        self.Tskip = Tskip
 
         # set up arrays to store lnprob, lnlike and chain
         N = int(maxIter/thin)
         
         # if picking up from previous run, don't re-initialize
         if i0 == 0:
-            self.initialize(Niter, maxIter, thin, Tmin)
+            self.initialize(Niter, ladder=ladder, Tmin=Tmin, Tmax=Tmax, Tskip=Tskip, \
+               isave=isave, covUpdate=covUpdate, SCAMweight=SCAMweight, \
+               AMweight=AMweight, DEweight=DEweight, burn=burn, \
+               maxIter=maxIter, thin=thin, i0=i0)
 
         ### compute lnprob for initial point in chain ###
         # compute prior
@@ -223,14 +235,14 @@ class PTSampler(object):
             lnprob0 = 1/self.temp * lnlike0 + lp
 
         # record first values
-        self.updateChains(p0, lnlike0, lnprob0, i0, thin, isave)
+        self.updateChains(p0, lnlike0, lnprob0, i0)
 
         self.comm.barrier()
 
 
         # start iterations
         iter = i0
-        tstart = time.time()
+        self.tstart = time.time()
         runComplete = False
         getCovariance = 0
         getDEbuf = 0
@@ -242,7 +254,7 @@ class PTSampler(object):
             p0, lnlike0, lnprob0 = self.PTMCMCOneStep(p0, lnlike0, lnprob0, iter)
 
             # stop
-            if self.MPIrank == 0 and iter >= Niter-1:
+            if self.MPIrank == 0 and iter >= self.Niter-1:
                 if self.verbose:
                     print '\nRun Complete'
                 runComplete = True
@@ -412,7 +424,7 @@ class PTSampler(object):
 
         ##################################################################
 
-        self.updateChains(p0, lnlike0, lnprob0, iter, thin, isave)
+        self.updateChains(p0, lnlike0, lnprob0, iter)
 
         return p0, lnlike0, lnprob0
 
@@ -440,23 +452,20 @@ class PTSampler(object):
         return ladder
 
 
-    def _writeToFile(self, fname, iter, isave, thin):
+    def _writeToFile(self, iter):
 
         """
         Function to write chain file. File has 3+ndim columns,
         the first is log-posterior (unweighted), log-likelihood,
         and acceptance probability, followed by parameter values.
         
-        @param fname: chainfile name
         @param iter: Iteration of sampler
-        @param isave: Number of iterations between saves
-        @param thin: Fraction at which to thin chain
 
         """
 
-        self._chainfile = open(fname, 'a+')
-        for jj in range((iter-isave), iter, thin):
-            ind = int(jj/thin)
+        self._chainfile = open(self.fname, 'a+')
+        for jj in range((iter-self.isave), iter, self.thin):
+            ind = int(jj/self.thin)
             self._chainfile.write('%e\t %e\t %e\t'%(self._lnprob[ind], self._lnlike[ind],\
                                                   self.naccepted/iter))
             self._chainfile.write('\t'.join([str(self._chain[ind,kk]) \

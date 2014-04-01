@@ -9,6 +9,12 @@ import PALInferencePTMCMC as ptmcmc
 import bayesutils as bu
 import scipy.stats as ss
 
+try:
+    from mpi4py import MPI
+except ImportError:
+    from . import nompi4py as MPI
+
+
 class RJMCMCSampler(object):
     
     """
@@ -31,7 +37,7 @@ class RJMCMCSampler(object):
     """
 
 
-    def __init__(self, models, ndims, logls, logps, chains, outDir='./rj_chains/'):
+    def __init__(self, models, ndims, logls, logps, covs, chains, outDir='./rj_chains/'):
 
         # initialize dictionaries and lists
         self.samplerDict = {}
@@ -56,8 +62,8 @@ class RJMCMCSampler(object):
         # fill in dictionaries
         # TODO for now just use default arguments, later include a
         # better way to initialize
-        for model, ndim, cov, logl, logp, chain in 
-                    zip(models, ndims, covs, logls, logps, chains):
+        for model, ndim, cov, logl, logp, chain in zip(models, ndims, \
+                                            covs, logls, logps, chains):
 
             # log prior and log likelihood dicts
             self.logpDict[model] = logp
@@ -96,7 +102,7 @@ class RJMCMCSampler(object):
 
         # default output directory
         if outDir is None:
-            outDir = self.outDir = '/' + str(model) + '/'
+            outDir = self.outDir + '/' + str(model) + '/'
         
         # setup output file
         if not os.path.exists(outDir):
@@ -112,7 +118,7 @@ class RJMCMCSampler(object):
                                     comm=comm, outDir=outDir, verbose=verbose)
         
         # update counter
-        self.models += 1
+        self.nmodels += 1
 
 
     def constructGaussianKDE(self, model, chain):
@@ -165,7 +171,7 @@ class RJMCMCSampler(object):
         Return index of model given model key
 
         """
-        return np.flatnonzero(self.models == model)[0]
+        return np.flatnonzero(np.array(self.models) == model)[0]
 
 
     def sample(self, model0, p0, Niter, TDprob=0.5, thin=1, isave=1000):
@@ -200,7 +206,7 @@ class RJMCMCSampler(object):
         self.iterDict = {}
         for m in self.models:
             self.iterDict[m] = 0
-            self.samplerDict[m].initialize(Niter, Niter, thin, 1)
+            self.samplerDict[m].initialize(Niter)
 
         # get values for initial parameters
         lp = self.logpDict[model0](p0)
@@ -212,21 +218,20 @@ class RJMCMCSampler(object):
 
         # save initial values in single-model MCMC chain
         self.samplerDict[model0].updateChains(p0, lnlike0, lnprob0, \
-                                              self.iterDict[model0], \
-                                              10, 1000)
+                                              self.iterDict[model0])
         
         # save model
         self._modelchain[0] = self._getModelIndex(model0)
 
         # start loop over iterations
         tstart = time.time()
-        for ii in range(Niter):
+        for ii in range(Niter-1):
             self.iterations += 1
             self.iterDict[model0] += 1
         
             # propose TD jump (50% of the time)
             alpha = np.random.rand()
-            if alpha >= TDprob:
+            if alpha <= TDprob:
                 self.TDproposed += 1
                 newpar, newmod, qxy = self.gaussianKDEJump(p0, model0, self.iterations)
 
@@ -243,15 +248,14 @@ class RJMCMCSampler(object):
                 if diff >= np.log(np.random.rand()):
 
                     # accept jump
-                    p0, lnlike0, lnprob0, model0 = y, newlnlike, newlnprob, newmod
+                    p0, lnlike0, lnprob0, model0 = newpar, newlnlike, newlnprob, newmod
 
                     # update acceptance counter
                     self.naccepted += 1
                 
                 # save new values in individual chains
                 self.samplerDict[model0].updateChains(p0, lnlike0, lnprob0, \
-                                                    self.iterDict[model0], \
-                                                    10, 1000)
+                                                    self.iterDict[model0])
 
             # Normal MCMC in model0 
             else:
@@ -265,7 +269,7 @@ class RJMCMCSampler(object):
                 self._modelchain[ind] = self._getModelIndex(model0)
 
             # write to file
-            if iter % isave == 0:
+            if self.iterations % isave == 0:
                 self._writeToFile(fname, self.iterations, isave, thin)
 
                 sys.stdout.write('\r')
@@ -293,7 +297,7 @@ class RJMCMCSampler(object):
         for jj in range((iter-isave), iter, thin):
             ind = int(jj/thin)
             self._chainfile.write('%e\t %d\n'%(self.naccepted/self.TDproposed, \
-                                               self._modelchain[jj])
+                                               self._modelchain[jj]))
             self._chainfile.write('\n')
         self._chainfile.close()
 

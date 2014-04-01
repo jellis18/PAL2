@@ -2607,7 +2607,7 @@ class PTAmodels(object):
         return q, qxy
     
     # draws from jitter equad prior
-    def drawFromJitterEquadPrior(self, parameters, iter, beta):
+    def drawFromJitterEpochPrior(self, parameters, iter, beta):
         
         # post-jump parameters
         q = parameters.copy()
@@ -2617,14 +2617,9 @@ class PTAmodels(object):
 
         # find number of signals
         nsigs = np.sum(self.getNumberOfSignalsFromDict(self.ptasignals, \
-                                    stype='jitter_equad', corr='single'))
-        nsigs += np.sum(self.getNumberOfSignalsFromDict(self.ptasignals, \
                                     stype='jitter_epoch', corr='single'))
-        signum = self.getSignalNumbersFromDict(self.ptasignals, stype='jitter_equad', \
+        signum = self.getSignalNumbersFromDict(self.ptasignals, stype='jitter_epoch', \
                                                corr='single')
-        signum2 = self.getSignalNumbersFromDict(self.ptasignals, stype='jitter_epoch', \
-                                               corr='single')
-        signum = np.concatenate((signum, signum2))
 
         # which parameters to jump
         ind = np.unique(np.random.randint(0, nsigs, nsigs))
@@ -2641,6 +2636,7 @@ class PTAmodels(object):
             for jj in range(npars):
                 if sig['bvary'][jj]:
 
+
                     # log prior
                     if sig['prior'][jj] == 'log':
                         q[parind+jj] = np.random.uniform(self.pmin[parind+jj], \
@@ -2655,6 +2651,52 @@ class PTAmodels(object):
                     else:
                         print 'Prior type not recognized for parameter'
                         q[parind+jj] = parameters[parind+jj]
+        
+        return q, qxy
+    
+    # draws from jitter equad prior
+    def drawFromJitterEquadPrior(self, parameters, iter, beta):
+        
+        # post-jump parameters
+        q = parameters.copy()
+
+        # transition probability
+        qxy = 0
+
+        # find number of signals
+        nsigs = np.sum(self.getNumberOfSignalsFromDict(self.ptasignals, \
+                                    stype='jitter_equad', corr='single'))
+        signum = self.getSignalNumbersFromDict(self.ptasignals, stype='jitter_equad', \
+                                               corr='single')
+
+        # which parameters to jump
+        ind = np.unique(np.random.randint(0, nsigs, nsigs))
+
+        # draw params from prior
+        for ii in ind:
+
+            # get signal
+            sig = self.ptasignals[signum[ii]]
+            parind = sig['parindex']
+            npars = sig['npars']
+
+            # jump in amplitude if varying
+            if sig['bvary']:
+
+                # log prior
+                if sig['prior'] == 'log':
+                    q[parind] = np.random.uniform(self.pmin[parind], \
+                                                     self.pmax[parind])
+                    qxy += 0
+
+                elif sig['prior'][jj] == 'uniform':
+                    q[parind] = np.log10(np.random.uniform(10**self.pmin[parind], \
+                                                           10**self.pmax[parind]))
+                    qxy += np.log(10**parameters[parind]/10**q[parind])
+                    
+                else:
+                    print 'Prior type not recognized for parameter'
+                    q[parind] = parameters[parind]
         
         return q, qxy
     
