@@ -308,7 +308,7 @@ class Pulsar(object):
             if l < self.Gmat.shape[1]:
                 pass
             else:
-                l = self.Gmat.shape[1]
+                l = self.Gmat.shape[1]-1
             print 'Using {0} components for PSR {1}'.format(l, self.name)
 
             # H is the compression matrix
