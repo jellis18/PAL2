@@ -338,6 +338,15 @@ class RJMCMCSampler(object):
 
         """
 
+        # print out adaptive odds to file. Columns are model1, model2, odds
+        fout = open(self.outDir + '/odds.txt', 'w')
+        for ii in range(self.nmodels):
+            for jj in range(ii+1, self.nmodels):
+                fout.write('%d %d %e\n'%(self.models[ii], self.models[jj], \
+                                        self.odds[ii,jj]))
+
+        fout.close()
+
         self._chainfile = open(fname, 'a+')
         for jj in range((iter-isave), iter, thin):
             ind = int(jj/thin)
