@@ -152,8 +152,9 @@ class RJMCMCSampler(object):
         """
 
         # determine which model to propose jump into
-        ind = np.random.randint(0, self.nmodels)
-        m1 = self.TDJumpDict.keys()[ind]
+        randind = np.random.randint(0, self.nmodels-1)
+        ind = np.flatnonzero(np.array(self.models) != m0)[randind]
+        m1 = self.models[ind]
 
         # new parameters
         x1 = self.TDJumpDict[m1].resample(1).flatten()
@@ -173,8 +174,34 @@ class RJMCMCSampler(object):
         """
         return np.flatnonzero(np.array(self.models) == model)[0]
 
+    def _updatePriorOdds(self, model0, model1):
+        """
+        Update prior Odds ratio in attempt to make Odds ratio ~ 1
 
-    def sample(self, model0, p0, Niter, TDprob=0.5, thin=1, isave=1000):
+        """
+
+        # check for adaptive odds ratio
+        modelindex1 = self._getModelIndex(model1)
+        modelindex0 = self._getModelIndex(model0)
+        if self.iterations > 1000 and self.iterations <= self.burn:
+            n1 = np.sum(self._modelchain[0:self.iterations] == modelindex1)
+            n0 = np.sum(self._modelchain[0:self.iterations] == modelindex0)
+            if n1 == 0:
+                n1 = 1
+            if n0 == 0:
+                n0 = 1
+            odds = n1/n0
+            self.odds[modelindex0, modelindex1] = np.log(1/odds)
+            self.odds[modelindex1, modelindex0] = np.log(odds)
+
+        #print modelindex1, modelindex0, self.odds[modelindex0, modelindex1]
+
+        return self.odds[modelindex0, modelindex1]
+
+
+    def sample(self, model0, p0, Niter, burn=100000, \
+                    adaptiveOdds=False, TDprob=0.5, \
+                    thin=1, isave=1000):
 
         """
         Perform RJMCMC sampler
@@ -182,6 +209,8 @@ class RJMCMCSampler(object):
         @param model0: Initial model string
         @param p0: Initial parameter vector for model0
         @param Niter: Number of iterations for RJMCMC
+        @param burn: number of iterations for burn in 
+        @param adaptiveOdds: update prior odds ratio during burn in to keep Odds ~ 1
         @param TDprob: Probability of proposing TD jump at each iteration
         @param thin: How much to thin chain (save every thin'th value)
         @param isave: How many iterations before writing to file
@@ -197,8 +226,13 @@ class RJMCMCSampler(object):
         self._chainfile.close()
 
         # initialize model chains
+        self.burn = burn
         self._modelchain = np.zeros(N)
         self.iterations = 0
+
+        # set up adaptive odds ratio matrix
+        odds = 0
+        self.odds = np.zeros((self.nmodels, self.nmodels))
 
         # initialize iterations dictionary to keep track of which
         # iteration is used in intra-model MCMCs. Also initialize MCMC
@@ -228,7 +262,10 @@ class RJMCMCSampler(object):
         for ii in range(Niter-1):
             self.iterations += 1
             self.iterDict[model0] += 1
-        
+
+            if self.iterations == self.burn:
+                odds = self._updatePriorOdds(self.models[0], self.models[1])
+
             # propose TD jump (50% of the time)
             alpha = np.random.rand()
             if alpha <= TDprob:
@@ -243,11 +280,16 @@ class RJMCMCSampler(object):
                     newlnlike = self.loglDict[newmod](newpar) 
                     newlnprob = newlnlike + lp
 
+                # check for adaptive odds ratio
+                if adaptiveOdds and self.iterations > self.burn:
+                    odds = self._updatePriorOdds(model0, newmod)
+
                 # trans-dimensional hastings ratio
-                diff = newlnprob - lnprob0 + qxy
+                diff = newlnprob - lnprob0 + qxy + odds
                 if diff >= np.log(np.random.rand()):
 
                     # accept jump
+                    #print 'Jumping from model {0} to model {1}'.format(model0, newmod)
                     p0, lnlike0, lnprob0, model0 = newpar, newlnlike, newlnprob, newmod
 
                     # update acceptance counter
@@ -267,6 +309,9 @@ class RJMCMCSampler(object):
             if self.iterations % thin == 0:
                 ind = int(self.iterations/thin)
                 self._modelchain[ind] = self._getModelIndex(model0)
+
+            #if self.iterations % 10000 == 0:
+            #    print self.odds
 
             # write to file
             if self.iterations % isave == 0:

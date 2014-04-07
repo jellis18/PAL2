@@ -411,7 +411,7 @@ class Pulsar(object):
     def createPulsarAuxiliaries(self, h5df, Tmax, nfreqs, ndmfreqs, \
             twoComponent=False, nSingleFreqs=0, nSingleDMFreqs=0, \
             compression='None', likfunc='mark1', write='no', \
-            targetAmp=1e-14, memsave=True):
+                                memsave=True):
 
 
         # For creating the auxiliaries it does not really matter: we are now

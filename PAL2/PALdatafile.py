@@ -74,6 +74,7 @@ class DataFile(object):
         pulsarGroup = self.h5file.require_group(psrname)
 
         return pulsarGroup
+    
 
     """
     Add data to a specific pulsar. Here the hdf5 file is opened, and the right
@@ -270,6 +271,9 @@ class DataFile(object):
         # determine whether or not to drop points
         dat = t2pulsar.residuals()/t2pulsar.toaerrs/1e-6
         t2pulsar.deleted = np.abs(dat) > sigma
+        if sigma < 10:
+            print 'Deleting {0} points for pulsar {1}'.format(np.sum(t2pulsar.deleted), \
+                                                                    t2pulsar.name)
         
         # fit again
         t2pulsar.fit()

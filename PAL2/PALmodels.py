@@ -2125,7 +2125,7 @@ class PTAmodels(object):
 
     """
 
-    def mark2LogLikelihood(self, parameters):
+    def mark2LogLikelihood(self, parameters, incCorrelations=True):
 
         loglike = 0
 
@@ -2133,7 +2133,7 @@ class PTAmodels(object):
         self.setPsrNoise(parameters, incJitter=False)
 
         # set red noise, DM and GW parameters
-        self.constructPhiMatrix(parameters)
+        self.constructPhiMatrix(parameters, incCorrelations=incCorrelations)
 
         # set deterministic sources
         if self.haveDetSources:
@@ -2201,7 +2201,7 @@ class PTAmodels(object):
             loglike += -0.5 * (logdet_N + rGGNGGr)
 
             # keep track of jitter terms needed later
-            if self.npsr > 1:
+            if self.npsr > 1 and incCorrelations:
                 if ct == 0:
                     Jinv = 1/p.Qamp
                 else:
@@ -2212,7 +2212,7 @@ class PTAmodels(object):
 
 
         # if only using one pulsar
-        if self.npsr == 1:
+        if self.npsr == 1 or not(incCorrelations):
             Phi0 = np.diag(1/np.diag(self.Phiinv))
             UPhiU = np.dot(self.psr[0].UtF, np.dot(Phi0, self.psr[0].UtF.T))
             Phi = UPhiU + np.diag(self.psr[0].Qamp) 
