@@ -330,6 +330,9 @@ class RJMCMCSampler(object):
         Function to write chain file. File has 2 columns,
         the first is the acceptance rate of TD jumps, and
         the second is the model number.
+
+        Also writes out file containing the adaptive prior odds ratio
+        used to improve mixing. Columns are model1, model2, prior odds.
         
         @param fname: chainfile name
         @param iter: Iteration of sampler
@@ -342,7 +345,7 @@ class RJMCMCSampler(object):
         fout = open(self.outDir + '/odds.txt', 'w')
         for ii in range(self.nmodels):
             for jj in range(ii+1, self.nmodels):
-                fout.write('%d %d %e\n'%(self.models[ii], self.models[jj], \
+                fout.write('%d %d %e\n'%(ii, jj, \
                                         self.odds[ii,jj]))
 
         fout.close()

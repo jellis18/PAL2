@@ -1046,7 +1046,7 @@ class PTAmodels(object):
                                 nSingleFreqs=numSingleFreqs[pindex], \
                                 nSingleDMFreqs=numSingleDMFreqs[pindex], \
                                 likfunc=likfunc, compression=compression, \
-                                write='no', targetAmp=targetAmp, memsave=memsave)
+                                write='no', memsave=memsave)
 
         # Initialise the ptasignal objects
         self.ptasignals = []
@@ -2268,14 +2268,14 @@ class PTAmodels(object):
             logdet_Sigma = 2*np.sum(np.log(np.diag(cf[0])))
             expval2 = sl.cho_solve(cf, d)
         except np.linalg.LinAlgError:
-            #print 'Cholesky Failed when inverting Sigma'
-            return -np.inf
-            #U, s, Vh = sl.svd(Sigma)
-            #if not np.all(s > 0):
-            #    return -np.inf
-            #    #raise ValueError("ERROR: Sigma singular according to SVD")
-            #logdet_Sigma = np.sum(np.log(s))
-            #expval2 = np.dot(Vh.T, np.dot(np.diag(1.0/s), np.dot(U.T, d)))
+            print 'Cholesky Failed when inverting Sigma'
+            #return -np.inf
+            U, s, Vh = sl.svd(Sigma)
+            if not np.all(s > 0):
+                #return -np.inf
+                raise ValueError("ERROR: Sigma singular according to SVD")
+            logdet_Sigma = np.sum(np.log(s))
+            expval2 = np.dot(Vh.T, np.dot(np.diag(1.0/s), np.dot(U.T, d)))
 
 
         loglike += -0.5 * (logdetPhi + logdet_Sigma) + 0.5 * (np.dot(d, expval2)) 
