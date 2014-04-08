@@ -4,6 +4,7 @@
 from __future__ import division
 
 import numpy as np
+import scipy.stats as ss
 import os, sys, time
 
 try:
@@ -78,8 +79,8 @@ class PTSampler(object):
         self.aux = None
 
     def initialize(self, Niter, ladder=None, Tmin=1, Tmax=10, Tskip=100, \
-               isave=1000, covUpdate=1000, SCAMweight=20, \
-               AMweight=20, DEweight=20, burn=10000, \
+               isave=1000, covUpdate=1000, KDEupdate=10000, SCAMweight=20, \
+               AMweight=20, DEweight=20, KDEweight=30, burn=10000, \
                maxIter=None, thin=10, i0=0):
         """
         Initialize MCMC quantities
@@ -96,9 +97,11 @@ class PTSampler(object):
 
         self.ladder = ladder
         self.covUpdate = covUpdate
+        self.KDEupdate = KDEupdate
         self.SCAMweight = SCAMweight
         self.AMweight = AMweight
         self.DEweight = DEweight
+        self.KDEweight = KDEweight
         self.burn = burn
         self.Tskip = Tskip
         self.thin = thin
@@ -179,8 +182,8 @@ class PTSampler(object):
         
 
     def sample(self, p0, Niter, ladder=None, Tmin=1, Tmax=10, Tskip=100, \
-               isave=1000, covUpdate=1000, SCAMweight=20, \
-               AMweight=20, DEweight=20, burn=10000, \
+               isave=1000, covUpdate=1000, KDEupdate=1000, SCAMweight=20, \
+               AMweight=20, DEweight=20, KDEweight=30, burn=10000, \
                maxIter=None, thin=10, i0=0):
 
         """
@@ -193,11 +196,13 @@ class PTSampler(object):
         @param Tmax: Maximum temperature in ladder (default=10) 
         @param Tskip: Number of steps between proposed temperature swaps (default=100)
         @param isave: Number of iterations before writing to file (default=1000)
-        @param covUpdate: Number of iterations between AM covariance updates (default=5000)
+        @param covUpdate: Number of iterations between AM covariance updates (default=1000)
+        @param KDEUpdate: Number of iterations between KDE updates (default=1000)
         @param SCAMweight: Weight of SCAM jumps in overall jump cycle (default=20)
         @param AMweight: Weight of AM jumps in overall jump cycle (default=20)
         @param DEweight: Weight of DE jumps in overall jump cycle (default=20)
-        @param burn: Burn in time (DE jumps added after this iteration) (default=5000)
+        @param KDEweight: Weight of KDE jumps in overall jump cycle (default=100)
+        @param burn: Burn in time (DE jumps added after this iteration) (default=10000)
         @param maxIter: Maximum number of iterations for high temperature chains (default=2*self.Niter)
         @param self.thin: Save every self.thin MCMC samples
         @param i0: Iteration to start MCMC (if i0 !=0, do not re-initialize)
@@ -216,8 +221,8 @@ class PTSampler(object):
         # if picking up from previous run, don't re-initialize
         if i0 == 0:
             self.initialize(Niter, ladder=ladder, Tmin=Tmin, Tmax=Tmax, Tskip=Tskip, \
-               isave=isave, covUpdate=covUpdate, SCAMweight=SCAMweight, \
-               AMweight=AMweight, DEweight=DEweight, burn=burn, \
+               isave=isave, covUpdate=covUpdate, KDEupdate=KDEupdate, SCAMweight=SCAMweight, \
+               AMweight=AMweight, DEweight=DEweight, KDEweight=KDEweight, burn=burn, \
                maxIter=maxIter, thin=thin, i0=i0)
 
         ### compute lnprob for initial point in chain ###
@@ -244,8 +249,6 @@ class PTSampler(object):
         iter = i0
         self.tstart = time.time()
         runComplete = False
-        getCovariance = 0
-        getDEbuf = 0
         while runComplete == False:
             iter += 1
             accepted = 0
@@ -292,6 +295,16 @@ class PTSampler(object):
             [self.comm.send(self.cov, dest=rank+1, tag=111) for rank 
                                             in range(self.nchain-1)]
         
+        # update KDE buffer after burn in
+        if (iter-1) % self.KDEupdate == 0 and \
+           (iter-1) >= (self.burn+self.KDEupdate) and \
+           self.KDEweight > 0:
+            self._updateKDE(iter-1)
+
+            if (iter-1) == self.burn + self.KDEupdate:
+                self.addProposalToCycle(self.KDEJumpProposal, self.KDEweight)
+                self.randomizeProposalCycle()
+        
         # check for sent covariance matrix from T = 0 chain
         getCovariance = self.comm.Iprobe(source=0, tag=111)
         time.sleep(0.000001) 
@@ -307,6 +320,12 @@ class PTSampler(object):
             # broadcast to other chains
             [self.comm.send(self._DEbuffer, dest=rank+1, tag=222) for rank 
                                                     in range(self.nchain-1)]
+
+            # check if this is the first time
+            if (iter-1) == self.burn:
+                addDE = True
+            else:
+                addDE = False
         
         # check for sent DE buffer from T = 0 chain
         getDEbuf = self.comm.Iprobe(source=0, tag=222)
@@ -314,10 +333,13 @@ class PTSampler(object):
 
         if getDEbuf and self.MPIrank > 0:
             self._DEbuffer = self.comm.recv(source=0, tag=222)
-            self.addProposalToCycle(self.DEJump, self.DEweight)
             
             # randomize cycle
-            self.randomizeProposalCycle()
+            if addDE:
+                self.addProposalToCycle(self.DEJump, self.DEweight)
+                self.randomizeProposalCycle()
+            
+            # reset
             getDEbuf = 0
 
         # after burn in, add DE jumps
@@ -506,6 +528,18 @@ class PTSampler(object):
         # do svd
         self.U, self.S, v = np.linalg.svd(self.cov)
 
+    # function to update gaussian KDE  of posterior based on current samples
+    def _updateKDE(self, iter):
+        """
+        Update gaussian KDE of posterior using previous samples
+
+        @param iter: current iteration of chain
+
+        """
+        chain = self._AMbuffer[self.burn:iter,:]
+        self.kde = ss.gaussian_kde(chain.T)
+
+
     # update DE buffer samples
     def _updateDEbuffer(self, iter, burn):
         """
@@ -518,6 +552,34 @@ class PTSampler(object):
         """
 
         self._DEbuffer = self._AMbuffer[iter-burn:iter]
+
+
+
+    # KDE jump proposal
+    def KDEJumpProposal(self, x, iter, beta):
+        """
+        Use Gaussian KDE from previous chain values to propose new parameters.
+        This does not depend on the current position in parameter space and should 
+        help reduce the ACL of the chain.
+
+        @param x: Parameter vector at current position
+        @param iter: Iteration of sampler
+        @param beta: Inverse temperature of chain
+
+        @return: q: New position in parameter space
+        @return: qxy: Forward-Backward jump probability
+
+        """
+        # new parameters
+        q = self.kde.resample(1).flatten()
+
+        # forward-backward jump probability
+        p0 = self.kde.evaluate(x)
+        p1 = self.kde.evaluate(q)
+        qxy = np.log(p0/p1)
+
+        return q, qxy
+
 
         
     # SCAM jump

@@ -1608,7 +1608,6 @@ class PTAmodels(object):
             self.logdetPhi = np.sum(np.log(self.Phi))
 
 
-
         # correlated signals (not as easy)
         if rho is not None and incCorrelations:
         
@@ -2269,13 +2268,14 @@ class PTAmodels(object):
             expval2 = sl.cho_solve(cf, d)
         except np.linalg.LinAlgError:
             print 'Cholesky Failed when inverting Sigma'
+            return -np.inf
             #return -np.inf
-            U, s, Vh = sl.svd(Sigma)
-            if not np.all(s > 0):
+            #U, s, Vh = sl.svd(Sigma)
+            #if not np.all(s > 0):
                 #return -np.inf
-                raise ValueError("ERROR: Sigma singular according to SVD")
-            logdet_Sigma = np.sum(np.log(s))
-            expval2 = np.dot(Vh.T, np.dot(np.diag(1.0/s), np.dot(U.T, d)))
+            #    raise ValueError("ERROR: Sigma singular according to SVD")
+            #logdet_Sigma = np.sum(np.log(s))
+            #expval2 = np.dot(Vh.T, np.dot(np.diag(1.0/s), np.dot(U.T, d)))
 
 
         loglike += -0.5 * (logdetPhi + logdet_Sigma) + 0.5 * (np.dot(d, expval2)) 
