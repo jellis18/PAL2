@@ -262,9 +262,12 @@ class RJMCMCSampler(object):
         for ii in range(Niter-1):
             self.iterations += 1
             self.iterDict[model0] += 1
-
+            
+            # fix prior odds to get odds ratio ~1
             if self.iterations == self.burn:
-                odds = self._updatePriorOdds(self.models[0], self.models[1])
+                for mm in range(self.nmodels):
+                    for nn in range(mm+1, self.nmodels):
+                        odds = self._updatePriorOdds(self.models[mm], self.models[nn])
 
             # propose TD jump (50% of the time)
             alpha = np.random.rand()
