@@ -2019,6 +2019,7 @@ class PTAmodels(object):
 
     def mark1LogLikelihood(self, parameters, incCorrelations=True):
 
+
         loglike = 0
 
         # set pulsar white noise parameters

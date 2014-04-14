@@ -1123,7 +1123,7 @@ def createfourierdesignmatrix(t, nmodes, freq=False, Tspan=None):
     else:
         return F
 
-def createGWB(psr, Amp, gam, DM=False, noCorr=False, seed=None, turnover=False, f0=1e-9):
+def createGWB(psr, Amp, gam, DM=False, noCorr=False, seed=None, turnover=False, f0=1e-9, interpolate=True):
     """
     Function to create GW incuced residuals from a stochastic GWB as defined
     in Chamberlin, Creighton, Demorest et al. (2013)
@@ -1230,13 +1230,23 @@ def createGWB(psr, Amp, gam, DM=False, noCorr=False, seed=None, turnover=False, 
     for ll in range(Npulsars):
         
         Res[ll,:] = Res_t[ll, 10:(npts+10)]
-        f = interp.interp1d(ut, Res[ll,:], kind='linear')
 
-        if DM and len(psr) == 1:
-            print 'adding DM to toas'
-            res_gw.append(f(psr[ll].toas)/((2.3687e-16)*psr[ll].freqs**2))
+        if interpolate:
+            f = interp.interp1d(ut, Res[ll,:], kind='linear')
+
+            if DM and len(psr) == 1:
+                print 'adding DM to toas'
+                res_gw.append(f(psr[ll].toas)/((2.3687e-16)*psr[ll].freqs**2))
+            else:
+                res_gw.append(f(psr[ll].toas))
         else:
-            res_gw.append(f(psr[ll].toas))
+            ntoa = len(psr[ll].toas)
+            res = Res_t[ll,10:(ntoa+10)]
+            if DM and len(psr) == 1:
+                print 'adding DM to toas'
+                res_gw.append(res/((2.3687e-16)*psr[ll].freqs**2))
+            else:
+                res_gw.append(res)
 
     return res_gw
 
