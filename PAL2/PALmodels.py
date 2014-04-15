@@ -2241,7 +2241,7 @@ class PTAmodels(object):
                 logdet_Phi0 = 2*np.sum(np.log(np.diag(cf[0])))
                 PhiinvFJ = sl.cho_solve(cf, sl.block_diag(*FJ))
             except np.linalg.LinAlgError:
-                print 'Cholesky Failed when inverting Phi0'
+                #print 'Cholesky Failed when inverting Phi0'
                 return -np.inf
                 #U, s, Vh = sl.svd(Phi0)
                 #if not np.all(s > 0):
@@ -2268,7 +2268,7 @@ class PTAmodels(object):
             logdet_Sigma = 2*np.sum(np.log(np.diag(cf[0])))
             expval2 = sl.cho_solve(cf, d)
         except np.linalg.LinAlgError:
-            print 'Cholesky Failed when inverting Sigma'
+            #print 'Cholesky Failed when inverting Sigma'
             return -np.inf
             #return -np.inf
             #U, s, Vh = sl.svd(Sigma)
@@ -2505,6 +2505,54 @@ class PTAmodels(object):
                     q[parind+1] = parameters[parind+1]
 
         
+        return q, qxy
+    
+    # red noise sepctrum draws
+    def drawFromRedNoiseSpectrumPrior(self, parameters, iter, beta):
+        
+        # post-jump parameters
+        q = parameters.copy()
+
+        # transition probability
+        qxy = 0
+
+        # find number of signals
+        nsigs = np.sum(self.getNumberOfSignalsFromDict(self.ptasignals, stype='spectrum', \
+                                                       corr='single'))
+        signum = self.getSignalNumbersFromDict(self.ptasignals, stype='spectrum', \
+                                               corr='single')
+
+        # which parameters to jump
+        ind = np.unique(np.random.randint(0, nsigs, nsigs))
+
+        # draw params from prior
+        for ii in ind:
+
+            # get signal
+            sig = self.ptasignals[signum[ii]]
+            parind = sig['parindex']
+            npars = sig['npars']            
+
+            # jump in amplitude if varying
+            for jj in range(npars):
+                if sig['bvary'][jj]:
+
+
+                    # log prior
+                    if sig['prior'][jj] == 'log':
+                        q[parind+jj] = np.random.uniform(self.pmin[parind+jj], \
+                                                         self.pmax[parind+jj])
+                        qxy += 0
+
+                    elif sig['prior'][jj] == 'uniform':
+                        q[parind+jj] = np.log10(np.random.uniform(10**self.pmin[parind+jj], \
+                                                               10**self.pmax[parind+jj]))
+                        qxy += np.log(10**parameters[parind+jj]/10**q[parind+jj])
+                        
+                    else:
+                        print 'Prior type not recognized for parameter'
+                        q[parind+jj] = parameters[parind+jj]
+
         return q, qxy
 
 

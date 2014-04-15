@@ -12,6 +12,12 @@ try:
 except ImportError:
     from . import nompi4py as MPI
 
+try:
+    import acor
+except ImportError:
+    print 'Do not have acor package'
+    pass
+
 
 class PTSampler(object):
 
@@ -81,7 +87,7 @@ class PTSampler(object):
     def initialize(self, Niter, ladder=None, Tmin=1, Tmax=10, Tskip=100, \
                isave=1000, covUpdate=1000, KDEupdate=10000, SCAMweight=20, \
                AMweight=20, DEweight=20, KDEweight=30, burn=10000, \
-               maxIter=None, thin=10, i0=0):
+               maxIter=None, thin=10, i0=0, neff=100000):
         """
         Initialize MCMC quantities
 
@@ -107,6 +113,7 @@ class PTSampler(object):
         self.thin = thin
         self.isave = isave
         self.Niter = Niter
+        self.neff = neff
         self.tstart = 0
 
         N = int(maxIter/thin)
@@ -184,7 +191,7 @@ class PTSampler(object):
     def sample(self, p0, Niter, ladder=None, Tmin=1, Tmax=10, Tskip=100, \
                isave=1000, covUpdate=1000, KDEupdate=1000, SCAMweight=20, \
                AMweight=20, DEweight=20, KDEweight=30, burn=10000, \
-               maxIter=None, thin=10, i0=0):
+               maxIter=None, thin=10, i0=0, neff=100000):
 
         """
         Function to carry out PTMCMC sampling.
@@ -206,6 +213,7 @@ class PTSampler(object):
         @param maxIter: Maximum number of iterations for high temperature chains (default=2*self.Niter)
         @param self.thin: Save every self.thin MCMC samples
         @param i0: Iteration to start MCMC (if i0 !=0, do not re-initialize)
+        @param neff: Number of effective samples to collect before terminating
 
         """
 
@@ -223,7 +231,7 @@ class PTSampler(object):
             self.initialize(Niter, ladder=ladder, Tmin=Tmin, Tmax=Tmax, Tskip=Tskip, \
                isave=isave, covUpdate=covUpdate, KDEupdate=KDEupdate, SCAMweight=SCAMweight, \
                AMweight=AMweight, DEweight=DEweight, KDEweight=KDEweight, burn=burn, \
-               maxIter=maxIter, thin=thin, i0=i0)
+               maxIter=maxIter, thin=thin, i0=i0, neff=neff)
 
         ### compute lnprob for initial point in chain ###
         # compute prior
@@ -249,6 +257,7 @@ class PTSampler(object):
         iter = i0
         self.tstart = time.time()
         runComplete = False
+        Neff = 0
         while runComplete == False:
             iter += 1
             accepted = 0
@@ -256,10 +265,26 @@ class PTSampler(object):
             # call PTMCMCOneStep
             p0, lnlike0, lnprob0 = self.PTMCMCOneStep(p0, lnlike0, lnprob0, iter)
 
-            # stop
+            # compute effective number of samples
+            if iter % 1000 == 0 and iter > 2*self.burn and self.MPIrank == 0:
+                try:
+                    Neff = iter/np.max([acor.acor(self._AMbuffer[self.burn:(iter-1),ii])[0] \
+                                        for ii in range(self.ndim)])
+                    print '\n {0} effective samples'.format(Neff)
+                except NameError:
+                    Neff = 0
+                    pass
+
+            # stop if reached maximum number of iterations
             if self.MPIrank == 0 and iter >= self.Niter-1:
                 if self.verbose:
                     print '\nRun Complete'
+                runComplete = True
+            
+            # stop if reached effective number of samples
+            if self.MPIrank == 0 and int(Neff) > self.neff:
+                if self.verbose:
+                    print '\nRun Complete with {0} effective samples'.format(int(Neff))
                 runComplete = True
 
             if self.MPIrank == 0 and runComplete:
@@ -298,7 +323,7 @@ class PTSampler(object):
         # update KDE buffer after burn in
         if (iter-1) % self.KDEupdate == 0 and \
            (iter-1) >= (self.burn+self.KDEupdate) and \
-           self.KDEweight > 0:
+           self.KDEweight > 0 and self.MPIrank == 0:
             self._updateKDE(iter-1)
 
             if (iter-1) == self.burn + self.KDEupdate:
@@ -321,11 +346,6 @@ class PTSampler(object):
             [self.comm.send(self._DEbuffer, dest=rank+1, tag=222) for rank 
                                                     in range(self.nchain-1)]
 
-            # check if this is the first time
-            if (iter-1) == self.burn:
-                addDE = True
-            else:
-                addDE = False
         
         # check for sent DE buffer from T = 0 chain
         getDEbuf = self.comm.Iprobe(source=0, tag=222)
@@ -335,7 +355,7 @@ class PTSampler(object):
             self._DEbuffer = self.comm.recv(source=0, tag=222)
             
             # randomize cycle
-            if addDE:
+            if self.DEJump not in self.propCycle:
                 self.addProposalToCycle(self.DEJump, self.DEweight)
                 self.randomizeProposalCycle()
             
