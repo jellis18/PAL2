@@ -335,12 +335,14 @@ class DataFile(object):
             tobs = []
             nobs = len(t2pulsar.toas())
             pulsarname = map(str, [t2pulsar.name] * nobs)
-
-            if "tobs" in flagGroup:
-                tobs = map(float, flagGroup['tobs'])
-            else:
-                print 'No tobs flag for PSR {0}, using 20 mins'.format(t2pulsar.name)
-                tobs = 1200*np.ones(nobs)
+            
+            #TODO: fix this to deal on a TOA by TOA basis
+            #if "tobs" in flagGroup:
+            #    tobs = map(float, flagGroup['tobs'])
+            #else:
+            #    print 'No tobs flag for PSR {0}, using 20 mins'.format(t2pulsar.name)
+            tobs = 1200.0*np.ones(nobs)
+            print tobs
 
             self.writeData(flagGroup, "tobs", tobs, overwrite=overwrite)
 
@@ -501,6 +503,7 @@ class DataFile(object):
         psr.ptmpars = np.array(self.getData(psrname, 'tmp_valpre'))
         psr.ptmparerrs = np.array(self.getData(psrname, 'tmp_errpre'))
         psr.flags = map(str, self.getData(psrname, 'efacequad', 'Flags'))
+        print self.getData(psrname, 'tobs', 'Flags')
         psr.tobsflags = map(float, self.getData(psrname, 'tobs', 'Flags'))
 
         # add this for frequency dependent terms

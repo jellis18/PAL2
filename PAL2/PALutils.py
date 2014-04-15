@@ -1123,7 +1123,8 @@ def createfourierdesignmatrix(t, nmodes, freq=False, Tspan=None):
     else:
         return F
 
-def createGWB(psr, Amp, gam, DM=False, noCorr=False, seed=None, turnover=False, f0=1e-9, interpolate=True):
+def createGWB(psr, Amp, gam, DM=False, noCorr=False, seed=None, turnover=False, f0=1e-9, \
+              beta=1, interpolate=True):
     """
     Function to create GW incuced residuals from a stochastic GWB as defined
     in Chamberlin, Creighton, Demorest et al. (2013)
@@ -1195,7 +1196,8 @@ def createGWB(psr, Amp, gam, DM=False, noCorr=False, seed=None, turnover=False, 
     alpha = -0.5 * (gam-3)
     hcf = Amp * (f/f1yr)**(alpha)
     if turnover:
-        hcf /= (1+(f/f0)**(-5/3))
+        si = alpha - beta
+        hcf /= (1+(f/f0)**si)
 
     C = 1 / 96 / np.pi**2 * hcf**2 / f**3 * dur * howml
 
