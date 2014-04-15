@@ -10,7 +10,7 @@ import os, sys, time
 try:
     from mpi4py import MPI
 except ImportError:
-    from . import nompi4py as MPI
+    import nompi4py as MPI
 
 try:
     import acor
