@@ -330,7 +330,7 @@ class DataFile(object):
             self.writeData(flagGroup, flagid, t2pulsar.flags[flagid][t2pulsar.deleted==0], \
                            overwrite=overwrite)
         
-        if not "tobs" in flagGroup:
+        if not "tobs_all" in flagGroup:
             # look for tobs flag for integration time
             tobs = []
             nobs = len(t2pulsar.toas())
@@ -342,9 +342,8 @@ class DataFile(object):
             #else:
             #    print 'No tobs flag for PSR {0}, using 20 mins'.format(t2pulsar.name)
             tobs = 1200.0*np.ones(nobs)
-            print tobs
 
-            self.writeData(flagGroup, "tobs", tobs, overwrite=overwrite)
+            self.writeData(flagGroup, "tobs_all", tobs, overwrite=overwrite)
 
         if not "efacequad" in flagGroup:
             # Check if the sys-flag is present in this set. If it is, add an
@@ -503,8 +502,7 @@ class DataFile(object):
         psr.ptmpars = np.array(self.getData(psrname, 'tmp_valpre'))
         psr.ptmparerrs = np.array(self.getData(psrname, 'tmp_errpre'))
         psr.flags = map(str, self.getData(psrname, 'efacequad', 'Flags'))
-        print self.getData(psrname, 'tobs', 'Flags')
-        psr.tobsflags = map(float, self.getData(psrname, 'tobs', 'Flags'))
+        psr.tobsflags = map(float, self.getData(psrname, 'tobs_all', 'Flags'))
 
         # add this for frequency dependent terms
         #TODO: should eventually change psr.flags to a dictionary
