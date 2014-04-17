@@ -2112,8 +2112,13 @@ class PTAmodels(object):
         loglike += -0.5 * (self.logdetPhi + logdet_Sigma) + 0.5 * (np.dot(d, expval2)) 
 
         return loglike
+    
+    """
+    Older version of mark2 likelihood. Does not include option for multiple pulsars
 
-        def mark2LogLikelihood(self, parameters):
+    """
+
+    def mark2LogLikelihood(self, parameters):
 
         loglike = 0
 
