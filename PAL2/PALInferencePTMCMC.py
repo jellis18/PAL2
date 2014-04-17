@@ -386,7 +386,7 @@ class PTSampler(object):
 
         # hastings step
         diff = newlnprob - lnprob0 + qxy
-        if diff >= np.log(np.random.rand()):
+        if diff > np.log(np.random.rand()):
 
             # accept jump
             p0, lnlike0, lnprob0 = y, newlnlike, newlnprob
@@ -440,7 +440,7 @@ class PTSampler(object):
                 logChainSwap = (1/self.ladder[self.MPIrank-1] - 1/self.ladder[self.MPIrank]) \
                         * (lnlike0 - newlnlike)
 
-                if logChainSwap >= np.log(np.random.rand()):
+                if logChainSwap > np.log(np.random.rand()):
                     swapAccepted = 1
                 else:
                     swapAccepted = 0
