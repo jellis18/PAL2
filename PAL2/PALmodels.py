@@ -362,7 +362,7 @@ class PTAmodels(object):
                 elif noiseModel=='powerlaw':
                     bvary = [True, True, False]
                     pmin = [-20.0, 0.02, 1.0e-11]
-                    pmax = [-10.0, 6.98, 3.0e-9]
+                    pmax = [-11.0, 6.98, 3.0e-9]
                     pstart = [-14.0, 2.01, 1.0e-10]
                     pwidth = [0.1, 0.1, 5.0e-11]
                     prior = [redAmpPrior, redSiPrior, 'log']
@@ -473,7 +473,7 @@ class PTAmodels(object):
             elif gwbModel=='powerlaw':
                 bvary = [True, True, False]
                 pmin = [-17.0, 1.02, 1.0e-11]
-                pmax = [-10.0, 6.98, 3.0e-9]
+                pmax = [-11.0, 6.98, 3.0e-9]
                 pstart = [-15.0, 2.01, 1.0e-10]
                 pwidth = [0.1, 0.1, 5.0e-11]
                 prior = [GWAmpPrior, GWSiPrior, 'log']
@@ -2204,13 +2204,14 @@ class PTAmodels(object):
                 self.Phiinv = sl.cho_solve(cf, np.identity(Phi.shape[0]))
             except np.linalg.LinAlgError:
                 print 'ERROR: Cholesky Failed when inverting Phi0'
-                U, s, Vh = sl.svd(Phi)
-                if not np.all(s > 0):
-                    print "ERROR: Sigma singular according to SVD when inverting Phi0"
-                    return -np.inf
+                print parameters
+                #U, s, Vh = sl.svd(Phi)
+                #if not np.all(s > 0):
+                #    print "ERROR: Sigma singular according to SVD when inverting Phi0"
+                return -np.inf
                     #raise ValueError("ERROR: Phi singular according to SVD")
-                self.logdetPhi = np.sum(np.log(s))
-                self.Phiinv = np.dot(Vh.T, np.dot(np.diag(1.0/s), U.T))
+                #self.logdetPhi = np.sum(np.log(s))
+                #self.Phiinv = np.dot(Vh.T, np.dot(np.diag(1.0/s), U.T))
 
         else:
             raise ValueError("ERROR: Have not yet implemented jitter for multiple pulsars")
@@ -2227,10 +2228,11 @@ class PTAmodels(object):
             expval2 = sl.cho_solve(cf, d)
         except np.linalg.LinAlgError:
             print 'Cholesky failed when inverting Sigma'
-            U, s, Vh = sl.svd(Sigma)
-            if not np.all(s > 0):
-                print "ERROR: Sigma singular according to SVD when inverting Sigma"
-                return -np.inf
+            print parameters
+            #U, s, Vh = sl.svd(Sigma)
+            #if not np.all(s > 0):
+                #print "ERROR: Sigma singular according to SVD when inverting Sigma"
+            return -np.inf
                 #raise ValueError("ERROR: Sigma singular according to SVD")
             logdet_Sigma = np.sum(np.log(s))
             expval2 = np.dot(Vh.T, np.dot(np.diag(1.0/s), np.dot(U.T, d)))
