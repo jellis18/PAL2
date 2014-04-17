@@ -506,6 +506,8 @@ class Pulsar(object):
             Dmat = PAL_DMk / (self.freqs**2)
             self.DF = np.zeros((len(self.freqs), 0))
             self.kappadm = np.zeros(2*ndmf)
+            if useAverage:
+                self.DFAv = np.zeros((len(self.freqs), 0))
 
         # create total F matrix if both red and DM
         if ndmf > 0 and nf > 0:
@@ -523,15 +525,21 @@ class Pulsar(object):
 
         # Write these quantities to disk
         if write != 'no':
-            h5df.addData(self.name, 'PAL_Fmat', self.Fmat)
-            h5df.addData(self.name, 'PAL_Ffreqs', self.Ffreqs)
-            h5df.addData(self.name, 'PAL_Fdmmat', self.Fdmmat)
-            h5df.addData(self.name, 'PAL_Fdmfreqs', self.Fdmfreqs)
-            h5df.addData(self.name, 'PAL_Dmat', self.Dmat)
-            h5df.addData(self.name, 'PAL_DF', self.DF)
-
-            h5df.addData(self.name, 'PAL_avetoas', self.avetoas)
-            h5df.addData(self.name, 'PAL_Umat', self.Umat)
+            h5df.addData(self.name, 'Fmat', self.Fmat)
+            h5df.addData(self.name, 'Ftot', self.Ftot)
+            h5df.addData(self.name, 'Ffreqs', self.Ffreqs)
+            h5df.addData(self.name, 'DF', self.DF)
+            h5df.addData(self.name, 'Fdmfreqs', self.Fdmfreqs)
+            
+            if useAverage:
+                h5df.addData(self.name, 'FtotAv', self.FtotAv)
+                h5df.addData(self.name, 'FAvmat', self.FAvmat)
+                h5df.addData(self.name, 'avetoas', self.avetoas)
+                h5df.addData(self.name, 'avefreqs', self.avefreqs)
+                h5df.addData(self.name, 'aveflags', self.aveflags)
+                h5df.addData(self.name, 'avetobs', self.avetobs)
+                h5df.addData(self.name, 'Umat', self.Umat)
+                h5df.addData(self.name, 'DFAv', self.DFAv)
 
         # Next we'll need the G-matrices, and the compression matrices.
         U, s, Vh = sl.svd(self.Mmat)
@@ -548,12 +556,15 @@ class Pulsar(object):
                 ndmodes=2*ndmf, threshold=threshold)
 
         if write != 'no':
-            h5df.addData(self.name, 'PAL_Gmat', self.Gmat)
-            h5df.addData(self.name, 'PAL_Gcmat', self.Gcmat)
-            h5df.addData(self.name, 'PAL_Hmat', self.Hmat)
-            h5df.addData(self.name, 'PAL_Hcmat', self.Hcmat)
-            h5df.addData(self.name, 'PAL_Homat', self.Homat)
-            h5df.addData(self.name, 'PAL_Hocmat', self.Hocmat)
+            if memsave == False:
+                h5df.addData(self.name, 'Gmat', self.Gmat)
+                h5df.addData(self.name, 'Gcmat', self.Gcmat)
+                h5df.addData(self.name, 'Hmat', self.Hmat)
+                h5df.addData(self.name, 'Homat', self.Homat)
+                h5df.addData(self.name, 'Hocmat', self.Hocmat)
+
+            # always need Hcmat
+            h5df.addData(self.name, 'Hcmat', self.Hcmat)
 
         # basic quantities
         self.Gr = np.dot(self.Hmat.T, self.residuals)
@@ -563,7 +574,15 @@ class Pulsar(object):
         if useAverage:
             GtU = np.dot(self.Hmat.T, self.Umat)
             self.UtF = self.FtotAv
-        
+
+
+        if write != 'no':
+            h5df.addData(self.name, 'Gr', self.Gr)
+            h5df.addData(self.name, 'GGr', self.GGr)
+            
+            if useAverage:
+                h5df.addData(self.name, 'UtF', self.UtF)
+
         
         # two component noise stuff
         if self.twoComponentNoise:
@@ -575,7 +594,19 @@ class Pulsar(object):
             self.AGF = np.dot(self.Amat.T, GtF)
             if useAverage:
                 self.AGU = np.dot(self.Amat.T, GtU)
-            
+
+            if write != 'no':
+
+                if memsave == False:
+                    h5df.addData(self.name, 'Amat', self.Amat)
+
+                h5df.addData(self.name, 'Wvec', self.Wvec)
+                h5df.addData(self.name, 'AGr', self.AGr)
+                h5df.addData(self.name, 'AGF', self.AGF)
+                
+                if useAverage:
+                    h5df.addData(self.name, 'AGU', self.AGU)
+
 
             # Diagonalise HotEfHo
             if self.Homat.shape[1] > 0:
@@ -593,17 +624,219 @@ class Pulsar(object):
                 self.AoGr = np.zeros((0, self.Gr.shape[0]))
                 if useAverage:
                     self.AoGU = np.zeros((0, GtU.shape[1]))
+
+            if write != 'no':
+                h5df.addData(self.name, 'Wovec', self.Wovec)
+                h5df.addData(self.name, 'AoGr', self.AoGr)
+
+                if useAverage:
+                    h5df.addData(self.name, 'AoGU', self.AoGU)
+
        
         self.nbasis = self.Hmat.shape[1]
         self.nobasis = self.Homat.shape[1]
+
+        if write != 'no':
+            h5df.addData(self.name, 'nbasis', self.nbasis)
+            h5df.addData(self.name, 'nobasis', self.nobasis)
+
         if memsave:
-            # clear out G and Gc maatrices
+            # clear out G and Gc matrices
             self.Gmat = None
             self.Gcmat = None
             self.Hocmat
             self.Hmat = None
             self.Amat = None
-    
+
+            
+    """
+    For every pulsar, quite a few Auxiliary quantities (like GtF etc.) are
+    necessary for the evaluation of various likelihood functions. This function
+    reads them from the HDF5 file for
+
+    @param h5df:            The DataFile we read things from
+    @param Tmax:            The full duration of the experiment
+    @param nfreqs:          The number of noise frequencies we require for this
+                            pulsar
+    @param ndmfreqs:        The number of DM frequencies we require for this pulsar
+    @param twoComponent:    Whether or not we do the two-component noise
+                            acceleration
+    @param nSingleFreqs:    The number of single floating noise frequencies
+    @param nSingleDMFreqs:  The number of single floating DM frequencies
+    @param compression:     Whether we use compression (None/frequencies/average)
+    @param likfunc:         Which likelihood function to do it for (all/markx/..)
+    @param write:           Which data to write to the HDF5 file ('no' for no
+                            writing, 'likfunc' for the current likfunc, 'all'
+                            for all quantities
+
+    """
+    def readPulsarAuxiliaries(self, h5df, Tmax, nfreqs, ndmfreqs, \
+            twoComponent=False, nSingleFreqs=0, nSingleDMFreqs=0, \
+            compression='None', likfunc='mark1', memsave=True):
+
+
+        # For creating the auxiliaries it does not really matter: we are now
+        # creating all quantities per default
+        self.twoComponentNoise = twoComponent
+
+        # get Tmax
+        self.Tmax = Tmax
+
+        # construct average quantities
+        useAverage = likfunc == 'mark2'
+
+        if compression == 'red':
+            threshold = 0.99
+        else:
+            threshold = 1.0
+
+        # default for detresiduals
+        self.detresiduals = self.residuals.copy()
+
+        # Before writing anything to file, we need to know right away how many
+        # fixed and floating frequencies this model contains.
+        nf = 0 ; ndmf = 0 ; nsf = nSingleFreqs ; nsdmf = nSingleDMFreqs
+        if nfreqs is not None and nfreqs != 0:
+            nf = nfreqs
+        if ndmfreqs is not None and ndmfreqs != 0:
+            ndmf = ndmfreqs
+
+        modelFrequencies = h5df.getData(self.name, 'PAL_modelFrequencies')
+
+        
+        # read the daily averaged residuals
+        if useAverage:
+            self.avetoas = h5df.getData(self.name, 'avetoas')
+            self.avefreqs = h5df.getData(self.name, 'avefreqs')
+            self.aveflags = h5df.getData(self.name, 'aveflags')
+            self.avetobs = h5df.getData(self.name, 'avetobs')
+            self.Umat = h5df.getData(self.name, 'Umat')
+
+
+        # Read in the Fourier design matrices for noise
+        reComputeF = False
+        reComputeFDM = False
+        if nf > 0:
+            self.incRed = True
+            self.Fmat = h5df.getData(self.name, 'Fmat')
+            self.Ffreqs = h5df.getData(self.name, 'Ffreqs')
+
+            if len(self.Ffreqs) != 2*nf:
+                recomputeF = True
+                print 'WARNING: different number of frequencies in file! Recomputing F matrix'
+                (self.Fmat, self.Ffreqs) = PALutils.createfourierdesignmatrix(self.toas, \
+                                                            nf, Tspan=Tmax, freq=True)
+            if useAverage:
+                self.FAvmat = h5df.getData(self.name, 'FAvmat')
+                if len(self.Ffreqs) != 2*nf:
+                    reComputeF = True
+                    print 'WARNING: different number of frequencies in file! Recomputing F matrix'
+                    (self.FAvmat, tmp) = PALutils.createfourierdesignmatrix(self.avetoas, \
+                                                                nf, Tspan=Tmax, freq=True)
+
+            self.kappa = np.zeros(2*nf)
+        else:
+            self.Fmat = np.zeros((len(self.toas), 0))
+            self.Ffreqs = np.zeros(0)
+            self.kappa = np.zeros(2*nf)
+
+        # Read in the Fourier design matrices for DM variations
+        if ndmf > 0:
+            self.incDM = True
+            self.DF = h5df.getData(self.name, 'DF')
+            self.Fdmfreqs = h5df.getData(self.name, 'Fdmfreqs')
+            if len(self.Fdmfreqs) != 2*ndmf:
+                reComputeFDM = True
+                print 'WARNING: different number of frequencies in file! Recomputing DM F matrix'
+                (self.Fdmmat, self.Fdmfreqs) = PALutils.createfourierdesignmatrix(self.toas, \
+                                                        ndmf, Tspan=Tmax, freq=True)
+                Dmat = PAL_DMk / (self.freqs**2)
+                self.DF = (Dmat * self.Fdmmat.T).T
+
+            if useAverage:
+                self.DFAv = h5df.getData(self.name, 'DFAv')
+                if len(self.Fdmfreqs) != 2*ndmf:
+                    reComputeFDM = True
+                    print 'WARNING: different number of frequencies in file! Recomputing DM F matrix'
+                    (self.FdmAvmat, tmp) = PALutils.createfourierdesignmatrix(self.avetoas, \
+                                                                ndmf, Tspan=Tmax, freq=True)
+                    self.DAvmat = PAL_DMk / (self.avefreqs**2)
+                    self.DFAv = (self.DAvmat * self.FdmAvmat.T).T
+                
+            self.kappadm = np.zeros(2*ndmf)
+        else:
+            self.Fdmmat = np.zeros((len(self.freqs), 0))
+            self.Fdmfreqs = np.zeros(0)
+            Dmat = PAL_DMk / (self.freqs**2)
+            self.DF = np.zeros((len(self.freqs), 0))
+            self.kappadm = np.zeros(2*ndmf)
+
+        # create total F matrix if both red and DM
+        if ndmf > 0 and nf > 0:
+            self.Ftot = np.concatenate((self.Fmat, self.DF), axis=1)
+            if useAverage:
+                self.FtotAv = np.concatenate((self.FAvmat, self.DFAv), axis=1)
+        elif ndmf > 0 and nf == 0:
+            self.Ftot = self.DF
+            if useAverage:
+                self.FtotAv = self.DFAv
+        elif ndmf == 0 and nf > 0:
+            self.Ftot = self.Fmat
+            if useAverage:
+                self.FtotAv = self.FAvmat
+
+
+        # Next we'll need the G-matrices, and the compression matrices.
+        if memsave == False:
+            self.Gmat = h5df.getData(self.name, 'Gmat')
+            self.Gcmat = h5df.getData(self.name, 'Gcmat')
+
+
+        # Read in compression matrix
+        self.Hcmat = h5df.getData(self.name, 'Hcmat')
+        if memsave == False:
+            self.Hmat = h5df.getData(self.name, 'Hmat')
+            self.Homat = h5df.getData(self.name, 'Homat')
+            self.Hocmat = h5df.getData(self.name, 'Hocmat')
+        
+
+        # basic quantities
+        self.Gr = h5df.getData(self.name, 'Gr')
+        self.GGr = h5df.getData(self.name, 'GGr')
+        
+        if useAverage:
+            self.UtF = h5df.getData(self.name, 'UtF')
+            if reComputeF or reComputeFDM:
+                self.UtF = self.FtotAv
+        
+        # two component noise stuff
+        if self.twoComponentNoise:
+            self.Wvec = h5df.getData(self.name, 'Wvec')
+            if memsave == False:
+                self.Amat = h5df.getData(self.name, 'Amat')
+
+
+            self.AGr = h5df.getData(self.name, 'AGr')
+            self.AGF = h5df.getData(self.name, 'AGF')
+
+            # raise error if Frequencies don't match
+            if self.AGF.shape[1] != self.Ftot.shape[1]:
+                raise ValueError('ERROR: AGF must be recomputed!!')
+
+            if useAverage:
+                self.AGU = h5df.getData(self.name, 'AGU')
+
+            # don't really need
+            self.Wovec = h5df.getData(self.name, 'Wovec')
+            self.AoGr = h5df.getData(self.name, 'AoGr')
+            
+            if useAverage:
+                self.AoGU = h5df.getData(self.name, 'AoGU')
+
+         
+        self.nbasis = h5df.getData(self.name, 'nbasis')
+        self.nobasis = h5df.getData(self.name, 'nobasis')
+
     
     def rms(self):
 

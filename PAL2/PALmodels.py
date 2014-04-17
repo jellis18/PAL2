@@ -1026,13 +1026,12 @@ class PTAmodels(object):
                 # Read Auxiliaries
                 if verbose:
                     print "Reading Auxiliaries for {0}".format(p.name)
-                p.readPulsarAuxiliaries(self.h5df, Tmax, \
-                        numNoiseFreqs[pindex], \
+                p.readPulsarAuxiliaries(self.h5df, Tmax, numNoiseFreqs[pindex], \
                         numDMFreqs[pindex], ~separateEfacs[pindex], \
-                        nSingleFreqs=numSingleFreqs[pindex], \
-                        nSingleDMFreqs=numSingleDMFreqs[pindex], \
-                        likfunc=likfunc, compression=compression, \
-                        memsave=True)
+                                nSingleFreqs=numSingleFreqs[pindex], \
+                                nSingleDMFreqs=numSingleDMFreqs[pindex], \
+                                likfunc=likfunc, compression=compression, \
+                                memsave=memsave)
             except (StandardError, ValueError, KeyError, IOError, RuntimeError) as err:
                 # Create the Auxiliaries ourselves
 
@@ -1046,7 +1045,7 @@ class PTAmodels(object):
                                 nSingleFreqs=numSingleFreqs[pindex], \
                                 nSingleDMFreqs=numSingleDMFreqs[pindex], \
                                 likfunc=likfunc, compression=compression, \
-                                write='no', memsave=memsave)
+                                write=True, memsave=memsave)
 
         # Initialise the ptasignal objects
         self.ptasignals = []
@@ -1530,6 +1529,7 @@ class PTAmodels(object):
         # now that we have obtained rho and kappa, we can construct Phiinv
         sigdiag = []
         sigoffdiag = []
+        self.gwamp = 0
 
         # no correlated signals (easy)
         if rho is None:
@@ -1708,14 +1708,14 @@ class PTAmodels(object):
             # set red noise, DM and GW parameters
             self.gwamp = 0
             self.corrmat = np.eye(self.npsr)
-            self.constructPhiMatrix(parameters, constructPhi=True)
+            self.constructPhiMatrix(parameters, incCorrelations=False)
 
             # construct cholesky decomp on ORF
             self.corrmatCho = sl.cholesky(self.corrmat)
         
         if np.any(self.gwamp):
-            y = np.random.randn(self.npsr, self.ngwf)
-            ypsr = np.dot(self.corrmatCho, y)
+            #y = np.random.randn(self.npsr, self.ngwf)
+            #ypsr = np.dot(self.corrmatCho, y)
             gwbs = PALutils.createGWB(self.psr, 10**parameters[-2], parameters[-1], \
                                       DM=False, noCorr=False, seed=None)
 
@@ -1731,6 +1731,12 @@ class PTAmodels(object):
             n = np.sqrt(p.Nvec)
             w = np.random.randn(len(p.toas))
             white = n*w
+
+            # jitter noise
+            if p.Umat is not None:
+                j = np.sqrt(p.Qamp)
+                w = np.random.randn(len(p.avetoas))
+                white += np.dot(p.Umat, j*w)
 
             # red noise
             phi = np.sqrt(10**p.kappa_tot)
@@ -2255,7 +2261,7 @@ class PTAmodels(object):
 
     """
 
-    def mark2LogLikelihoodBeta(self, parameters, incCorrelations=True):
+    def mark2LogLikelihood(self, parameters, incCorrelations=True):
 
         loglike = 0
 
@@ -2343,22 +2349,29 @@ class PTAmodels(object):
 
         # if only using one pulsar
         if self.npsr == 1 or not(incCorrelations):
-            Phi0 = np.diag(1/np.diag(self.Phiinv))
-            UPhiU = np.dot(self.psr[0].UtF, np.dot(Phi0, self.psr[0].UtF.T))
-            Phi = UPhiU + np.diag(self.psr[0].Qamp) 
+            logdetPhi = 0
+            tmp = []
+            for ct, p in enumerate(self.psr):
+                Phi0 = np.diag(10**p.kappa_tot+self.gwamp)
+                UPhiU = np.dot(p.UtF, np.dot(Phi0, p.UtF.T))
+                Phi = UPhiU + np.diag(p.Qamp) 
+
             
-            try:
-                cf = sl.cho_factor(Phi)
-                logdetPhi = 2*np.sum(np.log(np.diag(cf[0])))
-                Phiinv = sl.cho_solve(cf, np.identity(Phi.shape[0]))
-            except np.linalg.LinAlgError:
-                #print 'Cholesky failed when inverting phi'
-                #U, s, Vh = sl.svd(Phi)
-                #if not np.all(s > 0):
-                return -np.inf
-                    #raise ValueError("ERROR: Phi singular according to SVD")
-                #logdetPhi = np.sum(np.log(s))
-                #Phiinv = np.dot(Vh.T, np.dot(np.diag(1.0/s), U.T))
+                try:
+                    cf = sl.cho_factor(Phi)
+                    logdetPhi += 2*np.sum(np.log(np.diag(cf[0])))
+                    tmp.append(sl.cho_solve(cf, np.identity(Phi.shape[0])))
+                except np.linalg.LinAlgError:
+                    #print 'Cholesky failed when inverting phi'
+                    #U, s, Vh = sl.svd(Phi)
+                    #if not np.all(s > 0):
+                    return -np.inf
+                        #raise ValueError("ERROR: Phi singular according to SVD")
+                    #logdetPhi = np.sum(np.log(s))
+                    #Phiinv = np.dot(Vh.T, np.dot(np.diag(1.0/s), U.T))
+            
+            # block diagonal matrix
+            Phiinv = sl.block_diag(*tmp)
 
         else:
             

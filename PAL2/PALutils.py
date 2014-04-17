@@ -1143,23 +1143,26 @@ def createGWB(psr, Amp, gam, DM=False, noCorr=False, seed=None, turnover=False, 
         np.random.seed(seed)
 
     # get maximum number of points
-    npts = np.max([len(p.toas) for p in psr])
+    #npts = np.max([len(p.toas) for p in psr])
     
     # get maximum number of epochs
-    #npts = np.max([exploderMatrix(p.toas)[1].shape[1] for p in psr])
+    npts = 300
+    #npts = np.max([p.avetoas for p in psr])
 
     Npulsars = len(psr)
 
     # current Hubble scale in units of 1/day
     H0=(2.27e-18)*(60.*60.*24.)
 
-    # create simulated GW time span (start and end times). Will be slightly larger than real data span
+    # create simulated GW time span (start and end times). 
+    # Will be slightly larger than real data span
 
     #gw start and end times for entire data set
     start = np.min([p.toas.min() for p in psr]) - 86400
     stop = np.max([p.toas.max() for p in psr]) + 86400
         
-    # define "how much longer" or howml variable, needed because IFFT cannot quite match the value of the integral of < |r(t)|^2 > 
+    # define "how much longer" or howml variable, needed because IFFT 
+    # cannot quite match the value of the integral of < |r(t)|^2 > 
     howml = 10.
 
     # duration of the signal, spanning total time data taken in days
