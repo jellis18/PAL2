@@ -951,7 +951,8 @@ class PTAmodels(object):
                                 from the HDF5 file
     @param verbose:             Give some extra information about progress
     """
-    def initModel(self, fullmodel, fromFile=False, verbose=False, memsave=True):
+    def initModel(self, fullmodel, fromFile=False, write=True, \
+                  verbose=False, memsave=True):
         numNoiseFreqs = fullmodel['numNoiseFreqs']
         numDMFreqs = fullmodel['numDMFreqs']
         compression = fullmodel['compression']
@@ -1045,7 +1046,7 @@ class PTAmodels(object):
                                 nSingleFreqs=numSingleFreqs[pindex], \
                                 nSingleDMFreqs=numSingleDMFreqs[pindex], \
                                 likfunc=likfunc, compression=compression, \
-                                write=True, memsave=memsave)
+                                write=write, memsave=memsave)
 
         # Initialise the ptasignal objects
         self.ptasignals = []
