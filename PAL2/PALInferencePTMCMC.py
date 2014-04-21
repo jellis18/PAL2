@@ -508,7 +508,7 @@ class PTSampler(object):
         self._chainfile = open(self.fname, 'a+')
         for jj in range((iter-self.isave), iter, self.thin):
             ind = int(jj/self.thin)
-            self._chainfile.write('%e\t %e\t %e\t'%(self._lnprob[ind], self._lnlike[ind],\
+            self._chainfile.write('%f\t %f\t %f\t'%(self._lnprob[ind], self._lnlike[ind],\
                                                   self.naccepted/iter))
             self._chainfile.write('\t'.join([str(self._chain[ind,kk]) \
                                             for kk in range(self.ndim)]))
