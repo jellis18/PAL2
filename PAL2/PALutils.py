@@ -724,7 +724,7 @@ def createGHmatrix(toa, err, res, G, fidelity, Amp = None):
     Tspan = toa.max() - toa.min()
     if Amp is None:
         sigma_gwb = np.std(res) * 1e-15 * 1e9
-        Amp = sigma_gwb * 0.89 * Tspan**(0.6)
+        Amp = sigma_gwb * 0.89 * Tspan**(-5./3)
     #Amp = (sigma_gwb/(1.37*(10**(-9)))) / (Tspan**(5/3))
     
     # looping over eigenvalues until the fidelity criterion of van Haasteren 2013(b) 

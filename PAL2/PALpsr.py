@@ -305,6 +305,7 @@ class Pulsar(object):
             dt = 14 * 86400
             Tspan = self.toas.max() - self.toas.min()
             l = int(Tspan/dt)*2
+            l = 225
             if l < self.Gmat.shape[1]:
                 pass
             else:
@@ -423,6 +424,10 @@ class Pulsar(object):
 
         # construct average quantities
         useAverage = likfunc == 'mark2'
+
+        # write compression to hdf5 file
+        if write != 'no':
+            h5df.addData(self.name, 'PAL_compression', compression)
 
         if compression == 'red':
             threshold = 0.99
@@ -684,6 +689,16 @@ class Pulsar(object):
 
         # construct average quantities
         useAverage = likfunc == 'mark2'
+
+        # check for compression from hdf5 file. If it doesn't match we have to re-compute
+        try:
+            file_compression = str(h5df.getData(self.name, 'PAL_compression'))
+        except IOError:
+            print 'Assuming compression is None!'
+            file_compression = 'None'
+        print file_compression, compression
+        if file_compression != compression:
+            raise ValueError('ERROR: compression argument does not match one in hdf5 file! Must re-compute everything :(')
 
         if compression == 'red':
             threshold = 0.99
