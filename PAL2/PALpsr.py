@@ -305,7 +305,7 @@ class Pulsar(object):
             dt = 14 * 86400
             Tspan = self.toas.max() - self.toas.min()
             l = int(Tspan/dt)*2
-            l = 225
+            l = 51
             if l < self.Gmat.shape[1]:
                 pass
             else:
@@ -323,7 +323,8 @@ class Pulsar(object):
             # linear dependences...
             #svec, Vmat = sl.eigh(H)
             Vmat, s, Vh = sl.svd(H)
-            self.Hmat = Vmat[:, :l]
+            self.Hmat = H
+            #self.Hmat = Vmat[:, :l]
             self.Hcmat = Vmat[:, l:]
 
             # For compression-complements, construct Ho and Hoc

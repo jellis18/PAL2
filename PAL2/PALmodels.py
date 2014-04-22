@@ -1101,8 +1101,8 @@ class PTAmodels(object):
 
                 elif sig['stype'] == 'spectrum':
                     flagname = 'frequency'
-                    flagvalue = 'rho' + str(jj)
-                    #flagvalue = str(self.psr[psrindex].Ffreqs[2*jj])
+                    #flagvalue = 'rho' + str(jj)
+                    flagvalue = str(self.psr[psrindex].Ffreqs[2*jj])
 
                 elif sig['stype'] == 'dmspectrum':
                     flagname = 'dmfrequency'
@@ -2581,6 +2581,15 @@ class PTAmodels(object):
                 if sig['prior'][0] == 'uniform':
                     prior += np.log(10**sparameters[0])
             
+            if sig['stype'] == 'spectrum' and sig['corr'] == 'single':
+                
+                # cheater prior
+                sig_data = self.psr[psrind].residuals.std() * 100
+                sig_red = 10**sparameters
+                if np.any(sig_red > sig_data):
+                    prior += -np.inf
+
+            
             if sig['stype'] in ['powerlaw'] and sig['corr'] == 'single':
                 if sig['bvary'][0]:
                     if sig['prior'][0] == 'uniform':
@@ -2589,7 +2598,7 @@ class PTAmodels(object):
                 # cheater prior
                 Amp = 10**sparameters[0]
                 gam = sparameters[1]
-                sig_data = self.psr[psrind].residuals.std() * 10
+                sig_data = self.psr[psrind].residuals.std() * 100
                 if gam > 1:
                     sig_red = 2.05e-9 / np.sqrt(gam-1)*(Amp/1e-15)*\
                         (self.Tmax/3.16e7)**((gam-1)/2) 
