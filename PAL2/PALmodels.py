@@ -1886,10 +1886,10 @@ class PTAmodels(object):
     def optimalStatisticCoarse(self, parameters):
 
         # set pulsar white noise parameters
-        self.setPsrNoise(parameters, incJitter=False, incCorrelations=False)
+        self.setPsrNoise(parameters, incJitter=False)
 
         # set red noise, DM and GW parameters
-        self.constructPhiMatrix(parameters)
+        self.constructPhiMatrix(parameters, incCorrelations=False)
 
         # get correlation matrix
         ORF = PALutils.computeORF(self.psr)
@@ -2589,10 +2589,10 @@ class PTAmodels(object):
                 # cheater prior
                 Amp = 10**sparameters[0]
                 gam = sparameters[1]
-                sig_data = self.psr[psrind].residuals.std()
+                sig_data = self.psr[psrind].residuals.std() * 10
                 if gam > 1:
                     sig_red = 2.05e-9 / np.sqrt(gam-1)*(Amp/1e-15)*\
-                        (self.Tmax/3.16e7)**((gam-1)/2) * 10
+                        (self.Tmax/3.16e7)**((gam-1)/2) 
                 else:
                     sig_red = 0
                 if sig_red > sig_data:
