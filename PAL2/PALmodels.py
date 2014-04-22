@@ -2581,7 +2581,7 @@ class PTAmodels(object):
                 if sig['prior'][0] == 'uniform':
                     prior += np.log(10**sparameters[0])
             
-            if sig['stype'] in ['powerlaw', 'dmpowerlaw'] and sig['corr'] == 'single':
+            if sig['stype'] in ['powerlaw'] and sig['corr'] == 'single':
                 if sig['bvary'][0]:
                     if sig['prior'][0] == 'uniform':
                         prior += np.log(10**sparameters[0])
