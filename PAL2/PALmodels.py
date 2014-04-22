@@ -2125,7 +2125,7 @@ class PTAmodels(object):
 
     """
 
-    def mark2LogLikelihood(self, parameters):
+    def mark2LogLikelihood_old(self, parameters):
 
         loglike = 0
 
@@ -2581,10 +2581,22 @@ class PTAmodels(object):
                 if sig['prior'][0] == 'uniform':
                     prior += np.log(10**sparameters[0])
             
-            if sig['stype'] == 'powerlaw' and sig['corr'] == 'single':
+            if sig['stype'] in ['powerlaw', 'dmpowerlaw'] and sig['corr'] == 'single':
                 if sig['bvary'][0]:
                     if sig['prior'][0] == 'uniform':
                         prior += np.log(10**sparameters[0])
+                
+                # cheater prior
+                Amp = 10**sparameters[0]
+                gam = sparameters[1]
+                sig_data = self.psr[psrind].residuals.std()
+                if gam > 1:
+                    sig_red = 2.05e-9 / np.sqrt(gam-1)*(Amp/1e-15)*\
+                        (self.Tmax/3.16e7)**((gam-1)/2) * 10
+                else:
+                    sig_red = 0
+                if sig_red > sig_data:
+                    prior += -np.inf
 
         return prior
 
