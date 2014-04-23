@@ -1102,11 +1102,11 @@ class PTAmodels(object):
                 elif sig['stype'] == 'spectrum':
                     flagname = 'frequency'
                     #flagvalue = 'rho' + str(jj)
-                    flagvalue = str(self.psr[psrindex].Ffreqs[2*jj])
+                    flagvalue = 'red_' + str(self.psr[psrindex].Ffreqs[2*jj])
 
                 elif sig['stype'] == 'dmspectrum':
                     flagname = 'dmfrequency'
-                    flagvalue = str(self.psr[psrindex].Fdmfreqs[2*jj])
+                    flagvalue = 'dm_' +str(self.psr[psrindex].Fdmfreqs[2*jj])
 
                 elif sig['stype'] == 'powerlaw':
                     flagname = 'powerlaw'

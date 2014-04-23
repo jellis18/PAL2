@@ -523,7 +523,83 @@ def upperlimitplot2d(x, y, sigma=0.95, ymin=None, ymax=None, bins=40, log=False,
     else:
         plt.savefig('2dUpperLimit.pdf', bbox_inches='tight')
 
+        """
+Given an mcmc chain, plot the log-spectrum
+
+"""
+def makespectrumplot(chain, parstart=1, numfreqs=10, freqs=None, \
+        Apl=None, gpl=None, Asm=None, asm=None, fcsm=0.1, plotlog=False, \
+        lcolor='black', Tmax=None, Aref=None):
+    if freqs is None:
+        ufreqs = np.log10(np.arange(1, 1+numfreqs))
+    else:
+        ufreqs = np.log10(np.sort(np.array(list(set(freqs)))))
+
+    #ufreqs = np.array(list(set(freqs)))
+    yval = np.zeros(len(ufreqs))
+    yerr = np.zeros(len(ufreqs))
+
+    if len(ufreqs) != (numfreqs):
+        print "WARNING: parameter range does not correspond to #frequencies"
+
+    for ii in range(numfreqs):
+        fmin, fmax = confinterval(chain[:, parstart+ii], sigma=0.68)
+        yval[ii] = (fmax + fmin) * 0.5
+        yerr[ii] = (fmax - fmin) * 0.5
+
+    fig = plt.figure()
+
+    # For plotting reference spectra
+    pfreqs = 10 ** ufreqs
+    ypl = None
+    ysm = None
+
+    if plotlog:
+        pic_spy = 3.16e7
+        plt.errorbar(ufreqs, yval, yerr=yerr, fmt='.', c=lcolor)
+        # outmatrix = np.array([ufreqs, yval, yerr]).T
+        # np.savetxt('spectrumplot.txt', outmatrix)
+
+        if Apl is not None and gpl is not None and Tmax is not None:
+            Apl = 10**Apl
+            ypl = (Apl**2 * pic_spy**3 / (12*np.pi*np.pi * (Tmax))) * ((pfreqs * pic_spy) ** (-gpl))
+            plt.plot(np.log10(pfreqs), np.log10(ypl), 'g--', linewidth=2.0)
+
+        if Asm is not None and asm is not None and Tmax is not None:
+            Asm = 10**Asm
+            fcsm = fcsm / pic_spy
+            ysm = (Asm * pic_spy**3 / Tmax) * ((1 + (pfreqs/fcsm)**2)**(-0.5*asm))
+            plt.plot(np.log10(pfreqs), np.log10(ysm), 'r--', linewidth=2.0)
+
+
+        #plt.axis([np.min(ufreqs)-0.1, np.max(ufreqs)+0.1, np.min(yval-yerr)-1, np.max(yval+yerr)+1])
+        plt.xlabel("Frequency [log(f/Hz)]")
+        #if True:
+        #    #freqs = likobhy.ptapsrs[0].Ffreqs
+        #    Tmax = 156038571.88061461
+        #    Apl = 10**-13.3 ; Asm = 10**-24
+        #    apl = 4.33 ; asm = 4.33
+        #    fc = (10**-1.0)/pic_spy
+
+        #    pcsm = (Asm * pic_spy**3 / Tmax) * ((1 + (freqs/fc)**2)**(-0.5*asm))
+        #    pcpl = (Apl**2 * pic_spy**3 / (12*np.pi*np.pi * Tmax)) * \
+        #    (freqs*pic_spy) ** (-apl)
+        #    plt.plot(np.log10(freqs), np.log10(pcsm), 'r--', linewidth=2.0)
+        #    plt.plot(np.log10(freqs), np.log10(pcpl), 'g--', linewidth=2.0)
+
+    else:
+        plt.errorbar(10**ufreqs, yval, yerr=yerr, fmt='.', c='black')
+        if Aref is not None:
+            plt.plot(10**ufreqs, np.log10(yinj), 'k--')
+        plt.axis([np.min(10**ufreqs)*0.9, np.max(10**ufreqs)*1.01, np.min(yval-yerr)-1, np.max(yval+yerr)+1])
+        plt.xlabel("Frequency [Hz]")
+
+    plt.title("Power spectrum")
+    plt.ylabel("Power [log(r)]")
+    plt.grid(True)
+
     
+
 
 
 
