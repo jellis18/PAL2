@@ -1102,7 +1102,10 @@ class PTAmodels(object):
                 elif sig['stype'] == 'spectrum':
                     flagname = 'frequency'
                     #flagvalue = 'rho' + str(jj)
-                    flagvalue = 'red_' + str(self.psr[psrindex].Ffreqs[2*jj])
+                    if sig['corr'] == 'single':
+                        flagvalue = 'red_' + str(self.psr[psrindex].Ffreqs[2*jj])
+                    elif sig['corr'] == 'gr':
+                        flagvalue = 'gwb_' + str(self.psr[psrindex].Ffreqs[2*jj])
 
                 elif sig['stype'] == 'dmspectrum':
                     flagname = 'dmfrequency'
@@ -2719,6 +2722,54 @@ class PTAmodels(object):
                         q[parind+jj] = parameters[parind+jj]
 
         return q, qxy
+
+        # red noise sepctrum draws
+    def drawFromGWBSpectrumPrior(self, parameters, iter, beta):
+        
+        # post-jump parameters
+        q = parameters.copy()
+
+        # transition probability
+        qxy = 0
+
+        # find number of signals
+        nsigs = 1
+        signum = self.getSignalNumbersFromDict(self.ptasignals, stype='spectrum', \
+                                               corr='gr')
+
+        # which parameters to jump
+        ind = np.unique(np.random.randint(0, nsigs, nsigs))
+
+        # draw params from prior
+        for ii in ind:
+
+            # get signal
+            sig = self.ptasignals[signum[ii]]
+            parind = sig['parindex']
+            npars = sig['npars']            
+
+            # jump in amplitude if varying
+            for jj in range(npars):
+                if sig['bvary'][jj]:
+
+
+                    # log prior
+                    if sig['prior'][jj] == 'log':
+                        q[parind+jj] = np.random.uniform(self.pmin[parind+jj], \
+                                                         self.pmax[parind+jj])
+                        qxy += 0
+
+                    elif sig['prior'][jj] == 'uniform':
+                        q[parind+jj] = np.log10(np.random.uniform(10**self.pmin[parind+jj], \
+                                                               10**self.pmax[parind+jj]))
+                        qxy += np.log(10**parameters[parind+jj]/10**q[parind+jj])
+                        
+                    else:
+                        print 'Prior type not recognized for parameter'
+                        q[parind+jj] = parameters[parind+jj]
+
+        return q, qxy
+
 
 
     # GWB draws draws
