@@ -10,6 +10,7 @@ from matplotlib.ticker import FormatStrFormatter, LinearLocator, NullFormatter, 
 import matplotlib.ticker
 import matplotlib.colors
 from optparse import OptionParser
+import os
 
 """
 Given a 2D matrix of (marginalised) likelihood levels, this function returns
@@ -597,6 +598,45 @@ def makespectrumplot(chain, parstart=1, numfreqs=10, freqs=None, \
     plt.title("Power spectrum")
     plt.ylabel("Power [log(r)]")
     plt.grid(True)
+
+
+def makePostPlots(chain, labels, outDir='./postplots'):
+
+    import acor
+
+    if not os.path.exists(outDir):
+        try:
+            os.makedirs(outDir)
+        except OSError:
+            pass
+
+
+    ndim = chain.shape[1]
+    for ii in range(ndim):
+
+        xmajorLocator = matplotlib.ticker.MaxNLocator(nbins=6,prune='both')
+        ymajorLocator = matplotlib.ticker.MaxNLocator(nbins=6,prune='both')
+
+        fig = plt.figure(figsize=(10,4))
+
+        ax = fig.add_subplot(121)
+        acl = acor.acor(chain[:,ii])[0]
+        neff = len(chain[:,ii]) / acl * 10
+        ax.plot(chain[:,ii])
+        plt.title('Neff = {0}'.format(int(neff)))
+        plt.ylabel(labels[ii])
+
+        ax = fig.add_subplot(122)
+        ax.hist(chain[:,ii], 50, lw=2, color='b')
+        plt.xlabel(labels[ii])
+        ax.xaxis.set_major_locator(xmajorLocator)
+        ax.yaxis.set_major_locator(ymajorLocator)
+        
+        plt.savefig(outDir + '/' + labels[ii] + '_post.png', bbox_inches='tight', \
+                   dpi=200)
+
+
+
 
     
 

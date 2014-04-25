@@ -466,7 +466,7 @@ class PTAmodels(object):
             if gwbModel=='spectrum':
                 bvary = [True]*nfreqs
                 pmin = [-18.0]*nfreqs
-                pmax = [-7.0]*nfreqs
+                pmax = [-8.0]*nfreqs
                 pstart = [-10.0]*nfreqs
                 pwidth = [0.1]*nfreqs
                 prior = [GWspectrumPrior]*nfreqs
@@ -2580,11 +2580,19 @@ class PTAmodels(object):
             # which ones are varying
             sparameters[sig['bvary']] = parameters[parind:parind+npars]
 
-            if sig['corr'] == 'gr':
+            if sig['corr'] == 'gr' and sig['stype'] == 'powerlaw':
                 if sig['prior'][0] == 'uniform':
                     prior += np.log(10**sparameters[0])
             
+            if sig['corr'] == 'gr' and sig['stype'] == 'spectrum':
+                if np.any(np.array(sig['prior']) == 'uniform'):
+                    idx = np.array(sig['prior']) == 'uniform'
+                    prior += np.sum(np.log(10**sparameters[idx]))
+            
             if sig['stype'] == 'spectrum' and sig['corr'] == 'single':
+                if np.any(np.array(sig['prior']) == 'uniform'):
+                    idx = np.array(sig['prior']) == 'uniform'
+                    prior += np.sum(np.log(10**sparameters[idx]))
                 
                 # cheater prior
                 sig_data = self.psr[psrind].residuals.std() * 100
