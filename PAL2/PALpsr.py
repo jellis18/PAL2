@@ -569,8 +569,9 @@ class Pulsar(object):
                 h5df.addData(self.name, 'Homat', self.Homat)
                 h5df.addData(self.name, 'Hocmat', self.Hocmat)
 
-            # always need Hcmat
-            h5df.addData(self.name, 'Hcmat', self.Hcmat)
+            # write Hcmat if compression is none
+            if compression == None or compression == 'None':
+                h5df.addData(self.name, 'Hcmat', self.Hcmat)
 
         # basic quantities
         self.Gr = np.dot(self.Hmat.T, self.residuals)
@@ -809,7 +810,9 @@ class Pulsar(object):
 
 
         # Read in compression matrix
-        self.Hcmat = h5df.getData(self.name, 'Hcmat')
+        if compression == None or compression == 'None':
+            self.Hcmat = h5df.getData(self.name, 'Hcmat')
+
         if memsave == False:
             self.Hmat = h5df.getData(self.name, 'Hmat')
             self.Homat = h5df.getData(self.name, 'Homat')
