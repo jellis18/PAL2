@@ -1,3 +1,4 @@
+from __future__ import division
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.interpolate as interp
@@ -58,7 +59,7 @@ def getsigmalevels(hist2d):
 
   return level1, level2, level3
 
-def confinterval(samples, sigma=0.68, onesided=False):
+def confinterval(samples, sigma=0.68, onesided=False, weights=None, bins=40):
     """
 
     Given a list of samples, return the desired cofidence intervals.
@@ -74,12 +75,23 @@ def confinterval(samples, sigma=0.68, onesided=False):
 
     """
 
-    # Create the ecdf function
-    ecdf = sm.distributions.ECDF(samples)
+    # Create the histogram
+    hist, xedges = np.histogram(samples, bins=bins, weights=weights)
+    xedges = np.delete(xedges, -1) + 0.5*(xedges[1] - xedges[0])
+
+    # CDF
+    cdf = np.cumsum(hist/hist.sum())
+
+    # interpolate
+    x = np.linspace(xedges.min(), xedges.max(), 10000)
+    ifunc = interp.interp1d(xedges, cdf, kind='linear')
+    y = ifunc(x)
+    
+    #ecdf = sm.distributions.ECDF(samples)
 
     # Create the binning
-    x = np.linspace(min(samples), max(samples), 1000)
-    y = ecdf(x)
+    #x = np.linspace(min(samples), max(samples), 1000)
+    #y = ecdf(x)
 
     # Find the intervals
     x2min = y[0]
@@ -180,6 +192,27 @@ def makesubplot2d(ax, samples1, samples2, cmap, color=True, weights=None, smooth
         ax.set_xscale('log')
     if logy:
         ax.set_yscale('log')
+
+def getMeanAndStd(samples, weights=None, bins=50):
+    """
+    Get mean and standard deviation. Only really useful when weights != None
+    """
+
+    hist, xedges = np.histogram(samples, bins, normed=True, weights=weights)
+    xedges = np.delete(xedges, -1) + 0.5*(xedges[1] - xedges[0])
+    
+    # pdf
+    p = hist/np.sum(hist)
+
+    # mean
+    m = np.sum(xedges*p)
+
+    # variance
+    std = np.sqrt(np.sum(xedges**2*p) - m**2)
+
+
+    return m, std
+
     
     
 def makesubplot1d(ax, samples, weights=None, interpolate=False, smooth=True,\
@@ -217,9 +250,10 @@ def getMax(samples, weights=None, range=None, bins=50):
     """
 
     if range is None:
-        hist, xedges = np.histogram(samples, bins, normed=True)
+        hist, xedges = np.histogram(samples, bins, normed=True, weights=weights)
     else:
-        hist, xedges = np.histogram(samples, bins, normed=True, range=range)
+        hist, xedges = np.histogram(samples, bins, normed=True, range=range,\
+                                   weights=weights)
 
     xedges = np.delete(xedges, -1) + 0.5*(xedges[1] - xedges[0])
 
@@ -627,7 +661,12 @@ def makePostPlots(chain, labels, outDir='./postplots'):
         plt.ylabel(labels[ii])
 
         ax = fig.add_subplot(122)
-        ax.hist(chain[:,ii], 50, lw=2, color='b')
+        if 'equad' in labels[ii] or 'jitter' in labels[ii] or \
+           'Amplitude' in labels[ii]:
+            ax.hist(10**chain[:,ii], 50, lw=2, color='b', \
+                    weights=10**chain[:,ii], normed=True)
+        else:
+            ax.hist(chain[:,ii], 50, lw=2, color='b', normed=True)
         plt.xlabel(labels[ii])
         ax.xaxis.set_major_locator(xmajorLocator)
         ax.yaxis.set_major_locator(ymajorLocator)

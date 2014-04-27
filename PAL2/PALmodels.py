@@ -2595,9 +2595,10 @@ class PTAmodels(object):
                     prior += np.sum(np.log(10**sparameters[idx]))
                 
                 # cheater prior
-                sig_data = self.psr[psrind].residuals.std() * 100
-                sig_red = 10**sparameters
-                if np.any(sig_red > sig_data):
+                sig_data = self.psr[psrind].residuals.std() * 10
+                sig_red = np.sqrt(np.sum(10**sparameters))
+                #print sig_red, sig_data
+                if sig_red > sig_data:
                     prior += -np.inf
 
             
@@ -2609,7 +2610,7 @@ class PTAmodels(object):
                 # cheater prior
                 Amp = 10**sparameters[0]
                 gam = sparameters[1]
-                sig_data = self.psr[psrind].residuals.std() * 100
+                sig_data = self.psr[psrind].residuals.std() * 10
                 if gam > 1:
                     sig_red = 2.05e-9 / np.sqrt(gam-1)*(Amp/1e-15)*\
                         (self.Tmax/3.16e7)**((gam-1)/2) 
