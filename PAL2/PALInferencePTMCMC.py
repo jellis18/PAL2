@@ -158,11 +158,17 @@ class PTSampler(object):
         if self.resume and os.path.isfile(self.fname):
             if self.verbose:
                 print 'Resuming run from chain file {0}'.format(self.fname)
-            self.resumechain = np.loadtxt(self.fname)
-            self.resumeLength = self.resumechain.shape[0]
-        
-        # open chain file
-        self._chainfile = open(self.fname, 'w')
+            try:
+                self.resumechain = np.loadtxt(self.fname)
+                self.resumeLength = self.resumechain.shape[0]
+            except ValueError:
+                print 'WARNING: Cant read in file. Removing last line.'
+                os.system('sed -ie \'$d\' {0}'.format(self.fname))
+                self.resumechain = np.loadtxt(self.fname)
+                self.resumeLength = self.resumechain.shape[0]
+            self._chainfile = open(self.fname, 'a')
+        else:
+            self._chainfile = open(self.fname, 'w')
         self._chainfile.close()
 
     
@@ -184,7 +190,7 @@ class PTSampler(object):
             self._lnprob[ind] = lnprob0
 
         # write to file
-        if iter % self.isave == 0 and iter > 1:
+        if iter % self.isave == 0 and iter > 1 and iter > self.resumeLength:
             self._writeToFile(iter)
 
             # write output covariance matrix
@@ -268,7 +274,6 @@ class PTSampler(object):
         self.updateChains(p0, lnlike0, lnprob0, i0)
 
         self.comm.barrier()
-
 
         # start iterations
         iter = i0
