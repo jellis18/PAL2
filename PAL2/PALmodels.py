@@ -982,7 +982,12 @@ class PTAmodels(object):
             Tstart = np.min([np.min(p.toas), Tstart])
             Tfinish = np.max([np.max(p.toas), Tfinish])
         Tmax = Tfinish - Tstart
+        #Tmax = 1/1.33950638e-09
         self.Tmax = Tmax
+
+        print 'WARNING: Using seperate Tmax for each pulsar'
+        for p in self.psr:
+            p.Tmax = p.toas.max() - p.toas.min()
 
         # If the compressionComplement is defined, overwrite the default
         if evalCompressionComplement != 'None':
@@ -1027,7 +1032,7 @@ class PTAmodels(object):
                 # Read Auxiliaries
                 if verbose:
                     print "Reading Auxiliaries for {0}".format(p.name)
-                p.readPulsarAuxiliaries(self.h5df, Tmax, numNoiseFreqs[pindex], \
+                p.readPulsarAuxiliaries(self.h5df, p.Tmax, numNoiseFreqs[pindex], \
                         numDMFreqs[pindex], ~separateEfacs[pindex], \
                                 nSingleFreqs=numSingleFreqs[pindex], \
                                 nSingleDMFreqs=numSingleDMFreqs[pindex], \
@@ -1041,7 +1046,7 @@ class PTAmodels(object):
                 if verbose:
                     print str(err)
                     print "Creating Auxiliaries for {0}".format(p.name)
-                p.createPulsarAuxiliaries(self.h5df, Tmax, numNoiseFreqs[pindex], \
+                p.createPulsarAuxiliaries(self.h5df, p.Tmax, numNoiseFreqs[pindex], \
                         numDMFreqs[pindex], ~separateEfacs[pindex], \
                                 nSingleFreqs=numSingleFreqs[pindex], \
                                 nSingleDMFreqs=numSingleDMFreqs[pindex], \
@@ -1052,7 +1057,7 @@ class PTAmodels(object):
         self.ptasignals = []
         index = 0
         for ii, signal in enumerate(signals):
-            self.addSignal(signal, index, Tmax)
+            self.addSignal(signal, index, p.Tmax)
             index += self.ptasignals[-1]['npars']
 
         self.allocateLikAuxiliaries()
@@ -2613,7 +2618,7 @@ class PTAmodels(object):
                 sig_data = self.psr[psrind].residuals.std() * 10
                 if gam > 1:
                     sig_red = 2.05e-9 / np.sqrt(gam-1)*(Amp/1e-15)*\
-                        (self.Tmax/3.16e7)**((gam-1)/2) 
+                        (self.psr[psrind].Tmax/3.16e7)**((gam-1)/2) 
                 else:
                     sig_red = 0
                 if sig_red > sig_data:
@@ -3014,4 +3019,107 @@ class PTAmodels(object):
         
         return q, qxy
 
+    """
+    Reconstruct maximum likelihood and uncertainty of fourier coefficients
+
+    EFAC + EQUAD + Red noise + DMV + GWs
+
+    No jitter or frequency lines
+
+    Uses Woodbury lemma
+
+    """
+
+    def reconstructFourier(self, parameters, incCorrelations=True):
+
+
+
+        # set pulsar white noise parameters
+        self.setPsrNoise(parameters, incJitter=False)
+
+        # set red noise, DM and GW parameters
+        self.constructPhiMatrix(parameters, incCorrelations=incCorrelations)
+
+        # set deterministic sources
+        if self.haveDetSources:
+            self.updateDetSources(parameters)
+
+        
+        # compute the white noise terms in the log likelihood
+        FGGNGGF = []
+        ahat, sigma_ahat = [], []
+        nfref = 0
+        for ct, p in enumerate(self.psr):
+                        
+            if p.twoComponentNoise:
+                
+                # equivalent to F^TG(G^TNG)^{-1}G^T\delta t in two component basis
+                if ct == 0:
+                    d = np.dot(p.AGF.T, p.AGr/p.Nwvec)
+                else:
+                    d = np.append(d, np.dot(p.AGF.T, p.AGr/p.Nwvec))
+
+                # compute F^TG(G^TNG)^{-1}G^TF
+                right = ((1/p.Nwvec) * p.AGF.T).T
+                FGGNGGF.append(np.dot(p.AGF.T, right))
+
+            
+            else:   
+
+                # G(G^TNG)^{-1}G^T = N^{-1} - N^{-1}G_c(G_c^TN^{-1}G_c)^{-1}N^{-1}
+                Nir = p.detresiduals / p.Nvec
+                NiGc = ((1.0/p.Nvec) * p.Hcmat.T).T
+                GcNiGc = np.dot(p.Hcmat.T, NiGc)
+                NiF = ((1.0/p.Nvec) * p.Ftot.T).T
+                GcNir = np.dot(NiGc.T, p.detresiduals)
+                GcNiF = np.dot(NiGc.T, p.Ftot)
+
+                try:
+                    cf = sl.cho_factor(GcNiGc)
+                    GcNiGcr = sl.cho_solve(cf, GcNir)
+                    GcNiGcF = sl.cho_solve(cf, GcNiF)
+                    NiGcNiGcr = np.dot(NiGc, GcNiGcr)
+
+                except np.linalg.LinAlgError:
+                    print "MAJOR ERROR"
+                
+                #F^TG(G^TNG)^{-1}G^T\delta t 
+                if ct == 0:
+                    d = np.dot(p.Ftot.T, Nir - NiGcNiGcr)
+                else:
+                    d = np.append(d, np.dot(p.Ftot.T, Nir - NiGcNiGcr))
+
+                # compute F^TG(G^TNG)^{-1}G^TF
+                FGGNGGF.append(np.dot(NiF.T, p.Ftot) - np.dot(GcNiF.T, GcNiGcF))
+
+                
+            # compute the red noise, DMV and GWB terms in the log likelihood
+            
+            # compute sigma
+            nf = self.npftot[ct]
+            print nf
+            Sigma = FGGNGGF[ct] + self.Phiinv[nfref:(nfref+nf), nfref:(nfref+nf)]
+            Phi = np.diag(self.Phi[nfref:(nfref+nf)])
+
+            # cholesky decomp for maximum likelihood fourier components
+            try:
+                cf = sl.cho_factor(Sigma)
+                ahat.append(sl.cho_solve(cf, d))
+                SigmaInv = sl.cho_solve(cf, np.eye(Sigma.shape[0]))
+            except np.linalg.LinAlgError:
+                raise ValueError("ERROR: Sigma singular according to SVD")
+
+            # calculate uncertainty in max-likelihood fourier coefficients
+            term1 = np.dot(SigmaInv, np.dot(FGGNGGF[ct], SigmaInv))
+            tmp = np.dot(SigmaInv, FGGNGGF[ct])
+            term2 = np.dot(tmp, np.dot(Phi, tmp.T))
+            sigma_ahat.append(np.diag(term1+term2))
+
+
+            # increment frequency counter
+            nfref += nf
+            
+
+        return ahat, sigma_ahat
+    
 
