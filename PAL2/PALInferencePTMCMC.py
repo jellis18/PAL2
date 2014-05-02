@@ -47,12 +47,13 @@ class PTSampler(object):
     for log prior
     @param outDir: Full path to output directory for chain files (default = ./chains)
     @param verbose: Update current run-status to the screen (default=True)
+    @param resume: Resume from a previous chain (still in testing so beware) (default=False)
 
     """
 
     def __init__(self, ndim, logl, logp, cov, loglargs=[], loglkwargs={}, \
                  logpargs=[], logpkwargs={}, comm=MPI.COMM_WORLD, \
-                 outDir='./chains', verbose=True):
+                 outDir='./chains', verbose=True, resume=False):
 
         # MPI initialization
         self.comm = comm
@@ -64,6 +65,7 @@ class PTSampler(object):
         self.logp = _function_wrapper(logp, logpargs, logpkwargs)
         self.outDir = outDir
         self.verbose = verbose
+        self.resume = resume
 
         # setup output file
         if not os.path.exists(self.outDir):
@@ -84,6 +86,7 @@ class PTSampler(object):
         # indicator for auxilary jumps
         self.aux = None
 
+        
     def initialize(self, Niter, ladder=None, Tmin=1, Tmax=10, Tskip=100, \
                isave=1000, covUpdate=1000, KDEupdate=10000, SCAMweight=20, \
                AMweight=20, DEweight=20, KDEweight=30, burn=10000, \
@@ -151,6 +154,14 @@ class PTSampler(object):
 
         # set up output file
         self.fname = self.outDir + '/chain_{0}.txt'.format(self.temp)
+        self.resumeLength = 0
+        if self.resume and os.path.isfile(self.fname):
+            if self.verbose:
+                print 'Resuming run from chain file {0}'.format(self.fname)
+            self.resumechain = np.loadtxt(self.fname)
+            self.resumeLength = self.resumechain.shape[0]
+        
+        # open chain file
         self._chainfile = open(self.fname, 'w')
         self._chainfile.close()
 
@@ -234,18 +245,24 @@ class PTSampler(object):
                maxIter=maxIter, thin=thin, i0=i0, neff=neff)
 
         ### compute lnprob for initial point in chain ###
-        # compute prior
-        lp = self.logp(p0)
 
-        if lp == float(-np.inf):
-
-            lnprob0 = -np.inf
-            lnlike0 = -np.inf
-
+        # if resuming, just start with first point in chain
+        if self.resume and self.resumeLength > 0:
+            p0, lnlike0, lnprob0  = self.resumechain[0,3:], \
+                    self.resumechain[0,1], self.resumechain[0,0]
         else:
+            # compute prior
+            lp = self.logp(p0)
 
-            lnlike0 = self.logl(p0) 
-            lnprob0 = 1/self.temp * lnlike0 + lp
+            if lp == float(-np.inf):
+
+                lnprob0 = -np.inf
+                lnlike0 = -np.inf
+
+            else:
+
+                lnlike0 = self.logl(p0) 
+                lnprob0 = 1/self.temp * lnlike0 + lp
 
         # record first values
         self.updateChains(p0, lnlike0, lnprob0, i0)
@@ -320,6 +337,15 @@ class PTSampler(object):
             [self.comm.send(self.cov, dest=rank+1, tag=111) for rank 
                                             in range(self.nchain-1)]
         
+        # check for sent covariance matrix from T = 0 chain
+        getCovariance = self.comm.Iprobe(source=0, tag=111)
+        time.sleep(0.000001) 
+
+        if getCovariance and self.MPIrank > 0:
+            self.cov = self.comm.recv(source=0, tag=111)
+            self.U, self.S, v = np.linalg.svd(self.cov)
+            getCovariance = 0
+        
         # update KDE buffer after burn in
         if (iter-1) % self.KDEupdate == 0 and \
            (iter-1) >= (self.burn+self.KDEupdate) and \
@@ -330,13 +356,6 @@ class PTSampler(object):
                 self.addProposalToCycle(self.KDEJumpProposal, self.KDEweight)
                 self.randomizeProposalCycle()
         
-        # check for sent covariance matrix from T = 0 chain
-        getCovariance = self.comm.Iprobe(source=0, tag=111)
-        time.sleep(0.000001) 
-
-        if getCovariance and self.MPIrank > 0:
-            self.cov = self.comm.recv(source=0, tag=111)
-            getCovariance = 0
 
         # update DE buffer
         if (iter-1) % self.burn == 0 and (iter-1) != 0 and self.MPIrank == 0:
@@ -369,102 +388,113 @@ class PTSampler(object):
             # randomize cycle
             self.randomizeProposalCycle()
         
-        # jump proposal
-        y, qxy = self._jump(p0, iter)
+        ### jump proposal ###
 
-        # compute prior and likelihood
-        lp = self.logp(y)
-        
-        if lp == -np.inf:
-
-            newlnprob = -np.inf
-
-        else:
-
-            newlnlike = self.logl(y) 
-            newlnprob = 1/self.temp * newlnlike + lp
-
-        # hastings step
-        diff = newlnprob - lnprob0 + qxy
-        if diff > np.log(np.random.rand()):
-
-            # accept jump
-            p0, lnlike0, lnprob0 = y, newlnlike, newlnprob
+        # if resuming, just use previous chain points
+        if self.resume and self.resumeLength > 0 and iter < self.resumeLength:
+            p0, lnlike0, lnprob0 = self.resumechain[iter,3:], \
+                    self.resumechain[iter,1], self.resumechain[iter,0]
 
             # update acceptance counter
-            self.naccepted += 1
+            self.naccepted = iter*self.resumechain[iter,2]
             accepted = 1
+        else:
+            y, qxy = self._jump(p0, iter)
+
+            # compute prior and likelihood
+            lp = self.logp(y)
+        
+            if lp == -np.inf:
+
+                newlnprob = -np.inf
+
+            else:
+
+                newlnlike = self.logl(y) 
+                newlnprob = 1/self.temp * newlnlike + lp
+
+            # hastings step
+            diff = newlnprob - lnprob0 + qxy
+            if diff > np.log(np.random.rand()):
+
+                # accept jump
+                p0, lnlike0, lnprob0 = y, newlnlike, newlnprob
+
+                # update acceptance counter
+                self.naccepted += 1
+                accepted = 1
 
 
-        ##################### TEMPERATURE SWAP ###############################
-        readyToSwap = 0
-        swapAccepted = 0
+            ##################### TEMPERATURE SWAP ###############################
+            readyToSwap = 0
+            swapAccepted = 0
 
-        # if Tskip is reached, block until next chain in ladder is ready for swap proposal
-        if iter % self.Tskip == 0 and self.MPIrank < self.nchain-1:
-            self.swapProposed += 1
+            # if Tskip is reached, block until next chain in ladder is ready for swap proposal
+            if iter % self.Tskip == 0 and self.MPIrank < self.nchain-1:
+                self.swapProposed += 1
 
-            # send current likelihood for swap proposal
-            self.comm.send(lnlike0, dest=self.MPIrank+1)
+                # send current likelihood for swap proposal
+                self.comm.send(lnlike0, dest=self.MPIrank+1)
 
-            # determine if swap was accepted
-            swapAccepted = self.comm.recv(source=self.MPIrank+1)
-
-            # perform swap
-            if swapAccepted:
-                self.nswap_accepted += 1
-
-                # exchange likelihood
-                lnlike0 = self.comm.recv(source=self.MPIrank+1)
-
-                # exchange parameters
-                self.comm.send(p0, dest=self.MPIrank+1)
-                p0 = self.comm.recv(source=self.MPIrank+1)
-
-                # calculate new posterior values
-                lnprob0 = 1/self.temp * lnlike0 + self.logp(p0)
-
-
-        # check if next lowest temperature is ready to swap
-        elif self.MPIrank > 0:
-
-            readyToSwap = self.comm.Iprobe(source=self.MPIrank-1)
-             # trick to get around processor using 100% cpu while waiting
-            time.sleep(0.000001) 
-
-            # hotter chain decides acceptance
-            if readyToSwap:
-                newlnlike = self.comm.recv(source=self.MPIrank-1)
-                
-                # determine if swap is accepted and tell other chain
-                logChainSwap = (1/self.ladder[self.MPIrank-1] - 1/self.ladder[self.MPIrank]) \
-                        * (lnlike0 - newlnlike)
-
-                if logChainSwap > np.log(np.random.rand()):
-                    swapAccepted = 1
-                else:
-                    swapAccepted = 0
-
-                # send out result
-                self.comm.send(swapAccepted, dest=self.MPIrank-1)
+                # determine if swap was accepted
+                swapAccepted = self.comm.recv(source=self.MPIrank+1)
 
                 # perform swap
                 if swapAccepted:
                     self.nswap_accepted += 1
 
                     # exchange likelihood
-                    self.comm.send(lnlike0, dest=self.MPIrank-1)
-                    lnlike0 = newlnlike
+                    lnlike0 = self.comm.recv(source=self.MPIrank+1)
 
                     # exchange parameters
-                    self.comm.send(p0, dest=self.MPIrank-1)
-                    p0 = self.comm.recv(source=self.MPIrank-1)
-                
+                    self.comm.send(p0, dest=self.MPIrank+1)
+                    p0 = self.comm.recv(source=self.MPIrank+1)
+
                     # calculate new posterior values
                     lnprob0 = 1/self.temp * lnlike0 + self.logp(p0)
 
 
-        ##################################################################
+            # check if next lowest temperature is ready to swap
+            elif self.MPIrank > 0:
+
+                readyToSwap = self.comm.Iprobe(source=self.MPIrank-1)
+                 # trick to get around processor using 100% cpu while waiting
+                time.sleep(0.000001) 
+
+                # hotter chain decides acceptance
+                if readyToSwap:
+                    newlnlike = self.comm.recv(source=self.MPIrank-1)
+                    
+                    # determine if swap is accepted and tell other chain
+                    logChainSwap = (1/self.ladder[self.MPIrank-1] - \
+                                    1/self.ladder[self.MPIrank]) \
+                                    * (lnlike0 - newlnlike)
+
+                    if logChainSwap > np.log(np.random.rand()):
+                        swapAccepted = 1
+                    else:
+                        swapAccepted = 0
+
+                    # send out result
+                    self.comm.send(swapAccepted, dest=self.MPIrank-1)
+
+                    # perform swap
+                    if swapAccepted:
+                        self.nswap_accepted += 1
+
+                        # exchange likelihood
+                        self.comm.send(lnlike0, dest=self.MPIrank-1)
+                        lnlike0 = newlnlike
+
+                        # exchange parameters
+                        self.comm.send(p0, dest=self.MPIrank-1)
+                        p0 = self.comm.recv(source=self.MPIrank-1)
+                    
+                        # calculate new posterior values
+                        lnprob0 = 1/self.temp * lnlike0 + self.logp(p0)
+
+
+            ##################################################################
 
         self.updateChains(p0, lnlike0, lnprob0, iter)
 
