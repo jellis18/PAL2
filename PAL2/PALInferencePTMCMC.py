@@ -87,7 +87,7 @@ class PTSampler(object):
         self.aux = None
 
         
-    def initialize(self, Niter, ladder=None, Tmin=1, Tmax=10, Tskip=100, \
+    def initialize(self, Niter, ladder=None, Tmin=1, Tmax=None, Tskip=100, \
                isave=1000, covUpdate=1000, KDEupdate=10000, SCAMweight=20, \
                AMweight=20, DEweight=20, KDEweight=30, burn=10000, \
                maxIter=None, thin=10, i0=0, neff=100000):
@@ -147,7 +147,7 @@ class PTSampler(object):
 
         # setup default temperature ladder
         if self.ladder is None:
-            self.ladder = self.temperatureLadder(Tmin)
+            self.ladder = self.temperatureLadder(Tmin, Tmax=Tmax)
     
         # temperature for current chain
         self.temp = self.ladder[self.MPIrank]
@@ -205,7 +205,7 @@ class PTSampler(object):
 
         
 
-    def sample(self, p0, Niter, ladder=None, Tmin=1, Tmax=10, Tskip=100, \
+    def sample(self, p0, Niter, ladder=None, Tmin=1, Tmax=None, Tskip=100, \
                isave=1000, covUpdate=1000, KDEupdate=1000, SCAMweight=20, \
                AMweight=20, DEweight=20, KDEweight=30, burn=10000, \
                maxIter=None, thin=10, i0=0, neff=100000):
@@ -217,7 +217,7 @@ class PTSampler(object):
         @param self.Niter: Number of iterations to use for T = 1 chain
         @param ladder: User defined temperature ladder
         @param Tmin: Minimum temperature in ladder (default=1) 
-        @param Tmax: Maximum temperature in ladder (default=10) 
+        @param Tmax: Maximum temperature in ladder (default=None) 
         @param Tskip: Number of steps between proposed temperature swaps (default=100)
         @param isave: Number of iterations before writing to file (default=1000)
         @param covUpdate: Number of iterations between AM covariance updates (default=1000)
@@ -519,8 +519,10 @@ class PTSampler(object):
         #TODO: make options to do other temperature ladders
 
         if self.nchain > 1:
-            if tstep is None:
+            if tstep is None and Tmax is None:
                 tstep = 1 + np.sqrt(2/self.ndim)
+            elif tstep is None and Tmax is not None:
+                tstep = np.exp(np.log(Tmax/Tmin)/(self.nchain-1))
             ladder = np.zeros(self.nchain)
             for ii in range(self.nchain): ladder[ii] = Tmin*tstep**ii
         else:

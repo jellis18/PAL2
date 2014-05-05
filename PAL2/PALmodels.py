@@ -2608,6 +2608,23 @@ class PTAmodels(object):
                 #print sig_red, sig_data
                 if sig_red > sig_data:
                     prior += -np.inf
+            
+            if sig['corr'] == 'gr' and sig['stype'] == 'spectrum':
+                if np.any(np.array(sig['prior']) == 'sqrt'):
+                    idx = np.array(sig['prior']) == 'sqrt'
+                    prior += np.sum(np.log(10**(sparameters[idx]/2))
+            
+            if sig['stype'] == 'spectrum' and sig['corr'] == 'single':
+                if np.any(np.array(sig['prior']) == 'sqrt'):
+                    idx = np.array(sig['prior']) == 'sqrt'
+                    prior += np.sum(np.log(10**(sparameters[idx]/2)))
+                
+                # cheater prior
+                sig_data = self.psr[psrind].residuals.std() * 10
+                sig_red = np.sqrt(np.sum(10**sparameters))
+                #print sig_red, sig_data
+                if sig_red > sig_data:
+                    prior += -np.inf
 
             
             if sig['stype'] in ['powerlaw'] and sig['corr'] == 'single':
