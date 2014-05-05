@@ -59,7 +59,8 @@ def getsigmalevels(hist2d):
 
   return level1, level2, level3
 
-def confinterval(samples, sigma=0.68, onesided=False, weights=None, bins=40):
+def confinterval(samples, sigma=0.68, onesided=False, weights=None, bins=40,
+                type='equalArea'):
     """
 
     Given a list of samples, return the desired cofidence intervals.
@@ -94,27 +95,37 @@ def confinterval(samples, sigma=0.68, onesided=False, weights=None, bins=40):
     #y = ecdf(x)
 
     # Find the intervals
-    x2min = y[0]
-    if onesided:
-        bound = 1 - sigma
-    else:
-        bound = 0.5*(1-sigma)
+    if type == 'equalArea' or onesided:
+        x2min = y[0]
+        if onesided:
+            bound = 1 - sigma
+        else:
+            bound = 0.5*(1-sigma)
 
-    for i in range(len(y)):
-        if y[i] >= bound:
-            x2min = x[i]
-            break
+        for i in range(len(y)):
+            if y[i] >= bound:
+                x2min = x[i]
+                break
 
-    x2max = y[-1]
-    if onesided:
-        bound = sigma
-    else:
-        bound = 1 - 0.5 * (1 - sigma)
+        x2max = y[-1]
+        if onesided:
+            bound = sigma
+        else:
+            bound = 1 - 0.5 * (1 - sigma)
 
-    for i in reversed(range(len(y))):
-        if y[i] <= bound:
-            x2max = x[i]
-            break
+        for i in reversed(range(len(y))):
+            if y[i] <= bound:
+                x2max = x[i]
+                break
+
+    if type == 'equalProb' and not(onesided):
+        ifunc = interp.interp1d(xedges, hist, kind='linear')
+        sortlik = np.sort(ifunc(x))
+        sortlik /= sortlik.sum()
+        ind = np.argsort(ifunc(x))
+        idx = np.flatnonzero(np.cumsum(sortlik) > 1-sigma)
+        x2min = x[ind][idx].min()
+        x2max = x[ind][idx].max()
 
     return x2min, x2max
 
@@ -564,7 +575,9 @@ Given an mcmc chain, plot the log-spectrum
 """
 def makespectrumplot(chain, parstart=1, numfreqs=10, freqs=None, \
         Apl=None, gpl=None, Asm=None, asm=None, fcsm=0.1, plotlog=False, \
-        lcolor='black', Tmax=None, Aref=None):
+        lcolor='black', Tmax=None, Aref=None, holdon=False, title=None, \
+        values=False):
+
     if freqs is None:
         ufreqs = np.log10(np.arange(1, 1+numfreqs))
     else:
@@ -581,8 +594,14 @@ def makespectrumplot(chain, parstart=1, numfreqs=10, freqs=None, \
         fmin, fmax = confinterval(chain[:, parstart+ii], sigma=0.68)
         yval[ii] = (fmax + fmin) * 0.5
         yerr[ii] = (fmax - fmin) * 0.5
-
-    fig = plt.figure()
+    
+    retvals = []
+    if values:
+        retvals.append(yval)
+        retvals.append(yerr)
+    
+    if not(holdon):
+        fig = plt.figure()
 
     # For plotting reference spectra
     pfreqs = 10 ** ufreqs
@@ -629,10 +648,13 @@ def makespectrumplot(chain, parstart=1, numfreqs=10, freqs=None, \
         plt.axis([np.min(10**ufreqs)*0.9, np.max(10**ufreqs)*1.01, np.min(yval-yerr)-1, np.max(yval+yerr)+1])
         plt.xlabel("Frequency [Hz]")
 
-    plt.title("Power spectrum")
-    plt.ylabel("Power [log(r)]")
+    #plt.title("Power spectrum")
+    if title is not None:
+        plt.title(title)
+    plt.ylabel("Power Spectrum [s^2]")
     plt.grid(True)
 
+    return retvals
 
 def makePostPlots(chain, labels, outDir='./postplots'):
 

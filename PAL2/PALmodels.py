@@ -1707,7 +1707,8 @@ class PTAmodels(object):
     """
     Simulate residuals for a single pulsar
     """
-    def simData(self, parameters, setup=False):
+    def simData(self, parameters, setup=False, turnover=False, f0=1e-9, \
+                    beta=1, power=1):
 
         
         # only need to do this if parameters change
@@ -1726,7 +1727,9 @@ class PTAmodels(object):
             #y = np.random.randn(self.npsr, self.ngwf)
             #ypsr = np.dot(self.corrmatCho, y)
             gwbs = PALutils.createGWB(self.psr, 10**parameters[-2], parameters[-1], \
-                                      DM=False, noCorr=False, seed=None)
+                                      DM=False, noCorr=False, seed=None,
+                                      turnover=turnover, f0=f0, beta=beta, \
+                                      power=power)
 
         # begin loop over all pulsars
         findex = 0
@@ -2650,6 +2653,7 @@ class PTAmodels(object):
 
         # which parameters to jump
         ind = np.unique(np.random.randint(0, nsigs, nsigs))
+        ind = np.unique(np.random.randint(0, nsigs, 1))
 
         # draw params from prior
         for ii in ind:
@@ -2706,6 +2710,7 @@ class PTAmodels(object):
 
         # which parameters to jump
         ind = np.unique(np.random.randint(0, nsigs, nsigs))
+        ind = np.unique(np.random.randint(0, nsigs, 1))
 
         # draw params from prior
         for ii in ind:
@@ -2753,6 +2758,7 @@ class PTAmodels(object):
 
         # which parameters to jump
         ind = np.unique(np.random.randint(0, nsigs, nsigs))
+        ind = np.unique(np.random.randint(0, nsigs, 1))
 
         # draw params from prior
         for ii in ind:
@@ -2801,6 +2807,7 @@ class PTAmodels(object):
 
         # which parameters to jump
         ind = np.unique(np.random.randint(0, nsigs, nsigs))
+        ind = np.unique(np.random.randint(0, nsigs, 1))
 
         # draw params from prior
         for ii in ind:
@@ -2857,6 +2864,7 @@ class PTAmodels(object):
 
         # which parameters to jump
         ind = np.unique(np.random.randint(0, nsigs, nsigs))
+        ind = np.unique(np.random.randint(0, nsigs, 1))
 
         # draw params from prior
         for ii in ind:
@@ -2902,6 +2910,7 @@ class PTAmodels(object):
 
         # which parameters to jump
         ind = np.unique(np.random.randint(0, nsigs, nsigs))
+        ind = np.unique(np.random.randint(0, nsigs, 1))
 
         # draw params from prior
         for ii in ind:
@@ -2950,6 +2959,7 @@ class PTAmodels(object):
 
         # which parameters to jump
         ind = np.unique(np.random.randint(0, nsigs, nsigs))
+        ind = np.unique(np.random.randint(0, nsigs, 1))
 
         # draw params from prior
         for ii in ind:
@@ -2996,6 +3006,7 @@ class PTAmodels(object):
 
         # which parameters to jump
         ind = np.unique(np.random.randint(0, nsigs, nsigs))
+        ind = np.unique(np.random.randint(0, nsigs, 1))
 
         # draw params from prior
         for ii in ind:
