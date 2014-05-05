@@ -2752,6 +2752,12 @@ class PTAmodels(object):
                         q[parind+jj] = np.log10(np.random.uniform(10**self.pmin[parind+jj], \
                                                                10**self.pmax[parind+jj]))
                         qxy += np.log(10**parameters[parind+jj]/10**q[parind+jj])
+                    
+                    elif sig['prior'][jj] == 'sqrt':
+                        q[parind+jj] = np.log10(np.random.uniform(\
+                                            10**(self.pmin[parind+jj]/2), \
+                                            10**(self.pmax[parind+jj]/2)**2)
+                        qxy += np.log(10**(parameters[parind+jj]/2)/10**(q[parind+jj]/2))
                         
                     else:
                         print 'Prior type not recognized for parameter'
@@ -2800,6 +2806,12 @@ class PTAmodels(object):
                         q[parind+jj] = np.log10(np.random.uniform(10**self.pmin[parind+jj], \
                                                                10**self.pmax[parind+jj]))
                         qxy += np.log(10**parameters[parind+jj]/10**q[parind+jj])
+                    
+                    elif sig['prior'][jj] == 'sqrt':
+                        q[parind+jj] = np.log10(np.random.uniform(\
+                                            10**(self.pmin[parind+jj]/2), \
+                                            10**(self.pmax[parind+jj]/2)**2)
+                        qxy += np.log(10**(parameters[parind+jj]/2)/10**(q[parind+jj]/2))
                         
                     else:
                         print 'Prior type not recognized for parameter'
