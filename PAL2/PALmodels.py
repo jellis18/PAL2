@@ -2613,7 +2613,7 @@ class PTAmodels(object):
             if sig['corr'] == 'gr' and sig['stype'] == 'spectrum':
                 if np.any(np.array(sig['prior']) == 'sqrt'):
                     idx = np.array(sig['prior']) == 'sqrt'
-                    prior += np.sum(np.log(10**(sparameters[idx]/2))
+                    prior += np.sum(np.log(10**(sparameters[idx]/2)))
             
             if sig['stype'] == 'spectrum' and sig['corr'] == 'single':
                 if np.any(np.array(sig['prior']) == 'sqrt'):
@@ -2755,9 +2755,8 @@ class PTAmodels(object):
                         qxy += np.log(10**parameters[parind+jj]/10**q[parind+jj])
                     
                     elif sig['prior'][jj] == 'sqrt':
-                        q[parind+jj] = np.log10(np.random.uniform(\
-                                            10**(self.pmin[parind+jj]/2), \
-                                            10**(self.pmax[parind+jj]/2)**2)
+                        q[parind+jj] = np.log10(np.random.uniform(10**(self.pmin[parind+jj]/2), \
+                                            10**(self.pmax[parind+jj]/2))**2)
                         qxy += np.log(10**(parameters[parind+jj]/2)/10**(q[parind+jj]/2))
                         
                     else:
@@ -2809,9 +2808,8 @@ class PTAmodels(object):
                         qxy += np.log(10**parameters[parind+jj]/10**q[parind+jj])
                     
                     elif sig['prior'][jj] == 'sqrt':
-                        q[parind+jj] = np.log10(np.random.uniform(\
-                                            10**(self.pmin[parind+jj]/2), \
-                                            10**(self.pmax[parind+jj]/2)**2)
+                        q[parind+jj] = np.log10(np.random.uniform(10**(self.pmin[parind+jj]/2), \
+                                            10**(self.pmax[parind+jj]/2))**2)
                         qxy += np.log(10**(parameters[parind+jj]/2)/10**(q[parind+jj]/2))
                         
                     else:
