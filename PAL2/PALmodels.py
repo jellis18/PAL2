@@ -1162,7 +1162,7 @@ class PTAmodels(object):
     Determine intial parameters drawn from prior ranges
 
     """
-    def initParameters(self, startEfacAtOne=True):
+    def initParameters(self, startEfacAtOne=True, startSpectrumMin=False):
         
         p0 = []
         for ct, sig in enumerate(self.ptasignals):
@@ -1170,6 +1170,8 @@ class PTAmodels(object):
                 for min, max in zip(sig['pmin'][sig['bvary']], sig['pmax'][sig['bvary']]):
                     if startEfacAtOne and sig['stype'] == 'efac':
                         p0.append(1)
+                    elif startSpectrumMin and sig['stype'] == 'spectrum':
+                        p0.append(min + np.log10(2))
                     else:
                         p0.append(min + np.random.rand()*(max - min))     
             
@@ -2791,10 +2793,9 @@ class PTAmodels(object):
                     prior += np.sum(np.log(10**sparameters[idx]))
                 
                 # cheater prior
-                sig_data = self.psr[psrind].residuals.std() * 10
                 sig_red = np.sqrt(np.sum(10**sparameters))
                 #print sig_red, sig_data
-                if sig_red > sig_data:
+                if sig_red > self.psr[psrind].sig_data * 10:
                     prior += -np.inf
             
             if sig['corr'] == 'gr' and sig['stype'] == 'spectrum':
@@ -2808,10 +2809,9 @@ class PTAmodels(object):
                     prior += np.sum(np.log(10**(sparameters[idx]/2)))
                 
                 # cheater prior
-                sig_data = self.psr[psrind].residuals.std() * 10
                 sig_red = np.sqrt(np.sum(10**sparameters))
                 #print sig_red, sig_data
-                if sig_red > sig_data:
+                if sig_red > self.psr[psrind].sig_data * 10:
                     prior += -np.inf
 
             
@@ -2823,13 +2823,12 @@ class PTAmodels(object):
                 # cheater prior
                 Amp = 10**sparameters[0]
                 gam = sparameters[1]
-                sig_data = self.psr[psrind].residuals.std() * 10
                 if gam > 1:
                     sig_red = 2.05e-9 / np.sqrt(gam-1)*(Amp/1e-15)*\
                         (self.psr[psrind].Tmax/3.16e7)**((gam-1)/2) 
                 else:
                     sig_red = 0
-                if sig_red > sig_data:
+                if sig_red > self.psr[psrind].sig_data * 10:
                     prior += -np.inf
 
         return prior

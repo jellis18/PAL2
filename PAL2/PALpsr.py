@@ -438,6 +438,9 @@ class Pulsar(object):
         # default for detresiduals
         self.detresiduals = self.residuals.copy()
 
+        # construct std dev of data for use in priors
+        self.sig_data = self.residuals.std()
+
         # Before writing anything to file, we need to know right away how many
         # fixed and floating frequencies this model contains.
         nf = 0 ; ndmf = 0 ; nsf = nSingleFreqs ; nsdmf = nSingleDMFreqs
@@ -709,6 +712,9 @@ class Pulsar(object):
 
         # default for detresiduals
         self.detresiduals = self.residuals.copy()
+        
+        # construct std dev of data for use in priors
+        self.sig_data = self.residuals.std()
 
         # Before writing anything to file, we need to know right away how many
         # fixed and floating frequencies this model contains.
