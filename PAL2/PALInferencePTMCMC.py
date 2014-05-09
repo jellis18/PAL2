@@ -445,11 +445,21 @@ class PTSampler(object):
     def PTswap(self, p0, lnlike0, lnprob0, iter):
 
         """
-        Do parallel tempering swap
+        Do parallel tempering swap.
+
+        @param p0: current parameter vector
+        @param lnlike0: current log-likelihood
+        @param lnprob0: current log posterior value
+        @param iter: current iteration number
+
+        @return swapReturn: 0 = no swap proposed, 1 = swap proposed and rejected, 2 = swap proposed and accepted
+        @return p0: new parameter vector
+        @return lnlike0: new log-likelihood
+        @return lnprob0: new log posterior value
 
         """
 
-    
+        # initialize variables 
         readyToSwap = 0
         swapAccepted = 0
         swapProposed = 0
@@ -566,8 +576,12 @@ class PTSampler(object):
         self._chainfile = open(self.fname, 'a+')
         for jj in range((iter-self.isave), iter, self.thin):
             ind = int(jj/self.thin)
-            self._chainfile.write('%f\t %f\t %f\t'%(self._lnprob[ind], self._lnlike[ind],\
-                                                  self.naccepted/iter))
+            pt_acc = 1
+            if self.MPIrank < self.nchain-1 and self.swapProposed != 0:
+                pt_acc = self.nswap_accepted/self.swapProposed
+
+            self._chainfile.write('%f\t %f\t %f\t %f\t'%(self._lnprob[ind], self._lnlike[ind],\
+                                                  self.naccepted/iter, pt_acc))
             self._chainfile.write('\t'.join([str(self._chain[ind,kk]) \
                                             for kk in range(self.ndim)]))
             self._chainfile.write('\n')
