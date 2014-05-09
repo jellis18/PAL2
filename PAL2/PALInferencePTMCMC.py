@@ -429,82 +429,103 @@ class PTSampler(object):
                 self.naccepted += 1
                 accepted = 1
 
+        # temperature swap
+        swapReturn, p0, lnlike0, lnprob0 = self.PTswap(p0, lnlike0, lnprob0, iter)
 
-            ##################### TEMPERATURE SWAP ###############################
-            readyToSwap = 0
-            swapAccepted = 0
-
-            # if Tskip is reached, block until next chain in ladder is ready for swap proposal
-            if iter % self.Tskip == 0 and self.MPIrank < self.nchain-1:
-                self.swapProposed += 1
-
-                # send current likelihood for swap proposal
-                self.comm.send(lnlike0, dest=self.MPIrank+1)
-
-                # determine if swap was accepted
-                swapAccepted = self.comm.recv(source=self.MPIrank+1)
-
-                # perform swap
-                if swapAccepted:
-                    self.nswap_accepted += 1
-
-                    # exchange likelihood
-                    lnlike0 = self.comm.recv(source=self.MPIrank+1)
-
-                    # exchange parameters
-                    self.comm.send(p0, dest=self.MPIrank+1)
-                    p0 = self.comm.recv(source=self.MPIrank+1)
-
-                    # calculate new posterior values
-                    lnprob0 = 1/self.temp * lnlike0 + self.logp(p0)
-
-
-            # check if next lowest temperature is ready to swap
-            elif self.MPIrank > 0:
-
-                readyToSwap = self.comm.Iprobe(source=self.MPIrank-1)
-                 # trick to get around processor using 100% cpu while waiting
-                time.sleep(0.000001) 
-
-                # hotter chain decides acceptance
-                if readyToSwap:
-                    newlnlike = self.comm.recv(source=self.MPIrank-1)
-                    
-                    # determine if swap is accepted and tell other chain
-                    logChainSwap = (1/self.ladder[self.MPIrank-1] - \
-                                    1/self.ladder[self.MPIrank]) \
-                                    * (lnlike0 - newlnlike)
-
-                    if logChainSwap > np.log(np.random.rand()):
-                        swapAccepted = 1
-                    else:
-                        swapAccepted = 0
-
-                    # send out result
-                    self.comm.send(swapAccepted, dest=self.MPIrank-1)
-
-                    # perform swap
-                    if swapAccepted:
-                        self.nswap_accepted += 1
-
-                        # exchange likelihood
-                        self.comm.send(lnlike0, dest=self.MPIrank-1)
-                        lnlike0 = newlnlike
-
-                        # exchange parameters
-                        self.comm.send(p0, dest=self.MPIrank-1)
-                        p0 = self.comm.recv(source=self.MPIrank-1)
-                    
-                        # calculate new posterior values
-                        lnprob0 = 1/self.temp * lnlike0 + self.logp(p0)
-
-
-            ##################################################################
+        # check return value
+        if swapReturn != 0:
+            self.swapProposed += 1
+            if swapReturn == 2:
+                self.nswap_accepted += 1
 
         self.updateChains(p0, lnlike0, lnprob0, iter)
 
         return p0, lnlike0, lnprob0
 
+    def PTswap(self, p0, lnlike0, lnprob0, iter):
+
+        """
+        Do parallel tempering swap
+
+        """
+
+    
+        readyToSwap = 0
+        swapAccepted = 0
+        swapProposed = 0
+
+        # if Tskip is reached, block until next chain in ladder is ready for swap proposal
+        if iter % self.Tskip == 0 and self.MPIrank < self.nchain-1:
+            swapProposed = 1
+
+            # send current likelihood for swap proposal
+            self.comm.send(lnlike0, dest=self.MPIrank+1)
+
+            # determine if swap was accepted
+            swapAccepted = self.comm.recv(source=self.MPIrank+1)
+
+            # perform swap
+            if swapAccepted:
+
+                # exchange likelihood
+                lnlike0 = self.comm.recv(source=self.MPIrank+1)
+
+                # exchange parameters
+                self.comm.send(p0, dest=self.MPIrank+1)
+                p0 = self.comm.recv(source=self.MPIrank+1)
+
+                # calculate new posterior values
+                lnprob0 = 1/self.temp * lnlike0 + self.logp(p0)
+
+
+        # check if next lowest temperature is ready to swap
+        elif self.MPIrank > 0:
+
+            readyToSwap = self.comm.Iprobe(source=self.MPIrank-1)
+             # trick to get around processor using 100% cpu while waiting
+            time.sleep(0.000001) 
+
+            # hotter chain decides acceptance
+            if readyToSwap:
+                newlnlike = self.comm.recv(source=self.MPIrank-1)
+                
+                # determine if swap is accepted and tell other chain
+                logChainSwap = (1/self.ladder[self.MPIrank-1] - \
+                                1/self.ladder[self.MPIrank]) \
+                                * (lnlike0 - newlnlike)
+
+                if logChainSwap > np.log(np.random.rand()):
+                    swapAccepted = 1
+                else:
+                    swapAccepted = 0
+
+                # send out result
+                self.comm.send(swapAccepted, dest=self.MPIrank-1)
+
+                # perform swap
+                if swapAccepted:
+
+                    # exchange likelihood
+                    self.comm.send(lnlike0, dest=self.MPIrank-1)
+                    lnlike0 = newlnlike
+
+                    # exchange parameters
+                    self.comm.send(p0, dest=self.MPIrank-1)
+                    p0 = self.comm.recv(source=self.MPIrank-1)
+                
+                    # calculate new posterior values
+                    lnprob0 = 1/self.temp * lnlike0 + self.logp(p0)
+
+        # Return values for colder chain: 0=nothing happened; 1=swap proposed, not accepted; 2=swap proposed & accepted
+        if swapProposed:
+            if swapAccepted:
+                swapReturn = 2
+            else:
+                swapReturn = 1
+        else:
+            swapReturn = 0
+    
+        return swapReturn, p0, lnlike0, lnprob0
 
 
     def temperatureLadder(self, Tmin, Tmax=None, tstep=None):
