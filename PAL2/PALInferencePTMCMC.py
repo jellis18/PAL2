@@ -685,8 +685,8 @@ class PTSampler(object):
             scale = 10
         
         # small-medium jump
-        elif prob > 0.6:
-            scale = 0.5
+        #elif prob > 0.6:
+            #:wq    scale = 0.5
 
         # standard medium jump
         else:
@@ -740,8 +740,8 @@ class PTSampler(object):
             scale = 10
         
         # small-medium jump
-        elif prob > 0.6:
-            scale = 0.5
+        #elif prob > 0.6:
+        #    scale = 0.5
 
         # standard medium jump
         else:

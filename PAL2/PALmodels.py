@@ -2438,6 +2438,193 @@ class PTAmodels(object):
         loglike += -0.5 * (logdetPhi + logdet_Sigma) + 0.5 * (np.dot(d, expval2)) 
 
         return loglike
+    
+    """
+    mark 2 fixed noise likelihood (test)
+
+    EFAC + EQUAD + Jitter +Red noise + DMV + GWs
+
+    No frequency lines
+
+    Uses Woodbury lemma
+
+    """
+
+    def mark2LogLikelihood_fixedNoise(self, parameters, incCorrelations=True, setup=False):
+
+        loglike = 0
+
+        # set pulsar white noise parameters
+        if setup:
+            self.setPsrNoise(parameters, incJitter=False)
+
+        # set red noise, DM and GW parameters
+        self.constructPhiMatrix(parameters, incCorrelations=incCorrelations)
+
+        # set deterministic sources
+        if self.haveDetSources:
+            self.updateDetSources(parameters)
+
+        
+        # compute the white noise terms in the log likelihood
+        if setup:
+            self.UGGNGGU = []
+            self.logdet_N = []
+            self.rGGNGGr = []
+            self.logdet_N = []
+            FJ = []
+            FJF = []
+            for ct, p in enumerate(self.psr):
+
+                if p.twoComponentNoise:
+                    
+                    # equivalent to F^TG(G^TNG)^{-1}G^T\delta t in two component basis
+                    if ct == 0:
+                        self.d = np.dot(p.AGU.T, p.AGr/p.Nwvec)
+                    else:
+                        self.d = np.append(self.d, np.dot(p.AGU.T, p.AGr/p.Nwvec))
+
+                    # compute F^TG(G^TNG)^{-1}G^TF
+                    right = ((1/p.Nwvec) * p.AGU.T).T
+                    self.UGGNGGU.append(np.dot(p.AGU.T, right))
+
+                    # log determinant of G^TNG
+                    self.logdet_N.append(np.sum(np.log(p.Nwvec)))
+
+                    # triple product in likelihood function
+                    self.rGGNGGr.append(np.sum(p.AGr**2/p.Nwvec))
+                
+                else:   
+
+                    # G(G^TNG)^{-1}G^T = N^{-1} - N^{-1}G_c(G_c^TN^{-1}G_c)^{-1}N^{-1}
+                    Nir = p.detresiduals / p.Nvec
+                    NiGc = ((1.0/p.Nvec) * p.Hcmat.T).T
+                    GcNiGc = np.dot(p.Hcmat.T, NiGc)
+                    NiU = ((1.0/p.Nvec) * p.Umat.T).T
+                    GcNir = np.dot(NiGc.T, p.detresiduals)
+                    GcNiU = np.dot(NiGc.T, p.Umat)
+
+                    try:
+                        cf = sl.cho_factor(GcNiGc)
+                        self.logdet_N.append(np.sum(np.log(p.Nvec)) + \
+                                             2*np.sum(np.log(np.diag(cf[0]))))
+                        GcNiGcr = sl.cho_solve(cf, GcNir)
+                        GcNiGcU = sl.cho_solve(cf, GcNiU)
+                        NiGcNiGcr = np.dot(NiGc, GcNiGcr)
+
+                    except np.linalg.LinAlgError:
+                        print "MAJOR ERROR"
+                    
+                    #F^TG(G^TNG)^{-1}G^T\delta t 
+                    if ct == 0:
+                        self.d = np.dot(p.Umat.T, Nir - NiGcNiGcr)
+                    else:
+                        self.d = np.append(self.d, np.dot(p.Umat.T, Nir - NiGcNiGcr))
+
+                    # triple product in likelihood function
+                    self.rGGNGGr.append(np.dot(p.detresiduals, Nir) - np.dot(GcNir, GcNiGcr))
+
+                    # compute F^TG(G^TNG)^{-1}G^TF
+                    self.UGGNGGU.append(np.dot(NiU.T, p.Umat) - np.dot(GcNiU.T, GcNiGcU))
+                    
+                    
+                # first component of likelihood function
+                loglike += -0.5 * (self.logdet_N[ct] + self.rGGNGGr[ct])
+
+                # keep track of jitter terms needed later
+                if self.npsr > 1 and incCorrelations:
+                    if ct == 0:
+                        Jinv = 1/p.Qamp
+                    else:
+                        Jinv = np.append(Jinv, 1/p.Qamp)
+
+                    FJ.append(p.UtF.T * 1/p.Qamp)
+                    FJF.append(np.dot(FJ[ct], p.UtF))
+
+        else:
+            for ct, p in enumerate(self.psr):
+                loglike += -0.5 * (self.logdet_N[ct] + self.rGGNGGr[ct])
+
+
+        # if only using one pulsar
+        if self.npsr == 1 or not(incCorrelations):
+            logdetPhi = 0
+            tmp = []
+            for ct, p in enumerate(self.psr):
+                Phi0 = np.diag(10**p.kappa_tot+self.gwamp)
+                UPhiU = np.dot(p.UtF, np.dot(Phi0, p.UtF.T))
+                Phi = UPhiU + np.diag(p.Qamp) 
+
+            
+                try:
+                    cf = sl.cho_factor(Phi)
+                    logdetPhi += 2*np.sum(np.log(np.diag(cf[0])))
+                    tmp.append(sl.cho_solve(cf, np.identity(Phi.shape[0])))
+                except np.linalg.LinAlgError:
+                    #print 'Cholesky failed when inverting phi'
+                    #U, s, Vh = sl.svd(Phi)
+                    #if not np.all(s > 0):
+                    return -np.inf
+                        #raise ValueError("ERROR: Phi singular according to SVD")
+                    #logdetPhi = np.sum(np.log(s))
+                    #Phiinv = np.dot(Vh.T, np.dot(np.diag(1.0/s), U.T))
+            
+            # block diagonal matrix
+            Phiinv = sl.block_diag(*tmp)
+
+        else:
+            
+            Phi0 = self.Phiinv + sl.block_diag(*FJF)
+            logdet_J = np.sum(np.log(1/Jinv))
+
+            # cholesky decomp for second term in exponential
+            try:
+                cf = sl.cho_factor(Phi0)
+                logdet_Phi0 = 2*np.sum(np.log(np.diag(cf[0])))
+                PhiinvFJ = sl.cho_solve(cf, sl.block_diag(*FJ))
+            except np.linalg.LinAlgError:
+                print 'Cholesky Failed when inverting Phi0'
+                return -np.inf
+                #U, s, Vh = sl.svd(Phi0)
+                #if not np.all(s > 0):
+                #    return -np.inf
+                    #raise ValueError("ERROR: Sigma singular according to SVD")
+                #logdet_Phi0 = np.sum(np.log(s))
+                #PhiinvFJ = np.dot(Vh.T, np.dot(np.diag(1.0/s), np.dot(U.T, sl.block_diag(*FJ))))
+
+            # get new Phiinv
+            Phiinv = -np.dot(sl.block_diag(*FJ).T, PhiinvFJ)
+            di = np.diag_indices(len(Jinv))
+            Phiinv[di] += Jinv 
+            logdetPhi = self.logdetPhi + logdet_Phi0 + logdet_J
+
+
+        # compute the red noise, DMV and GWB terms in the log likelihood
+        
+        # compute sigma
+        Sigma = sl.block_diag(*self.UGGNGGU) + Phiinv
+
+        # cholesky decomp for second term in exponential
+        try:
+            cf = sl.cho_factor(Sigma)
+            logdet_Sigma = 2*np.sum(np.log(np.diag(cf[0])))
+            expval2 = sl.cho_solve(cf, self.d)
+        except np.linalg.LinAlgError:
+            #print 'Cholesky Failed when inverting Sigma'
+            return -np.inf
+            #return -np.inf
+            #U, s, Vh = sl.svd(Sigma)
+            #if not np.all(s > 0):
+                #return -np.inf
+            #    raise ValueError("ERROR: Sigma singular according to SVD")
+            #logdet_Sigma = np.sum(np.log(s))
+            #expval2 = np.dot(Vh.T, np.dot(np.diag(1.0/s), np.dot(U.T, d)))
+
+
+        loglike += -0.5 * (logdetPhi + logdet_Sigma) + 0.5 * (np.dot(self.d, expval2)) 
+
+        return loglike
+
 
     
     """
