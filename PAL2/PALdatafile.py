@@ -17,6 +17,7 @@ import numpy as np
 import h5py as h5
 import os, sys
 import tempfile
+import PALutils
 
 try:    # If without libstempo, can still read hdf5 files
     import libstempo
@@ -73,6 +74,7 @@ class DataFile(object):
         pulsarGroup = self.h5file.require_group(psrname)
 
         return pulsarGroup
+    
 
     """
     Add data to a specific pulsar. Here the hdf5 file is opened, and the right
@@ -269,6 +271,9 @@ class DataFile(object):
         # determine whether or not to drop points
         dat = t2pulsar.residuals()/t2pulsar.toaerrs/1e-6
         t2pulsar.deleted = np.abs(dat) > sigma
+        if sigma < 10:
+            print 'Deleting {0} points for pulsar {1}'.format(np.sum(t2pulsar.deleted), \
+                                                                    t2pulsar.name)
         
         # fit again
         t2pulsar.fit()
@@ -325,19 +330,20 @@ class DataFile(object):
             self.writeData(flagGroup, flagid, t2pulsar.flags[flagid][t2pulsar.deleted==0], \
                            overwrite=overwrite)
         
-        if not "tobs" in flagGroup:
+        if not "tobs_all" in flagGroup:
             # look for tobs flag for integration time
             tobs = []
             nobs = len(t2pulsar.toas())
             pulsarname = map(str, [t2pulsar.name] * nobs)
+            
+            #TODO: fix this to deal on a TOA by TOA basis
+            #if "tobs" in flagGroup:
+            #    tobs = map(float, flagGroup['tobs'])
+            #else:
+            #    print 'No tobs flag for PSR {0}, using 20 mins'.format(t2pulsar.name)
+            tobs = 1200.0*np.ones(nobs)
 
-            if "tobs" in flagGroup:
-                tobs = map(float, flagGroup['tobs'])
-            else:
-                print 'No tobs flag for PSR {0}, using 20 mins'.format(t2pulsar.name)
-                tobs = 1200*np.ones(nobs)
-
-            self.writeData(flagGroup, "tobs", tobs, overwrite=overwrite)
+            self.writeData(flagGroup, "tobs_all", tobs, overwrite=overwrite)
 
         if not "efacequad" in flagGroup:
             # Check if the sys-flag is present in this set. If it is, add an
@@ -496,7 +502,7 @@ class DataFile(object):
         psr.ptmpars = np.array(self.getData(psrname, 'tmp_valpre'))
         psr.ptmparerrs = np.array(self.getData(psrname, 'tmp_errpre'))
         psr.flags = map(str, self.getData(psrname, 'efacequad', 'Flags'))
-        psr.tobsflags = map(float, self.getData(psrname, 'tobs', 'Flags'))
+        psr.tobsflags = map(float, self.getData(psrname, 'tobs_all', 'Flags'))
 
         # add this for frequency dependent terms
         #TODO: should eventually change psr.flags to a dictionary
@@ -523,12 +529,11 @@ class DataFile(object):
         psr.freqs = np.array(self.getData(psrname, 'freq'))
         psr.Mmat = np.array(self.getData(psrname, 'designmatrix'))
         #psr.unitconversion = np.array(self.getData(psrname, 'unitConversion', required=False))
+        
+        # get number of epochs (i.e 10 s window)
+        (avetoas, Umat) = PALutils.exploderMatrix(psr.toas, dt=10)
+        psr.nepoch = len(avetoas)
 
-        #TODO: TEST!!!!!!!
-        #psr.residuals -= psr.toaerrs*np.mean(psr.residuals/psr.toaerrs)
-
-        # We do not read the (co)G-matrix anymore here. Happens when
-        # initialising the model
 
         
 

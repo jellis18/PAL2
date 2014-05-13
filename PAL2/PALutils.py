@@ -724,7 +724,7 @@ def createGHmatrix(toa, err, res, G, fidelity, Amp = None):
     Tspan = toa.max() - toa.min()
     if Amp is None:
         sigma_gwb = np.std(res) * 1e-15 * 1e9
-        Amp = sigma_gwb * 0.89 * Tspan**(0.6)
+        Amp = sigma_gwb * 0.89 * Tspan**(-5./3)
     #Amp = (sigma_gwb/(1.37*(10**(-9)))) / (Tspan**(5/3))
     
     # looping over eigenvalues until the fidelity criterion of van Haasteren 2013(b) 
@@ -1123,7 +1123,8 @@ def createfourierdesignmatrix(t, nmodes, freq=False, Tspan=None):
     else:
         return F
 
-def createGWB(psr, Amp, gam, DM=False, noCorr=False, seed=None, turnover=False, f0=1e-9):
+def createGWB(psr, Amp, gam, DM=False, noCorr=False, seed=None, turnover=False, f0=1e-9, \
+              beta=1, power=1, interpolate=True):
     """
     Function to create GW incuced residuals from a stochastic GWB as defined
     in Chamberlin, Creighton, Demorest et al. (2013)
@@ -1142,23 +1143,26 @@ def createGWB(psr, Amp, gam, DM=False, noCorr=False, seed=None, turnover=False, 
         np.random.seed(seed)
 
     # get maximum number of points
-    npts = np.max([len(p.toas) for p in psr])
+    #npts = np.max([len(p.toas) for p in psr])
     
     # get maximum number of epochs
-    #npts = np.max([exploderMatrix(p.toas)[1].shape[1] for p in psr])
+    npts = 300
+    #npts = np.max([p.avetoas for p in psr])
 
     Npulsars = len(psr)
 
     # current Hubble scale in units of 1/day
     H0=(2.27e-18)*(60.*60.*24.)
 
-    # create simulated GW time span (start and end times). Will be slightly larger than real data span
+    # create simulated GW time span (start and end times). 
+    # Will be slightly larger than real data span
 
     #gw start and end times for entire data set
     start = np.min([p.toas.min() for p in psr]) - 86400
     stop = np.max([p.toas.max() for p in psr]) + 86400
         
-    # define "how much longer" or howml variable, needed because IFFT cannot quite match the value of the integral of < |r(t)|^2 > 
+    # define "how much longer" or howml variable, needed because IFFT 
+    # cannot quite match the value of the integral of < |r(t)|^2 > 
     howml = 10.
 
     # duration of the signal, spanning total time data taken in days
@@ -1195,7 +1199,8 @@ def createGWB(psr, Amp, gam, DM=False, noCorr=False, seed=None, turnover=False, 
     alpha = -0.5 * (gam-3)
     hcf = Amp * (f/f1yr)**(alpha)
     if turnover:
-        hcf /= (1+(f/f0)**(-5/3))
+        si = alpha - beta
+        hcf /= (1+(f/f0)**(power*si))**(1/power)
 
     C = 1 / 96 / np.pi**2 * hcf**2 / f**3 * dur * howml
 
@@ -1230,13 +1235,23 @@ def createGWB(psr, Amp, gam, DM=False, noCorr=False, seed=None, turnover=False, 
     for ll in range(Npulsars):
         
         Res[ll,:] = Res_t[ll, 10:(npts+10)]
-        f = interp.interp1d(ut, Res[ll,:], kind='linear')
 
-        if DM and len(psr) == 1:
-            print 'adding DM to toas'
-            res_gw.append(f(psr[ll].toas)/((2.3687e-16)*psr[ll].freqs**2))
+        if interpolate:
+            f = interp.interp1d(ut, Res[ll,:], kind='linear')
+
+            if DM and len(psr) == 1:
+                print 'adding DM to toas'
+                res_gw.append(f(psr[ll].toas)/((2.3687e-16)*psr[ll].freqs**2))
+            else:
+                res_gw.append(f(psr[ll].toas))
         else:
-            res_gw.append(f(psr[ll].toas))
+            ntoa = len(psr[ll].toas)
+            res = Res_t[ll,10:(ntoa+10)]
+            if DM and len(psr) == 1:
+                print 'adding DM to toas'
+                res_gw.append(res/((2.3687e-16)*psr[ll].freqs**2))
+            else:
+                res_gw.append(res)
 
     return res_gw
 

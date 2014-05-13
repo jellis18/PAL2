@@ -36,7 +36,7 @@ class PTSampler(object):
     """
 
     def __init__(self, ndim, logl, logp, cov, comm=MPI.COMM_WORLD, \
-                 outDir='./chains', verbose=True, nowrite=False):
+                 outDir='./chains', verbose=True):
 
         # MPI initialization
         self.comm = comm
@@ -48,10 +48,9 @@ class PTSampler(object):
         self.logp = logp
         self.outDir = outDir
         self.verbose = verbose
-        self.nowrite = nowrite
 
         # setup output file
-        if not os.path.exists(self.outDir) and not nowrite:
+        if not os.path.exists(self.outDir):
             try:
                 os.makedirs(self.outDir)
             except OSError:
@@ -124,7 +123,7 @@ class PTSampler(object):
             # set up covariance matrix and DE buffers
             # TODO: better way of allocating this to save memory
             if self.MPIrank == 0:
-                self._AMbuffer = np.zeros((maxIter, self.ndim))
+                self._AMbuffer = np.zeros((Niter, self.ndim))
                 self._DEbuffer = np.zeros((self.burn, self.ndim))
 
             ### setup default jump proposal distributions ###
@@ -147,9 +146,8 @@ class PTSampler(object):
 
             # set up output file
             fname = self.outDir + '/chain_{0}.txt'.format(self.temp)
-            if not self.nowrite:
-                self._chainfile = open(fname, 'w')
-                self._chainfile.close()
+            self._chainfile = open(fname, 'w')
+            self._chainfile.close()
 
 
         ### compute lnprob for initial point in chain ###
@@ -201,8 +199,7 @@ class PTSampler(object):
 
             # write to file
             if iter % isave == 0:
-                if not self.nowrite:
-                    self._writeToFile(fname, iter, isave, thin)
+                self._writeToFile(fname, iter, isave, thin)
                 if self.MPIrank == 0 and self.verbose:
                     sys.stdout.write('\r')
                     sys.stdout.write('Finished %2.2f percent in %f s Acceptance rate = %g'\
@@ -430,9 +427,9 @@ class PTSampler(object):
         self._chainfile = open(fname, 'a+')
         for jj in range((iter-isave), iter, thin):
             ind = int(jj/thin)
-            self._chainfile.write('%.17e\t %.17e\t %e\t'%(self._lnprob[ind], self._lnlike[ind],\
+            self._chainfile.write('%e\t %e\t %e\t'%(self._lnprob[ind], self._lnlike[ind],\
                                                   self.naccepted/iter))
-            self._chainfile.write('\t'.join(["%.17e"%(self._chain[ind,kk]) \
+            self._chainfile.write('\t'.join([str(self._chain[ind,kk]) \
                                             for kk in range(self.ndim)]))
             self._chainfile.write('\n')
         self._chainfile.close()

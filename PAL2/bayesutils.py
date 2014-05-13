@@ -1,3 +1,4 @@
+from __future__ import division
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.interpolate as interp
@@ -10,6 +11,7 @@ from matplotlib.ticker import FormatStrFormatter, LinearLocator, NullFormatter, 
 import matplotlib.ticker
 import matplotlib.colors
 from optparse import OptionParser
+import os
 
 """
 Given a 2D matrix of (marginalised) likelihood levels, this function returns
@@ -57,7 +59,8 @@ def getsigmalevels(hist2d):
 
   return level1, level2, level3
 
-def confinterval(samples, sigma=0.68, onesided=False):
+def confinterval(samples, sigma=0.68, onesided=False, weights=None, bins=40,
+                type='equalArea'):
     """
 
     Given a list of samples, return the desired cofidence intervals.
@@ -73,35 +76,56 @@ def confinterval(samples, sigma=0.68, onesided=False):
 
     """
 
-    # Create the ecdf function
-    ecdf = sm.distributions.ECDF(samples)
+    # Create the histogram
+    hist, xedges = np.histogram(samples, bins=bins, weights=weights)
+    xedges = np.delete(xedges, -1) + 0.5*(xedges[1] - xedges[0])
+
+    # CDF
+    cdf = np.cumsum(hist/hist.sum())
+
+    # interpolate
+    x = np.linspace(xedges.min(), xedges.max(), 10000)
+    ifunc = interp.interp1d(xedges, cdf, kind='linear')
+    y = ifunc(x)
+    
+    #ecdf = sm.distributions.ECDF(samples)
 
     # Create the binning
-    x = np.linspace(min(samples), max(samples), 1000)
-    y = ecdf(x)
+    #x = np.linspace(min(samples), max(samples), 1000)
+    #y = ecdf(x)
 
     # Find the intervals
-    x2min = y[0]
-    if onesided:
-        bound = 1 - sigma
-    else:
-        bound = 0.5*(1-sigma)
+    if type == 'equalArea' or onesided:
+        x2min = y[0]
+        if onesided:
+            bound = 1 - sigma
+        else:
+            bound = 0.5*(1-sigma)
 
-    for i in range(len(y)):
-        if y[i] >= bound:
-            x2min = x[i]
-            break
+        for i in range(len(y)):
+            if y[i] >= bound:
+                x2min = x[i]
+                break
 
-    x2max = y[-1]
-    if onesided:
-        bound = sigma
-    else:
-        bound = 1 - 0.5 * (1 - sigma)
+        x2max = y[-1]
+        if onesided:
+            bound = sigma
+        else:
+            bound = 1 - 0.5 * (1 - sigma)
 
-    for i in reversed(range(len(y))):
-        if y[i] <= bound:
-            x2max = x[i]
-            break
+        for i in reversed(range(len(y))):
+            if y[i] <= bound:
+                x2max = x[i]
+                break
+
+    if type == 'equalProb' and not(onesided):
+        ifunc = interp.interp1d(xedges, hist, kind='linear')
+        sortlik = np.sort(ifunc(x))
+        sortlik /= sortlik.sum()
+        ind = np.argsort(ifunc(x))
+        idx = np.flatnonzero(np.cumsum(sortlik) > 1-sigma)
+        x2min = x[ind][idx].min()
+        x2max = x[ind][idx].max()
 
     return x2min, x2max
 
@@ -179,6 +203,27 @@ def makesubplot2d(ax, samples1, samples2, cmap, color=True, weights=None, smooth
         ax.set_xscale('log')
     if logy:
         ax.set_yscale('log')
+
+def getMeanAndStd(samples, weights=None, bins=50):
+    """
+    Get mean and standard deviation. Only really useful when weights != None
+    """
+
+    hist, xedges = np.histogram(samples, bins, normed=True, weights=weights)
+    xedges = np.delete(xedges, -1) + 0.5*(xedges[1] - xedges[0])
+    
+    # pdf
+    p = hist/np.sum(hist)
+
+    # mean
+    m = np.sum(xedges*p)
+
+    # variance
+    std = np.sqrt(np.sum(xedges**2*p) - m**2)
+
+
+    return m, std
+
     
     
 def makesubplot1d(ax, samples, weights=None, interpolate=False, smooth=True,\
@@ -216,9 +261,10 @@ def getMax(samples, weights=None, range=None, bins=50):
     """
 
     if range is None:
-        hist, xedges = np.histogram(samples, bins, normed=True)
+        hist, xedges = np.histogram(samples, bins, normed=True, weights=weights)
     else:
-        hist, xedges = np.histogram(samples, bins, normed=True, range=range)
+        hist, xedges = np.histogram(samples, bins, normed=True, range=range,\
+                                   weights=weights)
 
     xedges = np.delete(xedges, -1) + 0.5*(xedges[1] - xedges[0])
 
@@ -523,7 +569,138 @@ def upperlimitplot2d(x, y, sigma=0.95, ymin=None, ymax=None, bins=40, log=False,
     else:
         plt.savefig('2dUpperLimit.pdf', bbox_inches='tight')
 
+        """
+Given an mcmc chain, plot the log-spectrum
+
+"""
+def makespectrumplot(chain, parstart=1, numfreqs=10, freqs=None, \
+        Apl=None, gpl=None, Asm=None, asm=None, fcsm=0.1, plotlog=False, \
+        lcolor='black', Tmax=None, Aref=None, holdon=False, title=None, \
+        values=False):
+
+    if freqs is None:
+        ufreqs = np.log10(np.arange(1, 1+numfreqs))
+    else:
+        ufreqs = np.log10(np.sort(np.array(list(set(freqs)))))
+
+    #ufreqs = np.array(list(set(freqs)))
+    yval = np.zeros(len(ufreqs))
+    yerr = np.zeros(len(ufreqs))
+
+    if len(ufreqs) != (numfreqs):
+        print "WARNING: parameter range does not correspond to #frequencies"
+
+    for ii in range(numfreqs):
+        fmin, fmax = confinterval(chain[:, parstart+ii], sigma=0.68)
+        yval[ii] = (fmax + fmin) * 0.5
+        yerr[ii] = (fmax - fmin) * 0.5
     
+    retvals = []
+    if values:
+        retvals.append(yval)
+        retvals.append(yerr)
+    
+    if not(holdon):
+        fig = plt.figure()
+
+    # For plotting reference spectra
+    pfreqs = 10 ** ufreqs
+    ypl = None
+    ysm = None
+
+    if plotlog:
+        pic_spy = 3.16e7
+        plt.errorbar(ufreqs, yval, yerr=yerr, fmt='.', c=lcolor)
+        # outmatrix = np.array([ufreqs, yval, yerr]).T
+        # np.savetxt('spectrumplot.txt', outmatrix)
+
+        if Apl is not None and gpl is not None and Tmax is not None:
+            Apl = 10**Apl
+            ypl = (Apl**2 * pic_spy**3 / (12*np.pi*np.pi * (Tmax))) * ((pfreqs * pic_spy) ** (-gpl))
+            plt.plot(np.log10(pfreqs), np.log10(ypl), 'g--', linewidth=2.0)
+
+        if Asm is not None and asm is not None and Tmax is not None:
+            Asm = 10**Asm
+            fcsm = fcsm / pic_spy
+            ysm = (Asm * pic_spy**3 / Tmax) * ((1 + (pfreqs/fcsm)**2)**(-0.5*asm))
+            plt.plot(np.log10(pfreqs), np.log10(ysm), 'r--', linewidth=2.0)
+
+
+        #plt.axis([np.min(ufreqs)-0.1, np.max(ufreqs)+0.1, np.min(yval-yerr)-1, np.max(yval+yerr)+1])
+        plt.xlabel("Frequency [log(f/Hz)]")
+        #if True:
+        #    #freqs = likobhy.ptapsrs[0].Ffreqs
+        #    Tmax = 156038571.88061461
+        #    Apl = 10**-13.3 ; Asm = 10**-24
+        #    apl = 4.33 ; asm = 4.33
+        #    fc = (10**-1.0)/pic_spy
+
+        #    pcsm = (Asm * pic_spy**3 / Tmax) * ((1 + (freqs/fc)**2)**(-0.5*asm))
+        #    pcpl = (Apl**2 * pic_spy**3 / (12*np.pi*np.pi * Tmax)) * \
+        #    (freqs*pic_spy) ** (-apl)
+        #    plt.plot(np.log10(freqs), np.log10(pcsm), 'r--', linewidth=2.0)
+        #    plt.plot(np.log10(freqs), np.log10(pcpl), 'g--', linewidth=2.0)
+
+    else:
+        plt.errorbar(10**ufreqs, yval, yerr=yerr, fmt='.', c='black')
+        if Aref is not None:
+            plt.plot(10**ufreqs, np.log10(yinj), 'k--')
+        plt.axis([np.min(10**ufreqs)*0.9, np.max(10**ufreqs)*1.01, np.min(yval-yerr)-1, np.max(yval+yerr)+1])
+        plt.xlabel("Frequency [Hz]")
+
+    #plt.title("Power spectrum")
+    if title is not None:
+        plt.title(title)
+    plt.ylabel("Power Spectrum [s^2]")
+    plt.grid(True)
+
+    return retvals
+
+def makePostPlots(chain, labels, outDir='./postplots'):
+
+    import acor
+
+    if not os.path.exists(outDir):
+        try:
+            os.makedirs(outDir)
+        except OSError:
+            pass
+
+
+    ndim = chain.shape[1]
+    for ii in range(ndim):
+
+        xmajorLocator = matplotlib.ticker.MaxNLocator(nbins=6,prune='both')
+        ymajorLocator = matplotlib.ticker.MaxNLocator(nbins=6,prune='both')
+
+        fig = plt.figure(figsize=(10,4))
+
+        ax = fig.add_subplot(121)
+        acl = acor.acor(chain[:,ii])[0]
+        neff = len(chain[:,ii]) / acl * 10
+        ax.plot(chain[:,ii])
+        plt.title('Neff = {0}'.format(int(neff)))
+        plt.ylabel(labels[ii])
+
+        ax = fig.add_subplot(122)
+        if 'equad' in labels[ii] or 'jitter' in labels[ii] or \
+           'Amplitude' in labels[ii]:
+            ax.hist(10**chain[:,ii], 50, lw=2, color='b', \
+                    weights=10**chain[:,ii], normed=True)
+        else:
+            ax.hist(chain[:,ii], 50, lw=2, color='b', normed=True)
+        plt.xlabel(labels[ii])
+        ax.xaxis.set_major_locator(xmajorLocator)
+        ax.yaxis.set_major_locator(ymajorLocator)
+        
+        plt.savefig(outDir + '/' + labels[ii] + '_post.png', bbox_inches='tight', \
+                   dpi=200)
+
+
+
+
+    
+
 
 
 

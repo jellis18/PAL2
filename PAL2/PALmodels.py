@@ -130,10 +130,13 @@ class PTAmodels(object):
             varyEfac=True, separateEfacs=False, separateEfacsByFreq=False, \
             incEquad=False,separateEquads=False, separateEquadsByFreq=False, \
             incJitter=False, separateJitter=False, separateJitterByFreq=False, \
+            incJitterEpoch = False, nepoch = None, \
             incJitterEquad=False, separateJitterEquad=False, separateJitterEquadByFreq=False, \
-            efacPrior='uniform', equadPrior='log', jitterPrior='uniform', jitterEquadPrior='log', \
+            efacPrior='uniform', equadPrior='log', jitterPrior='uniform', \
+            jitterEquadPrior='log', \
             redAmpPrior='log', redSiPrior='uniform', GWAmpPrior='log', GWSiPrior='uniform', \
-            DMAmpPrior='log', DMSiPrior='uniform', redSpectrumPrior='log', DMSpectrumPrior='log', \
+            DMAmpPrior='log', DMSiPrior='uniform', redSpectrumPrior='log', \
+            DMSpectrumPrior='log', \
             GWspectrumPrior='log', \
             incSingleFreqNoise=False, numSingleFreqLines=1, \
             incSingleFreqDMNoise=False, numSingleFreqDMLines=1, \
@@ -281,6 +284,30 @@ class PTAmodels(object):
                     signals.append(newsignal)
 
 
+            if incJitterEpoch:
+                    bvary = [True]*nepoch[ii]
+                    pmin = [-10.0]*nepoch[ii]
+                    pmax = [-4.0]*nepoch[ii]
+                    pstart = [-9.0]*nepoch[ii]
+                    pwidth = [0.5]*nepoch[ii]
+                    prior = [jitterEquadPrior]*nepoch[ii]
+
+                    newsignal = OrderedDict({
+                        "stype":"jitter_epoch",
+                        "corr":"single",
+                        "pulsarind":ii,
+                        "flagname":"pulsarname",
+                        "flagvalue":p.name,
+                        "bvary":bvary,
+                        "pmin":pmin,
+                        "pmax":pmax,
+                        "pwidth":pwidth,
+                        "pstart":pstart,
+                        "prior":prior
+                        })
+                    signals.append(newsignal)
+
+
             if incEquad:
                 if separateEquads or separateEquadsByFreq:
                     if separateEquads and ~separateEquadsByFreq:
@@ -335,7 +362,7 @@ class PTAmodels(object):
                 elif noiseModel=='powerlaw':
                     bvary = [True, True, False]
                     pmin = [-20.0, 0.02, 1.0e-11]
-                    pmax = [-10.0, 6.98, 3.0e-9]
+                    pmax = [-11.0, 6.98, 3.0e-9]
                     pstart = [-14.0, 2.01, 1.0e-10]
                     pwidth = [0.1, 0.1, 5.0e-11]
                     prior = [redAmpPrior, redSiPrior, 'log']
@@ -439,14 +466,14 @@ class PTAmodels(object):
             if gwbModel=='spectrum':
                 bvary = [True]*nfreqs
                 pmin = [-18.0]*nfreqs
-                pmax = [-7.0]*nfreqs
+                pmax = [-8.0]*nfreqs
                 pstart = [-10.0]*nfreqs
                 pwidth = [0.1]*nfreqs
                 prior = [GWspectrumPrior]*nfreqs
             elif gwbModel=='powerlaw':
                 bvary = [True, True, False]
                 pmin = [-17.0, 1.02, 1.0e-11]
-                pmax = [-10.0, 6.98, 3.0e-9]
+                pmax = [-11.0, 6.98, 3.0e-9]
                 pstart = [-15.0, 2.01, 1.0e-10]
                 pwidth = [0.1, 0.1, 5.0e-11]
                 prior = [GWAmpPrior, GWSiPrior, 'log']
@@ -537,8 +564,12 @@ class PTAmodels(object):
             self.addSignalJitter(signal)
         
         elif signal['stype'] == 'jitter_equad':
-            # Jitter
+            # Jitter equad
             self.addSignalJitterEquad(signal)
+        
+        elif signal['stype'] == 'jitter_epoch':
+            # Jitter by epoch
+            self.addSignalJitterEpoch(signal)
 
         elif signal['stype'] in ['powerlaw', 'spectrum', 'spectralModel']:
             # Any time-correlated signal
@@ -639,6 +670,31 @@ class PTAmodels(object):
             ind = np.array(self.psr[signal['pulsarind']].aveflags) != signal['flagvalue']
             signal['Jvec'][ind] = 0.0
 
+        self.ptasignals.append(signal.copy())
+    
+    """
+    Add an Jitter by Epoch signal (one free jitter parameter per epoch)
+
+    Required keys in signal
+    @param psrind:      Index of the pulsar this efac applies to
+    @param index:       Index of first parameter in total parameters array
+    @param flagname:    Name of the flag this efac applies to (field-name)
+    @param flagvalue:   Value of the flag this efac applies to (e.g. CPSR2)
+    @param bvary:       List of indicators, specifying whether parameters can vary
+    @param pmin:        Minimum bound of prior domain
+    @param pmax:        Maximum bound of prior domain
+    @param pwidth:      Typical width of the parameters (e.g. initial stepsize)
+    @param pstart:      Typical start position for the parameters
+
+    """
+    def addSignalJitterEpoch(self, signal):
+        # Assert that all the correct keys are there...
+        keys = ['pulsarind', 'stype', 'corr', 'flagname', 'flagvalue', 'bvary', \
+                'pmin', 'pmax', 'pwidth', 'pstart', 'parindex']
+        if not all(k in signal for k in keys):
+            raise ValueError("ERROR: Not all signal keys are present in jitter equad signal. \
+                             Keys: {0}. Required: {1}".format(signal.keys(), keys))
+        
         self.ptasignals.append(signal.copy())
     
     """
@@ -895,7 +951,8 @@ class PTAmodels(object):
                                 from the HDF5 file
     @param verbose:             Give some extra information about progress
     """
-    def initModel(self, fullmodel, fromFile=False, verbose=False, memsave=True):
+    def initModel(self, fullmodel, fromFile=False, write=True, \
+                  verbose=False, memsave=True):
         numNoiseFreqs = fullmodel['numNoiseFreqs']
         numDMFreqs = fullmodel['numDMFreqs']
         compression = fullmodel['compression']
@@ -925,7 +982,13 @@ class PTAmodels(object):
             Tstart = np.min([np.min(p.toas), Tstart])
             Tfinish = np.max([np.max(p.toas), Tfinish])
         Tmax = Tfinish - Tstart
+        #Tmax = 1/1.33950638e-09
         self.Tmax = Tmax
+
+        #print 'WARNING: Using seperate Tmax for each pulsar'
+        for p in self.psr:
+            #p.Tmax = p.toas.max() - p.toas.min()
+            p.Tmax = self.Tmax
 
         # If the compressionComplement is defined, overwrite the default
         if evalCompressionComplement != 'None':
@@ -970,13 +1033,12 @@ class PTAmodels(object):
                 # Read Auxiliaries
                 if verbose:
                     print "Reading Auxiliaries for {0}".format(p.name)
-                p.readPulsarAuxiliaries(self.h5df, Tmax, \
-                        numNoiseFreqs[pindex], \
+                p.readPulsarAuxiliaries(self.h5df, p.Tmax, numNoiseFreqs[pindex], \
                         numDMFreqs[pindex], ~separateEfacs[pindex], \
-                        nSingleFreqs=numSingleFreqs[pindex], \
-                        nSingleDMFreqs=numSingleDMFreqs[pindex], \
-                        likfunc=likfunc, compression=compression, \
-                        memsave=True)
+                                nSingleFreqs=numSingleFreqs[pindex], \
+                                nSingleDMFreqs=numSingleDMFreqs[pindex], \
+                                likfunc=likfunc, compression=compression, \
+                                memsave=memsave)
             except (StandardError, ValueError, KeyError, IOError, RuntimeError) as err:
                 # Create the Auxiliaries ourselves
 
@@ -985,18 +1047,18 @@ class PTAmodels(object):
                 if verbose:
                     print str(err)
                     print "Creating Auxiliaries for {0}".format(p.name)
-                p.createPulsarAuxiliaries(self.h5df, Tmax, numNoiseFreqs[pindex], \
+                p.createPulsarAuxiliaries(self.h5df, p.Tmax, numNoiseFreqs[pindex], \
                         numDMFreqs[pindex], ~separateEfacs[pindex], \
                                 nSingleFreqs=numSingleFreqs[pindex], \
                                 nSingleDMFreqs=numSingleDMFreqs[pindex], \
                                 likfunc=likfunc, compression=compression, \
-                                write='no', targetAmp=targetAmp, memsave=memsave)
+                                write=write, memsave=memsave)
 
         # Initialise the ptasignal objects
         self.ptasignals = []
         index = 0
         for ii, signal in enumerate(signals):
-            self.addSignal(signal, index, Tmax)
+            self.addSignal(signal, index, p.Tmax)
             index += self.ptasignals[-1]['npars']
 
         self.allocateLikAuxiliaries()
@@ -1038,15 +1100,22 @@ class PTAmodels(object):
                 elif sig['stype'] == 'jitter_equad':
                     flagname = sig['flagname']
                     flagvalue = 'jitter_q_'+sig['flagvalue']
+                
+                elif sig['stype'] == 'jitter_epoch':
+                    flagname = sig['flagname']
+                    flagvalue = 'jitter_p_' + str(jj)
 
                 elif sig['stype'] == 'spectrum':
                     flagname = 'frequency'
-                    flagvalue = 'rho' + str(jj)
-                    #flagvalue = str(self.psr[psrindex].Ffreqs[2*jj])
+                    #flagvalue = 'rho' + str(jj)
+                    if sig['corr'] == 'single':
+                        flagvalue = 'red_' + str(self.psr[psrindex].Ffreqs[2*jj])
+                    elif sig['corr'] == 'gr':
+                        flagvalue = 'gwb_' + str(self.psr[psrindex].Ffreqs[2*jj])
 
                 elif sig['stype'] == 'dmspectrum':
                     flagname = 'dmfrequency'
-                    flagvalue = str(self.psr[psrindex].Fdmfreqs[2*jj])
+                    flagvalue = 'dm_' +str(self.psr[psrindex].Fdmfreqs[2*jj])
 
                 elif sig['stype'] == 'powerlaw':
                     flagname = 'powerlaw'
@@ -1093,7 +1162,7 @@ class PTAmodels(object):
     Determine intial parameters drawn from prior ranges
 
     """
-    def initParameters(self, startEfacAtOne=True):
+    def initParameters(self, startEfacAtOne=True, startSpectrumMin=False):
         
         p0 = []
         for ct, sig in enumerate(self.ptasignals):
@@ -1101,6 +1170,8 @@ class PTAmodels(object):
                 for min, max in zip(sig['pmin'][sig['bvary']], sig['pmax'][sig['bvary']]):
                     if startEfacAtOne and sig['stype'] == 'efac':
                         p0.append(1)
+                    elif startSpectrumMin and sig['stype'] == 'spectrum':
+                        p0.append(min + np.log10(2))
                     else:
                         p0.append(min + np.random.rand()*(max - min))     
             
@@ -1336,13 +1407,20 @@ class PTAmodels(object):
 
                 self.psr[psrind].Qamp += sig['Jvec'] * pequadsqr
 
-                if incJitter:
-                    # Need to include it just like the equad (for compressison)
-                    self.psr[psrind].Nvec += sig['Nvec'] * pequadsqr
+            # jitter by epoch signal
+            elif sig['stype'] == 'jitter_epoch':
 
-                    if self.psr[psrind].twoComponentNoise:
-                        self.psr[psrind].Nwvec += pequadsqr
-                        self.psr[psrind].Nwovec += pequadsqr
+                # short hand
+                npars = sig['npars']
+            
+                # parameters for this signal
+                sparameters = sig['pstart'].copy()
+
+                # which ones are varying
+                sparameters[sig['bvary']] = parameters[parind:parind+npars]
+
+                self.psr[psrind].Qamp += 10**(2*sparameters)
+                
 
 
 
@@ -1463,6 +1541,7 @@ class PTAmodels(object):
         # now that we have obtained rho and kappa, we can construct Phiinv
         sigdiag = []
         sigoffdiag = []
+        self.gwamp = 0
 
         # no correlated signals (easy)
         if rho is None:
@@ -1539,7 +1618,6 @@ class PTAmodels(object):
             self.Phi = np.array(sigdiag).flatten()
             self.Phiinv = np.diag(1/self.Phi)
             self.logdetPhi = np.sum(np.log(self.Phi))
-
 
 
         # correlated signals (not as easy)
@@ -1632,7 +1710,8 @@ class PTAmodels(object):
     """
     Simulate residuals for a single pulsar
     """
-    def simData(self, parameters, setup=False):
+    def simData(self, parameters, setup=False, turnover=False, f0=1e-9, \
+                    beta=1, power=1):
 
         
         # only need to do this if parameters change
@@ -1642,16 +1721,18 @@ class PTAmodels(object):
             # set red noise, DM and GW parameters
             self.gwamp = 0
             self.corrmat = np.eye(self.npsr)
-            self.constructPhiMatrix(parameters, constructPhi=True)
+            self.constructPhiMatrix(parameters, incCorrelations=False)
 
             # construct cholesky decomp on ORF
             self.corrmatCho = sl.cholesky(self.corrmat)
         
         if np.any(self.gwamp):
-            y = np.random.randn(self.npsr, self.ngwf)
-            ypsr = np.dot(self.corrmatCho, y)
+            #y = np.random.randn(self.npsr, self.ngwf)
+            #ypsr = np.dot(self.corrmatCho, y)
             gwbs = PALutils.createGWB(self.psr, 10**parameters[-2], parameters[-1], \
-                                      DM=False, noCorr=False, seed=None)
+                                      DM=False, noCorr=False, seed=None,
+                                      turnover=turnover, f0=f0, beta=beta, \
+                                      power=power)
 
         # begin loop over all pulsars
         findex = 0
@@ -1665,6 +1746,12 @@ class PTAmodels(object):
             n = np.sqrt(p.Nvec)
             w = np.random.randn(len(p.toas))
             white = n*w
+
+            # jitter noise
+            if p.Umat is not None:
+                j = np.sqrt(p.Qamp)
+                w = np.random.randn(len(p.avetoas))
+                white += np.dot(p.Umat, j*w)
 
             # red noise
             phi = np.sqrt(10**p.kappa_tot)
@@ -1813,10 +1900,10 @@ class PTAmodels(object):
     def optimalStatisticCoarse(self, parameters):
 
         # set pulsar white noise parameters
-        self.setPsrNoise(parameters, incJitter=False, incCorrelations=False)
+        self.setPsrNoise(parameters, incJitter=False)
 
         # set red noise, DM and GW parameters
-        self.constructPhiMatrix(parameters)
+        self.constructPhiMatrix(parameters, incCorrelations=False)
 
         # get correlation matrix
         ORF = PALutils.computeORF(self.psr)
@@ -1953,6 +2040,7 @@ class PTAmodels(object):
 
     def mark1LogLikelihood(self, parameters, incCorrelations=True):
 
+
         loglike = 0
 
         # set pulsar white noise parameters
@@ -2045,7 +2133,137 @@ class PTAmodels(object):
         loglike += -0.5 * (self.logdetPhi + logdet_Sigma) + 0.5 * (np.dot(d, expval2)) 
 
         return loglike
+    
+    """
+    Older version of mark2 likelihood. Does not include option for multiple pulsars
 
+    """
+
+    def mark2LogLikelihood_old(self, parameters):
+
+        loglike = 0
+
+        # set pulsar white noise parameters
+        self.setPsrNoise(parameters, incJitter=False)
+
+        # set red noise, DM and GW parameters
+        self.constructPhiMatrix(parameters)
+
+        # set deterministic sources
+        if self.haveDetSources:
+            self.updateDetSources(parameters)
+
+        
+        # compute the white noise terms in the log likelihood
+        UGGNGGU = []
+        for ct, p in enumerate(self.psr):
+
+            if p.twoComponentNoise:
+                
+                # equivalent to F^TG(G^TNG)^{-1}G^T\delta t in two component basis
+                if ct == 0:
+                    d = np.dot(p.AGU.T, p.AGr/p.Nwvec)
+                else:
+                    d = np.append(d, np.dot(p.AGU.T, p.AGr/p.Nwvec))
+
+                # compute F^TG(G^TNG)^{-1}G^TF
+                right = ((1/p.Nwvec) * p.AGU.T).T
+                UGGNGGU.append(np.dot(p.AGU.T, right))
+
+                # log determinant of G^TNG
+                logdet_N = np.sum(np.log(p.Nwvec))
+
+                # triple product in likelihood function
+                rGGNGGr = np.sum(p.AGr**2/p.Nwvec)
+            
+            else:   
+
+                # G(G^TNG)^{-1}G^T = N^{-1} - N^{-1}G_c(G_c^TN^{-1}G_c)^{-1}N^{-1}
+                Nir = p.detresiduals / p.Nvec
+                NiGc = ((1.0/p.Nvec) * p.Hcmat.T).T
+                GcNiGc = np.dot(p.Hcmat.T, NiGc)
+                NiU = ((1.0/p.Nvec) * p.Umat.T).T
+                GcNir = np.dot(NiGc.T, p.detresiduals)
+                GcNiU = np.dot(NiGc.T, p.Umat)
+
+                try:
+                    cf = sl.cho_factor(GcNiGc)
+                    logdet_N = np.sum(np.log(p.Nvec)) + 2*np.sum(np.log(np.diag(cf[0])))
+                    GcNiGcr = sl.cho_solve(cf, GcNir)
+                    GcNiGcU = sl.cho_solve(cf, GcNiU)
+                    NiGcNiGcr = np.dot(NiGc, GcNiGcr)
+
+                except np.linalg.LinAlgError:
+                    print "MAJOR ERROR"
+                
+                #F^TG(G^TNG)^{-1}G^T\delta t 
+                if ct == 0:
+                    d = np.dot(p.Umat.T, Nir - NiGcNiGcr)
+                else:
+                    d = np.append(d, np.dot(p.Umat.T, Nir - NiGcNiGcr))
+
+                # triple product in likelihood function
+                rGGNGGr = np.dot(p.detresiduals, Nir) - np.dot(GcNir, GcNiGcr)
+
+                # compute F^TG(G^TNG)^{-1}G^TF
+                UGGNGGU.append(np.dot(NiU.T, p.Umat) - np.dot(GcNiU.T, GcNiGcU))
+                
+                
+            # first component of likelihood function
+            loglike += -0.5 * (logdet_N + rGGNGGr)
+
+        # cheat for now
+        #TODO: make this more general
+        if self.npsr == 1:
+            Phi0 = np.diag(1/np.diag(self.Phiinv))
+            UPhiU = np.dot(self.psr[0].UtF, np.dot(Phi0, self.psr[0].UtF.T))
+            Phi = UPhiU + np.diag(self.psr[0].Qamp) 
+            
+            try:
+                cf = sl.cho_factor(Phi)
+                self.logdetPhi = 2*np.sum(np.log(np.diag(cf[0])))
+                self.Phiinv = sl.cho_solve(cf, np.identity(Phi.shape[0]))
+            except np.linalg.LinAlgError:
+                print 'ERROR: Cholesky Failed when inverting Phi0'
+                print parameters
+                #U, s, Vh = sl.svd(Phi)
+                #if not np.all(s > 0):
+                #    print "ERROR: Sigma singular according to SVD when inverting Phi0"
+                return -np.inf
+                    #raise ValueError("ERROR: Phi singular according to SVD")
+                #self.logdetPhi = np.sum(np.log(s))
+                #self.Phiinv = np.dot(Vh.T, np.dot(np.diag(1.0/s), U.T))
+
+        else:
+            raise ValueError("ERROR: Have not yet implemented jitter for multiple pulsars")
+
+        # compute the red noise, DMV and GWB terms in the log likelihood
+        
+        # compute sigma
+        Sigma = sl.block_diag(*UGGNGGU) + self.Phiinv
+
+        # cholesky decomp for second term in exponential
+        try:
+            cf = sl.cho_factor(Sigma)
+            logdet_Sigma = 2*np.sum(np.log(np.diag(cf[0])))
+            expval2 = sl.cho_solve(cf, d)
+        except np.linalg.LinAlgError:
+            print 'Cholesky failed when inverting Sigma'
+            print parameters
+            #U, s, Vh = sl.svd(Sigma)
+            #if not np.all(s > 0):
+                #print "ERROR: Sigma singular according to SVD when inverting Sigma"
+            return -np.inf
+                #raise ValueError("ERROR: Sigma singular according to SVD")
+            logdet_Sigma = np.sum(np.log(s))
+            expval2 = np.dot(Vh.T, np.dot(np.diag(1.0/s), np.dot(U.T, d)))
+
+
+        loglike += -0.5 * (self.logdetPhi + logdet_Sigma) + 0.5 * (np.dot(d, expval2)) 
+
+        return loglike
+
+    
     
     """
     mark 2 log likelihood. Note that this is not the same as mark1 in piccard
@@ -2058,7 +2276,7 @@ class PTAmodels(object):
 
     """
 
-    def mark2LogLikelihood(self, parameters):
+    def mark2LogLikelihood(self, parameters, incCorrelations=True):
 
         loglike = 0
 
@@ -2066,7 +2284,7 @@ class PTAmodels(object):
         self.setPsrNoise(parameters, incJitter=False)
 
         # set red noise, DM and GW parameters
-        self.constructPhiMatrix(parameters)
+        self.constructPhiMatrix(parameters, incCorrelations=incCorrelations)
 
         # set deterministic sources
         if self.haveDetSources:
@@ -2134,7 +2352,7 @@ class PTAmodels(object):
             loglike += -0.5 * (logdet_N + rGGNGGr)
 
             # keep track of jitter terms needed later
-            if self.npsr > 1:
+            if self.npsr > 1 and incCorrelations:
                 if ct == 0:
                     Jinv = 1/p.Qamp
                 else:
@@ -2145,23 +2363,30 @@ class PTAmodels(object):
 
 
         # if only using one pulsar
-        if self.npsr == 1:
-            Phi0 = np.diag(1/np.diag(self.Phiinv))
-            UPhiU = np.dot(self.psr[0].UtF, np.dot(Phi0, self.psr[0].UtF.T))
-            Phi = UPhiU + np.diag(self.psr[0].Qamp) 
+        if self.npsr == 1 or not(incCorrelations):
+            logdetPhi = 0
+            tmp = []
+            for ct, p in enumerate(self.psr):
+                Phi0 = np.diag(10**p.kappa_tot+self.gwamp)
+                UPhiU = np.dot(p.UtF, np.dot(Phi0, p.UtF.T))
+                Phi = UPhiU + np.diag(p.Qamp) 
+
             
-            try:
-                cf = sl.cho_factor(Phi)
-                logdetPhi = 2*np.sum(np.log(np.diag(cf[0])))
-                Phiinv = sl.cho_solve(cf, np.identity(Phi.shape[0]))
-            except np.linalg.LinAlgError:
-                print 'Cholesky failed when inverting phi'
-                #U, s, Vh = sl.svd(Phi)
-                #if not np.all(s > 0):
-                return -np.inf
-                    #raise ValueError("ERROR: Phi singular according to SVD")
-                #logdetPhi = np.sum(np.log(s))
-                #Phiinv = np.dot(Vh.T, np.dot(np.diag(1.0/s), U.T))
+                try:
+                    cf = sl.cho_factor(Phi)
+                    logdetPhi += 2*np.sum(np.log(np.diag(cf[0])))
+                    tmp.append(sl.cho_solve(cf, np.identity(Phi.shape[0])))
+                except np.linalg.LinAlgError:
+                    #print 'Cholesky failed when inverting phi'
+                    #U, s, Vh = sl.svd(Phi)
+                    #if not np.all(s > 0):
+                    return -np.inf
+                        #raise ValueError("ERROR: Phi singular according to SVD")
+                    #logdetPhi = np.sum(np.log(s))
+                    #Phiinv = np.dot(Vh.T, np.dot(np.diag(1.0/s), U.T))
+            
+            # block diagonal matrix
+            Phiinv = sl.block_diag(*tmp)
 
         else:
             
@@ -2201,12 +2426,13 @@ class PTAmodels(object):
             logdet_Sigma = 2*np.sum(np.log(np.diag(cf[0])))
             expval2 = sl.cho_solve(cf, d)
         except np.linalg.LinAlgError:
-            print 'Cholesky Failed when inverting Sigma'
+            #print 'Cholesky Failed when inverting Sigma'
             return -np.inf
+            #return -np.inf
             #U, s, Vh = sl.svd(Sigma)
             #if not np.all(s > 0):
-            #    return -np.inf
-            #    #raise ValueError("ERROR: Sigma singular according to SVD")
+                #return -np.inf
+            #    raise ValueError("ERROR: Sigma singular according to SVD")
             #logdet_Sigma = np.sum(np.log(s))
             #expval2 = np.dot(Vh.T, np.dot(np.diag(1.0/s), np.dot(U.T, d)))
 
@@ -2214,6 +2440,193 @@ class PTAmodels(object):
         loglike += -0.5 * (logdetPhi + logdet_Sigma) + 0.5 * (np.dot(d, expval2)) 
 
         return loglike
+    
+    """
+    mark 2 fixed noise likelihood (test)
+
+    EFAC + EQUAD + Jitter +Red noise + DMV + GWs
+
+    No frequency lines
+
+    Uses Woodbury lemma
+
+    """
+
+    def mark2LogLikelihood_fixedNoise(self, parameters, incCorrelations=True, setup=False):
+
+        loglike = 0
+
+        # set pulsar white noise parameters
+        if setup:
+            self.setPsrNoise(parameters, incJitter=False)
+
+        # set red noise, DM and GW parameters
+        self.constructPhiMatrix(parameters, incCorrelations=incCorrelations)
+
+        # set deterministic sources
+        if self.haveDetSources:
+            self.updateDetSources(parameters)
+
+        
+        # compute the white noise terms in the log likelihood
+        if setup:
+            self.UGGNGGU = []
+            self.logdet_N = []
+            self.rGGNGGr = []
+            self.logdet_N = []
+            FJ = []
+            FJF = []
+            for ct, p in enumerate(self.psr):
+
+                if p.twoComponentNoise:
+                    
+                    # equivalent to F^TG(G^TNG)^{-1}G^T\delta t in two component basis
+                    if ct == 0:
+                        self.d = np.dot(p.AGU.T, p.AGr/p.Nwvec)
+                    else:
+                        self.d = np.append(self.d, np.dot(p.AGU.T, p.AGr/p.Nwvec))
+
+                    # compute F^TG(G^TNG)^{-1}G^TF
+                    right = ((1/p.Nwvec) * p.AGU.T).T
+                    self.UGGNGGU.append(np.dot(p.AGU.T, right))
+
+                    # log determinant of G^TNG
+                    self.logdet_N.append(np.sum(np.log(p.Nwvec)))
+
+                    # triple product in likelihood function
+                    self.rGGNGGr.append(np.sum(p.AGr**2/p.Nwvec))
+                
+                else:   
+
+                    # G(G^TNG)^{-1}G^T = N^{-1} - N^{-1}G_c(G_c^TN^{-1}G_c)^{-1}N^{-1}
+                    Nir = p.detresiduals / p.Nvec
+                    NiGc = ((1.0/p.Nvec) * p.Hcmat.T).T
+                    GcNiGc = np.dot(p.Hcmat.T, NiGc)
+                    NiU = ((1.0/p.Nvec) * p.Umat.T).T
+                    GcNir = np.dot(NiGc.T, p.detresiduals)
+                    GcNiU = np.dot(NiGc.T, p.Umat)
+
+                    try:
+                        cf = sl.cho_factor(GcNiGc)
+                        self.logdet_N.append(np.sum(np.log(p.Nvec)) + \
+                                             2*np.sum(np.log(np.diag(cf[0]))))
+                        GcNiGcr = sl.cho_solve(cf, GcNir)
+                        GcNiGcU = sl.cho_solve(cf, GcNiU)
+                        NiGcNiGcr = np.dot(NiGc, GcNiGcr)
+
+                    except np.linalg.LinAlgError:
+                        print "MAJOR ERROR"
+                    
+                    #F^TG(G^TNG)^{-1}G^T\delta t 
+                    if ct == 0:
+                        self.d = np.dot(p.Umat.T, Nir - NiGcNiGcr)
+                    else:
+                        self.d = np.append(self.d, np.dot(p.Umat.T, Nir - NiGcNiGcr))
+
+                    # triple product in likelihood function
+                    self.rGGNGGr.append(np.dot(p.detresiduals, Nir) - np.dot(GcNir, GcNiGcr))
+
+                    # compute F^TG(G^TNG)^{-1}G^TF
+                    self.UGGNGGU.append(np.dot(NiU.T, p.Umat) - np.dot(GcNiU.T, GcNiGcU))
+                    
+                    
+                # first component of likelihood function
+                loglike += -0.5 * (self.logdet_N[ct] + self.rGGNGGr[ct])
+
+                # keep track of jitter terms needed later
+                if self.npsr > 1 and incCorrelations:
+                    if ct == 0:
+                        Jinv = 1/p.Qamp
+                    else:
+                        Jinv = np.append(Jinv, 1/p.Qamp)
+
+                    FJ.append(p.UtF.T * 1/p.Qamp)
+                    FJF.append(np.dot(FJ[ct], p.UtF))
+
+        else:
+            for ct, p in enumerate(self.psr):
+                loglike += -0.5 * (self.logdet_N[ct] + self.rGGNGGr[ct])
+
+
+        # if only using one pulsar
+        if self.npsr == 1 or not(incCorrelations):
+            logdetPhi = 0
+            tmp = []
+            for ct, p in enumerate(self.psr):
+                Phi0 = np.diag(10**p.kappa_tot+self.gwamp)
+                UPhiU = np.dot(p.UtF, np.dot(Phi0, p.UtF.T))
+                Phi = UPhiU + np.diag(p.Qamp) 
+
+            
+                try:
+                    cf = sl.cho_factor(Phi)
+                    logdetPhi += 2*np.sum(np.log(np.diag(cf[0])))
+                    tmp.append(sl.cho_solve(cf, np.identity(Phi.shape[0])))
+                except np.linalg.LinAlgError:
+                    #print 'Cholesky failed when inverting phi'
+                    #U, s, Vh = sl.svd(Phi)
+                    #if not np.all(s > 0):
+                    return -np.inf
+                        #raise ValueError("ERROR: Phi singular according to SVD")
+                    #logdetPhi = np.sum(np.log(s))
+                    #Phiinv = np.dot(Vh.T, np.dot(np.diag(1.0/s), U.T))
+            
+            # block diagonal matrix
+            Phiinv = sl.block_diag(*tmp)
+
+        else:
+            
+            Phi0 = self.Phiinv + sl.block_diag(*FJF)
+            logdet_J = np.sum(np.log(1/Jinv))
+
+            # cholesky decomp for second term in exponential
+            try:
+                cf = sl.cho_factor(Phi0)
+                logdet_Phi0 = 2*np.sum(np.log(np.diag(cf[0])))
+                PhiinvFJ = sl.cho_solve(cf, sl.block_diag(*FJ))
+            except np.linalg.LinAlgError:
+                print 'Cholesky Failed when inverting Phi0'
+                return -np.inf
+                #U, s, Vh = sl.svd(Phi0)
+                #if not np.all(s > 0):
+                #    return -np.inf
+                    #raise ValueError("ERROR: Sigma singular according to SVD")
+                #logdet_Phi0 = np.sum(np.log(s))
+                #PhiinvFJ = np.dot(Vh.T, np.dot(np.diag(1.0/s), np.dot(U.T, sl.block_diag(*FJ))))
+
+            # get new Phiinv
+            Phiinv = -np.dot(sl.block_diag(*FJ).T, PhiinvFJ)
+            di = np.diag_indices(len(Jinv))
+            Phiinv[di] += Jinv 
+            logdetPhi = self.logdetPhi + logdet_Phi0 + logdet_J
+
+
+        # compute the red noise, DMV and GWB terms in the log likelihood
+        
+        # compute sigma
+        Sigma = sl.block_diag(*self.UGGNGGU) + Phiinv
+
+        # cholesky decomp for second term in exponential
+        try:
+            cf = sl.cho_factor(Sigma)
+            logdet_Sigma = 2*np.sum(np.log(np.diag(cf[0])))
+            expval2 = sl.cho_solve(cf, self.d)
+        except np.linalg.LinAlgError:
+            #print 'Cholesky Failed when inverting Sigma'
+            return -np.inf
+            #return -np.inf
+            #U, s, Vh = sl.svd(Sigma)
+            #if not np.all(s > 0):
+                #return -np.inf
+            #    raise ValueError("ERROR: Sigma singular according to SVD")
+            #logdet_Sigma = np.sum(np.log(s))
+            #expval2 = np.dot(Vh.T, np.dot(np.diag(1.0/s), np.dot(U.T, d)))
+
+
+        loglike += -0.5 * (logdetPhi + logdet_Sigma) + 0.5 * (np.dot(self.d, expval2)) 
+
+        return loglike
+
 
     
     """
@@ -2365,14 +2778,58 @@ class PTAmodels(object):
             # which ones are varying
             sparameters[sig['bvary']] = parameters[parind:parind+npars]
 
-            if sig['corr'] == 'gr':
+            if sig['corr'] == 'gr' and sig['stype'] == 'powerlaw':
                 if sig['prior'][0] == 'uniform':
                     prior += np.log(10**sparameters[0])
             
-            if sig['stype'] == 'powerlaw' and sig['corr'] == 'single':
+            if sig['corr'] == 'gr' and sig['stype'] == 'spectrum':
+                if np.any(np.array(sig['prior']) == 'uniform'):
+                    idx = np.array(sig['prior']) == 'uniform'
+                    prior += np.sum(np.log(10**sparameters[idx]))
+            
+            if sig['stype'] == 'spectrum' and sig['corr'] == 'single':
+                if np.any(np.array(sig['prior']) == 'uniform'):
+                    idx = np.array(sig['prior']) == 'uniform'
+                    prior += np.sum(np.log(10**sparameters[idx]))
+                
+                # cheater prior
+                sig_red = np.sqrt(np.sum(10**sparameters))
+                #print sig_red, sig_data
+                if sig_red > self.psr[psrind].sig_data * 10:
+                    prior += -np.inf
+            
+            if sig['corr'] == 'gr' and sig['stype'] == 'spectrum':
+                if np.any(np.array(sig['prior']) == 'sqrt'):
+                    idx = np.array(sig['prior']) == 'sqrt'
+                    prior += np.sum(np.log(10**(sparameters[idx]/2)))
+            
+            if sig['stype'] == 'spectrum' and sig['corr'] == 'single':
+                if np.any(np.array(sig['prior']) == 'sqrt'):
+                    idx = np.array(sig['prior']) == 'sqrt'
+                    prior += np.sum(np.log(10**(sparameters[idx]/2)))
+                
+                # cheater prior
+                sig_red = np.sqrt(np.sum(10**sparameters))
+                #print sig_red, sig_data
+                if sig_red > self.psr[psrind].sig_data * 10:
+                    prior += -np.inf
+
+            
+            if sig['stype'] in ['powerlaw'] and sig['corr'] == 'single':
                 if sig['bvary'][0]:
                     if sig['prior'][0] == 'uniform':
                         prior += np.log(10**sparameters[0])
+                
+                # cheater prior
+                Amp = 10**sparameters[0]
+                gam = sparameters[1]
+                if gam > 1:
+                    sig_red = 2.05e-9 / np.sqrt(gam-1)*(Amp/1e-15)*\
+                        (self.psr[psrind].Tmax/3.16e7)**((gam-1)/2) 
+                else:
+                    sig_red = 0
+                if sig_red > self.psr[psrind].sig_data * 10:
+                    prior += -np.inf
 
         return prior
 
@@ -2400,6 +2857,7 @@ class PTAmodels(object):
 
         # which parameters to jump
         ind = np.unique(np.random.randint(0, nsigs, nsigs))
+        ind = np.unique(np.random.randint(0, nsigs, 1))
 
         # draw params from prior
         for ii in ind:
@@ -2438,6 +2896,114 @@ class PTAmodels(object):
 
         
         return q, qxy
+    
+    # red noise sepctrum draws
+    def drawFromRedNoiseSpectrumPrior(self, parameters, iter, beta):
+        
+        # post-jump parameters
+        q = parameters.copy()
+
+        # transition probability
+        qxy = 0
+
+        # find number of signals
+        nsigs = np.sum(self.getNumberOfSignalsFromDict(self.ptasignals, stype='spectrum', \
+                                                       corr='single'))
+        signum = self.getSignalNumbersFromDict(self.ptasignals, stype='spectrum', \
+                                               corr='single')
+
+        # which parameters to jump
+        ind = np.unique(np.random.randint(0, nsigs, nsigs))
+        ind = np.unique(np.random.randint(0, nsigs, 1))
+
+        # draw params from prior
+        for ii in ind:
+
+            # get signal
+            sig = self.ptasignals[signum[ii]]
+            parind = sig['parindex']
+            npars = sig['npars']            
+
+            # jump in amplitude if varying
+            for jj in range(npars):
+                if sig['bvary'][jj]:
+
+
+                    # log prior
+                    if sig['prior'][jj] == 'log':
+                        q[parind+jj] = np.random.uniform(self.pmin[parind+jj], \
+                                                         self.pmax[parind+jj])
+                        qxy += 0
+
+                    elif sig['prior'][jj] == 'uniform':
+                        q[parind+jj] = np.log10(np.random.uniform(10**self.pmin[parind+jj], \
+                                                               10**self.pmax[parind+jj]))
+                        qxy += np.log(10**parameters[parind+jj]/10**q[parind+jj])
+                    
+                    elif sig['prior'][jj] == 'sqrt':
+                        q[parind+jj] = np.log10(np.random.uniform(10**(self.pmin[parind+jj]/2), \
+                                            10**(self.pmax[parind+jj]/2))**2)
+                        qxy += np.log(10**(parameters[parind+jj]/2)/10**(q[parind+jj]/2))
+                        
+                    else:
+                        print 'Prior type not recognized for parameter'
+                        q[parind+jj] = parameters[parind+jj]
+
+        return q, qxy
+
+        # red noise sepctrum draws
+    def drawFromGWBSpectrumPrior(self, parameters, iter, beta):
+        
+        # post-jump parameters
+        q = parameters.copy()
+
+        # transition probability
+        qxy = 0
+
+        # find number of signals
+        nsigs = 1
+        signum = self.getSignalNumbersFromDict(self.ptasignals, stype='spectrum', \
+                                               corr='gr')
+
+        # which parameters to jump
+        ind = np.unique(np.random.randint(0, nsigs, nsigs))
+        ind = np.unique(np.random.randint(0, nsigs, 1))
+
+        # draw params from prior
+        for ii in ind:
+
+            # get signal
+            sig = self.ptasignals[signum[ii]]
+            parind = sig['parindex']
+            npars = sig['npars']            
+
+            # jump in amplitude if varying
+            for jj in range(npars):
+                if sig['bvary'][jj]:
+
+
+                    # log prior
+                    if sig['prior'][jj] == 'log':
+                        q[parind+jj] = np.random.uniform(self.pmin[parind+jj], \
+                                                         self.pmax[parind+jj])
+                        qxy += 0
+
+                    elif sig['prior'][jj] == 'uniform':
+                        q[parind+jj] = np.log10(np.random.uniform(10**self.pmin[parind+jj], \
+                                                               10**self.pmax[parind+jj]))
+                        qxy += np.log(10**parameters[parind+jj]/10**q[parind+jj])
+                    
+                    elif sig['prior'][jj] == 'sqrt':
+                        q[parind+jj] = np.log10(np.random.uniform(10**(self.pmin[parind+jj]/2), \
+                                            10**(self.pmax[parind+jj]/2))**2)
+                        qxy += np.log(10**(parameters[parind+jj]/2)/10**(q[parind+jj]/2))
+                        
+                    else:
+                        print 'Prior type not recognized for parameter'
+                        q[parind+jj] = parameters[parind+jj]
+
+        return q, qxy
+
 
 
     # GWB draws draws
@@ -2455,6 +3021,7 @@ class PTAmodels(object):
 
         # which parameters to jump
         ind = np.unique(np.random.randint(0, nsigs, nsigs))
+        ind = np.unique(np.random.randint(0, nsigs, 1))
 
         # draw params from prior
         for ii in ind:
@@ -2511,6 +3078,7 @@ class PTAmodels(object):
 
         # which parameters to jump
         ind = np.unique(np.random.randint(0, nsigs, nsigs))
+        ind = np.unique(np.random.randint(0, nsigs, 1))
 
         # draw params from prior
         for ii in ind:
@@ -2539,6 +3107,102 @@ class PTAmodels(object):
         
         return q, qxy
     
+    # draws from jitter equad prior
+    def drawFromJitterEpochPrior(self, parameters, iter, beta):
+        
+        # post-jump parameters
+        q = parameters.copy()
+
+        # transition probability
+        qxy = 0
+
+        # find number of signals
+        nsigs = np.sum(self.getNumberOfSignalsFromDict(self.ptasignals, \
+                                    stype='jitter_epoch', corr='single'))
+        signum = self.getSignalNumbersFromDict(self.ptasignals, stype='jitter_epoch', \
+                                               corr='single')
+
+        # which parameters to jump
+        ind = np.unique(np.random.randint(0, nsigs, nsigs))
+        ind = np.unique(np.random.randint(0, nsigs, 1))
+
+        # draw params from prior
+        for ii in ind:
+
+            # get signal
+            sig = self.ptasignals[signum[ii]]
+            parind = sig['parindex']
+            npars = sig['npars']
+
+            # jump in amplitude if varying
+            for jj in range(npars):
+                if sig['bvary'][jj]:
+
+
+                    # log prior
+                    if sig['prior'][jj] == 'log':
+                        q[parind+jj] = np.random.uniform(self.pmin[parind+jj], \
+                                                         self.pmax[parind+jj])
+                        qxy += 0
+
+                    elif sig['prior'][jj] == 'uniform':
+                        q[parind+jj] = np.log10(np.random.uniform(10**self.pmin[parind+jj], \
+                                                               10**self.pmax[parind+jj]))
+                        qxy += np.log(10**parameters[parind+jj]/10**q[parind+jj])
+                        
+                    else:
+                        print 'Prior type not recognized for parameter'
+                        q[parind+jj] = parameters[parind+jj]
+        
+        return q, qxy
+    
+    # draws from jitter equad prior
+    def drawFromJitterEquadPrior(self, parameters, iter, beta):
+        
+        # post-jump parameters
+        q = parameters.copy()
+
+        # transition probability
+        qxy = 0
+
+        # find number of signals
+        nsigs = np.sum(self.getNumberOfSignalsFromDict(self.ptasignals, \
+                                    stype='jitter_equad', corr='single'))
+        signum = self.getSignalNumbersFromDict(self.ptasignals, stype='jitter_equad', \
+                                               corr='single')
+
+        # which parameters to jump
+        ind = np.unique(np.random.randint(0, nsigs, nsigs))
+        ind = np.unique(np.random.randint(0, nsigs, 1))
+
+        # draw params from prior
+        for ii in ind:
+
+            # get signal
+            sig = self.ptasignals[signum[ii]]
+            parind = sig['parindex']
+            npars = sig['npars']
+
+            # jump in amplitude if varying
+            if sig['bvary']:
+
+                # log prior
+                if sig['prior'] == 'log':
+                    q[parind] = np.random.uniform(self.pmin[parind], \
+                                                     self.pmax[parind])
+                    qxy += 0
+
+                elif sig['prior'][jj] == 'uniform':
+                    q[parind] = np.log10(np.random.uniform(10**self.pmin[parind], \
+                                                           10**self.pmax[parind]))
+                    qxy += np.log(10**parameters[parind]/10**q[parind])
+                    
+                else:
+                    print 'Prior type not recognized for parameter'
+                    q[parind] = parameters[parind]
+        
+        return q, qxy
+    
     # draws from efac prior
     def drawFromEfacPrior(self, parameters, iter, beta):
         
@@ -2556,6 +3220,7 @@ class PTAmodels(object):
 
         # which parameters to jump
         ind = np.unique(np.random.randint(0, nsigs, nsigs))
+        ind = np.unique(np.random.randint(0, nsigs, 1))
 
         # draw params from prior
         for ii in ind:
@@ -2579,4 +3244,107 @@ class PTAmodels(object):
         
         return q, qxy
 
+    """
+    Reconstruct maximum likelihood and uncertainty of fourier coefficients
+
+    EFAC + EQUAD + Red noise + DMV + GWs
+
+    No jitter or frequency lines
+
+    Uses Woodbury lemma
+
+    """
+
+    def reconstructFourier(self, parameters, incCorrelations=True):
+
+
+
+        # set pulsar white noise parameters
+        self.setPsrNoise(parameters, incJitter=False)
+
+        # set red noise, DM and GW parameters
+        self.constructPhiMatrix(parameters, incCorrelations=incCorrelations)
+
+        # set deterministic sources
+        if self.haveDetSources:
+            self.updateDetSources(parameters)
+
+        
+        # compute the white noise terms in the log likelihood
+        FGGNGGF = []
+        ahat, sigma_ahat = [], []
+        nfref = 0
+        for ct, p in enumerate(self.psr):
+                        
+            if p.twoComponentNoise:
+                
+                # equivalent to F^TG(G^TNG)^{-1}G^T\delta t in two component basis
+                if ct == 0:
+                    d = np.dot(p.AGF.T, p.AGr/p.Nwvec)
+                else:
+                    d = np.append(d, np.dot(p.AGF.T, p.AGr/p.Nwvec))
+
+                # compute F^TG(G^TNG)^{-1}G^TF
+                right = ((1/p.Nwvec) * p.AGF.T).T
+                FGGNGGF.append(np.dot(p.AGF.T, right))
+
+            
+            else:   
+
+                # G(G^TNG)^{-1}G^T = N^{-1} - N^{-1}G_c(G_c^TN^{-1}G_c)^{-1}N^{-1}
+                Nir = p.detresiduals / p.Nvec
+                NiGc = ((1.0/p.Nvec) * p.Hcmat.T).T
+                GcNiGc = np.dot(p.Hcmat.T, NiGc)
+                NiF = ((1.0/p.Nvec) * p.Ftot.T).T
+                GcNir = np.dot(NiGc.T, p.detresiduals)
+                GcNiF = np.dot(NiGc.T, p.Ftot)
+
+                try:
+                    cf = sl.cho_factor(GcNiGc)
+                    GcNiGcr = sl.cho_solve(cf, GcNir)
+                    GcNiGcF = sl.cho_solve(cf, GcNiF)
+                    NiGcNiGcr = np.dot(NiGc, GcNiGcr)
+
+                except np.linalg.LinAlgError:
+                    print "MAJOR ERROR"
+                
+                #F^TG(G^TNG)^{-1}G^T\delta t 
+                if ct == 0:
+                    d = np.dot(p.Ftot.T, Nir - NiGcNiGcr)
+                else:
+                    d = np.append(d, np.dot(p.Ftot.T, Nir - NiGcNiGcr))
+
+                # compute F^TG(G^TNG)^{-1}G^TF
+                FGGNGGF.append(np.dot(NiF.T, p.Ftot) - np.dot(GcNiF.T, GcNiGcF))
+
+                
+            # compute the red noise, DMV and GWB terms in the log likelihood
+            
+            # compute sigma
+            nf = self.npftot[ct]
+            print nf
+            Sigma = FGGNGGF[ct] + self.Phiinv[nfref:(nfref+nf), nfref:(nfref+nf)]
+            Phi = np.diag(self.Phi[nfref:(nfref+nf)])
+
+            # cholesky decomp for maximum likelihood fourier components
+            try:
+                cf = sl.cho_factor(Sigma)
+                ahat.append(sl.cho_solve(cf, d))
+                SigmaInv = sl.cho_solve(cf, np.eye(Sigma.shape[0]))
+            except np.linalg.LinAlgError:
+                raise ValueError("ERROR: Sigma singular according to SVD")
+
+            # calculate uncertainty in max-likelihood fourier coefficients
+            term1 = np.dot(SigmaInv, np.dot(FGGNGGF[ct], SigmaInv))
+            tmp = np.dot(SigmaInv, FGGNGGF[ct])
+            term2 = np.dot(tmp, np.dot(Phi, tmp.T))
+            sigma_ahat.append(np.diag(term1+term2))
+
+
+            # increment frequency counter
+            nfref += nf
+            
+
+        return ahat, sigma_ahat
+    
 
