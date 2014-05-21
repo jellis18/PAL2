@@ -227,7 +227,8 @@ class PTSampler(object):
         @param DEweight: Weight of DE jumps in overall jump cycle (default=20)
         @param KDEweight: Weight of KDE jumps in overall jump cycle (default=100)
         @param burn: Burn in time (DE jumps added after this iteration) (default=10000)
-        @param maxIter: Maximum number of iterations for high temperature chains (default=2*self.Niter)
+        @param maxIter: Maximum number of iterations for high temperature chains 
+                        (default=2*self.Niter)
         @param self.thin: Save every self.thin MCMC samples
         @param i0: Iteration to start MCMC (if i0 !=0, do not re-initialize)
         @param neff: Number of effective samples to collect before terminating
@@ -580,10 +581,11 @@ class PTSampler(object):
             if self.MPIrank < self.nchain-1 and self.swapProposed != 0:
                 pt_acc = self.nswap_accepted/self.swapProposed
 
-            self._chainfile.write('%f\t %f\t %f\t %f\t'%(self._lnprob[ind], self._lnlike[ind],\
-                                                  self.naccepted/iter, pt_acc))
             self._chainfile.write('\t'.join([str(self._chain[ind,kk]) \
                                             for kk in range(self.ndim)]))
+            self._chainfile.write('\t%f\t %f\t %f\t %f\t'%(self._lnprob[ind], 
+                                                    self._lnlike[ind],\
+                                                    self.naccepted/iter, pt_acc))
             self._chainfile.write('\n')
         self._chainfile.close()
 
