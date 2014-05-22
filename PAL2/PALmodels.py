@@ -130,6 +130,7 @@ class PTAmodels(object):
             varyEfac=True, separateEfacs=False, separateEfacsByFreq=False, \
             incEquad=False,separateEquads=False, separateEquadsByFreq=False, \
             incJitter=False, separateJitter=False, separateJitterByFreq=False, \
+            incTimingModel=False, nonLinear=False, \
             incJitterEpoch = False, nepoch = None, \
             incJitterEquad=False, separateJitterEquad=False, separateJitterEquadByFreq=False, \
             efacPrior='uniform', equadPrior='log', jitterPrior='uniform', \
@@ -458,6 +459,110 @@ class PTAmodels(object):
                         })
                     signals.append(newsignal)
 
+            
+            if incTimingModel:
+                if nonLinear:
+                    # Get the parameter errors from libstempo. Initialise the
+                    # libstempo object
+                    p.initLibsTempoObject()
+
+                    errs = []
+                    est = []
+                    for t2par in p.t2psr.pars:
+                        errs += [np.double(p.t2psr[t2par].err)]
+                        est += [np.double(p.t2psr[t2par].val)]
+                    tmperrs = np.array([0.0] + errs)
+                    tmpest = np.array([0.0] + est)
+                else:
+
+                    # Just do the timing-model fit ourselves here, in order to set
+                    # the prior.
+                    w = 1.0 / p.toaerrs**2
+                    Sigi = np.dot(p.Mmat.T, (w * p.Mmat.T).T)
+                    try:
+                        cf = sl.cho_factor(Sigi)
+                        Sigma = sl.cho_solve(cf, np.eye(Sigi.shape[0]))
+                    except np.linalg.LinAlgError:
+                        U, s, Vh = sl.svd(Sigi)
+                        if not np.all(s > 0):
+                            raise ValueError("Sigi singular according to SVD")
+                        Sigma = np.dot(Vh.T, np.dot(np.diag(1.0/s), U.T))
+                    tmperrs = np.sqrt(np.diag(Sigma))
+                    tmpest = p.ptmpars
+                    tmperrs = p.ptmparerrs
+                    #tmpest = np.dot(Sigma, np.dot(p.Mmat.T, w*p.detresiduals))
+
+                # Figure out which parameters we'll keep in the design matrix
+                jumps = []
+                dmx = []
+                for tmpar in p.ptmdescription:
+                    if tmpar[:4] == 'JUMP':
+                        jumps += [tmpar]
+                    if tmpar[:3] == 'DMX':
+                        dmx += [tmpar]
+
+                #newptmdescription = m2psr.getNewTimingModelParameterList(keep=True, \
+                #        tmpars=['Offset', 'F0', 'F1', 'RAJ', 'DECJ', 'PMRA', \
+                #        'PMDEC', 'PX', 'DM', 'DM1', 'DM2'] + jumps)
+                newptmdescription = p.getNewTimingModelParameterList(keep=True, \
+                        tmpars=['Offset', 'F0', 'F1', 'DM', 'DM1', 'DM2'] + jumps + dmx)
+
+                # Select the numerical parameters. These are the ones not
+                # present in the quantities that getModifiedDesignMatrix
+                # returned
+                parids=[]
+                bvary = []
+                pmin = []
+                pmax = []
+                pwidth = []
+                pstart = []
+                for jj, parid in enumerate(p.ptmdescription):
+                    if not parid in newptmdescription:
+                        #print parid, tmpest[jj], tmperrs[jj]
+                        parids += [parid]
+                        bvary += [True]
+                        if parid == 'SINI':
+                            pmin += [-1.0]
+                            pmax += [1.0]
+                            pwidth += [tmperrs[jj]]
+                        elif parid == 'ECC':
+                            pmin += [0.0]
+                            pmax += [1.0]
+                            pwidth += [tmperrs[jj]]
+                        elif parid == 'PX':
+                            pmin += [0.0]
+                            pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
+                            pwidth += [tmperrs[jj]]
+                        elif parid == 'M2':
+                            pmin += [0.0]
+                            pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
+                            pwidth += [tmperrs[jj]]
+                        else:
+                            pmin += [-500.0 * tmperrs[jj] + tmpest[jj]]
+                            pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
+                            pwidth += [tmperrs[jj]]
+                        pstart += [tmpest[jj]]
+
+                if nonLinear:
+                    stype = 'nonlineartimingmodel'
+                else:
+                    stype = 'lineartimingmodel'
+
+                newsignal = OrderedDict({
+                    "stype":stype,
+                    "corr":"single",
+                    "pulsarind":ii,
+                    "bvary":bvary,
+                    "pmin":pmin,
+                    "pmax":pmax,
+                    "pwidth":pwidth,
+                    "pstart":pstart,
+                    "parid":parids,
+                    "prior":'flat'
+                    })
+                signals.append(newsignal)
+            
+
         if incCW:
             #TODO implement this
             pass
@@ -580,6 +685,17 @@ class PTAmodels(object):
             # A DM variation signal
             self.addSignalDMV(signal)
             self.haveStochSources = True
+        
+        elif signal['stype'] == 'lineartimingmodel':
+            # A Tempo2 linear timing model, except for (DM)QSD parameters
+            self.addSignalTimingModel(signal)
+            self.haveDetSources = True
+
+        elif signal['stype'] == 'nonlineartimingmodel':
+            # A Tempo2 timing model, except for (DM)QSD parameters
+            # Note: libstempo must be installed
+            self.addSignalTimingModel(signal, linear=False)
+            self.haveDetSources = True
         
         #TODO: not implemented correctly yet
         elif signal['stype'] == 'frequencyline':
@@ -852,6 +968,46 @@ class PTAmodels(object):
                              Required: {1}".format(signal.keys(), keys))
 
         self.ptasignals.append(signal.copy())
+    
+    """
+    Add a signal that represents a numerical tempo2 timing model
+
+    Required keys in signal
+    @param stype:       Basically always 'lineartimingmodel' (TODO: include nonlinear)
+    @param psrind:      Index of the pulsar this signal applies to
+    @param index:       Index of first parameter in total parameters array
+    @param bvary:       List of indicators, specifying whether parameters can vary
+    @param pmin:        Minimum bound of prior domain
+    @param pmax:        Maximum bound of prior domain
+    @param pwidth:      Typical width of the parameters (e.g. initial stepsize)
+    @param pstart:      Typical start position for the parameters
+    @param parid:       The identifiers (as used in par-file) that identify
+                        which parameters are included
+    """
+    def addSignalTimingModel(self, signal, linear=True):
+        # Assert that all the correct keys are there...
+        keys = ['pulsarind', 'stype', 'corr', 'bvary', 'parid', \
+                'pmin', 'pmax', 'pwidth', 'pstart', 'parindex']
+        if not all(k in signal for k in keys):
+            raise ValueError("ERROR: Not all signal keys are present in TimingModel signal. Keys: {0}. Required: {1}".format(signal.keys(), keys))
+
+        # Assert that this signal applies to a pulsar
+        if signal['pulsarind'] < 0 or signal['pulsarind'] >= len(self.psr):
+            raise ValueError("ERROR: timingmodel signal applied to non-pulsar ({0})".format(signal['pulsarind']))
+
+        # Check that the parameters included here are also present in the design
+        # matrix
+        #for ii, parid in enumerate(signal['parid']):
+        #    if not parid in self.psr[signal['pulsarind']].ptmdescription:
+        #        raise ValueError("ERROR: timingmodel signal contains non-valid parameter id")
+
+        # If this is a non-linear signal, make sure to initialise the libstempo
+        # object
+        if linear == False:
+            self.psr[signal['pulsarind']].initLibsTempoObject()
+
+        self.ptasignals.append(signal.copy())
+
 
 
     # TODO: add CW signal
@@ -1025,6 +1181,19 @@ class PTAmodels(object):
             #if dmModel[pindex] != 'None':
             #if numDMFreqs[pindex] > 0:
             #    p.addDMQuadratic()
+            
+            # get timing model parameters
+            tmpars = None
+            linsigind = self.getSignalNumbersFromDict(signals,
+                    stype='lineartimingmodel', psrind=pindex)
+            nlsigind = self.getSignalNumbersFromDict(signals,
+                    stype='nonlineartimingmodel', psrind=pindex)
+
+            if len(linsigind) + len(nlsigind) > 0:
+
+                tmpars = []    # All the timing model parameters of this pulsar
+                for ss in np.append(linsigind, nlsigind):
+                    tmpars += signals[ss]['parid']
 
             # We'll try to read the necessary quantities from the HDF5 file
             try:
@@ -1052,7 +1221,7 @@ class PTAmodels(object):
                                 nSingleFreqs=numSingleFreqs[pindex], \
                                 nSingleDMFreqs=numSingleDMFreqs[pindex], \
                                 likfunc=likfunc, compression=compression, \
-                                write=write, memsave=memsave)
+                                write=write, tmpars=tmpars, memsave=memsave)
 
         # Initialise the ptasignal objects
         self.ptasignals = []
@@ -1141,6 +1310,11 @@ class PTAmodels(object):
                     flagname = 'frequencyline'
                     flagvalue = ['Line-Freq', 'Line-Ampl'][jj]
                 
+                elif sig['stype'] == 'lineartimingmodel' or \
+                        sig['stype'] == 'nonlineartimingmodel':
+                    flagname = sig['stype']
+                    flagvalue = sig['parid'][jj]
+                
                 #TODO: add BWM and continuous Wave
                 #elif sig['stype'] == 'bwm':
                 #    flagname = 'BurstWithMemory'
@@ -1167,11 +1341,13 @@ class PTAmodels(object):
         p0 = []
         for ct, sig in enumerate(self.ptasignals):
             if np.any(sig['bvary']):
-                for min, max in zip(sig['pmin'][sig['bvary']], sig['pmax'][sig['bvary']]):
+                for min, max, pstart in zip(sig['pmin'][sig['bvary']], \
+                    sig['pmax'][sig['bvary']], sig['pstart'][sig['bvary']]):
                     if startEfacAtOne and sig['stype'] == 'efac':
                         p0.append(1)
                     else:
-                        p0.append(min + np.random.rand()*(max - min))     
+                        p0.append(pstart)
+                        #p0.append(min + np.random.rand()*(max - min))     
             
         return np.array(p0)
     
@@ -1699,11 +1875,67 @@ class PTAmodels(object):
     Update deterministic sources
     """
 
-    def updateDetSources():
+    def updateDetSources(self, parameters):
 
         # Set all the detresiduals equal to residuals
         for ct, p in enumerate(self.psr):
             p.detresiduals = p.residuals.copy()
+        
+        # In the case we have numerical timing model (linear/nonlinear)
+        for ss, sig in enumerate(self.ptasignals):
+
+            # Create a parameters array for this particular signal
+            sparameters = sig['pstart'].copy()
+            sparameters[sig['bvary']] = \
+                    parameters[sig['parindex']:sig['parindex']+sig['npars']]
+
+            if sig['stype'] == 'lineartimingmodel':
+                # This one only applies to one pulsar at a time
+                ind = []
+                pp = sig['pulsarind']
+                newdes = sig['parid']
+                psr = self.psr[pp]
+                
+                if len(newdes) == psr.Mmat.shape[1]:
+                    Mmat = psr.Mmat
+                else:
+                    raise ValueError('ERROR: Number of timing model parameters \
+                                     does not match size of design matrix')
+
+                # residuals = M * pars
+                psr.detresiduals -= \
+                        np.dot(Mmat, \
+                        (sparameters-sig['pstart'])) 
+
+            elif sig['stype'] == 'nonlineartimingmodel':
+                # The t2psr libstempo object has to be set. Assume it is.
+                pp = sig['pulsarind']
+                psr = self.psr[pp]
+
+                # For each varying parameter, update the libstempo object
+                # parameter with the new value
+                pindex = 0
+                offset = 0
+                for jj in range(sig['ntotpars']):
+                    if sig['bvary'][jj]:
+                        # If this parameter varies, update the parameter
+                        if sig['parid'][jj] == 'Offset':
+                            offset = sparameters[pindex]
+                        else:
+                            psr.t2psr[sig['parid'][jj]].val = \
+                                    sparameters[pindex]
+                        pindex += 1
+
+                # Generate the new residuals
+                psr.detresiduals = np.array(psr.t2psr.residuals(updatebats=True), dtype=np.double) + offset
+
+
+        # If necessary, transform these residuals to two-component basis
+        for pp, p in enumerate(self.psr):
+            if p.twoComponentNoise:
+                Gr = np.dot(p.Hmat.T, p.detresiduals)
+                p.AGr = np.dot(p.Amat.T, Gr)
+
 
     """
     Simulate residuals for a single pulsar

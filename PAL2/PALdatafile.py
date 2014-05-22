@@ -290,18 +290,14 @@ class DataFile(object):
                        overwrite=overwrite)    # MHz
 
         # TODO: writing the design matrix should be done irrespective of the fitting flag
-        desmat = t2pulsar.designmatrix()
+        desmat = t2pulsar.designmatrix(fixunits=True)
         self.writeData(psrGroup, 'designmatrix', desmat[t2pulsar.deleted==0, :], overwrite=overwrite)
 
         # Write the unit conversions for the design matrix (to timing model
         # parameters
-        #unitConversion = t2pulsar.getUnitConversion()
-        #self.writeData(psrGroup, 'unitConversion', unitConversion, overwrite=overwrite)
+        unitConversion = t2pulsar.getUnitConversion()
+        self.writeData(psrGroup, 'unitConversion', unitConversion, overwrite=overwrite)
 
-        # Do not write the (co)G-matrix anymore
-        # U, s, Vh = sl.svd(desmat)
-        # self.writeData(psrGroup, 'Gmatrix', U[:, desmat.shape[1]:], overwrite=overwrite)
-        # self.writeData(psrGroup, 'coGmatrix', U[:, :desmat.shape[1]], overwrite=overwrite)
 
         # Now obtain and write the timing model parameters
         tmpname = ['Offset'] + list(t2pulsar.pars)
@@ -499,8 +495,8 @@ class DataFile(object):
 
         # Read the timing model parameter descriptions
         psr.ptmdescription = map(str, self.getData(psrname, 'tmp_name'))
-        psr.ptmpars = np.array(self.getData(psrname, 'tmp_valpre'))
-        psr.ptmparerrs = np.array(self.getData(psrname, 'tmp_errpre'))
+        psr.ptmpars = np.array(self.getData(psrname, 'tmp_valpost'))
+        psr.ptmparerrs = np.array(self.getData(psrname, 'tmp_errpost'))
         psr.flags = map(str, self.getData(psrname, 'efacequad', 'Flags'))
         psr.tobsflags = map(float, self.getData(psrname, 'tobs_all', 'Flags'))
 
@@ -511,14 +507,14 @@ class DataFile(object):
         # Read the position of the pulsar
         rajind = np.flatnonzero(np.array(psr.ptmdescription) == 'RAJ')
         decjind = np.flatnonzero(np.array(psr.ptmdescription) == 'DECJ')
-        psr.raj = np.array(self.getData(psrname, 'tmp_valpre'))[rajind]
-        psr.decj = np.array(self.getData(psrname, 'tmp_valpre'))[decjind]
+        psr.raj = np.array(self.getData(psrname, 'tmp_valpost'))[rajind]
+        psr.decj = np.array(self.getData(psrname, 'tmp_valpost'))[decjind]
         psr.theta = np.pi/2 - psr.decj
         psr.phi = psr.raj
         
         # period of pulsar
         perind = np.flatnonzero(np.array(psr.ptmdescription) == 'F0')
-        psr.period = 1/np.array(self.getData(psrname, 'tmp_valpre'))[perind]
+        psr.period = 1/np.array(self.getData(psrname, 'tmp_valpost'))[perind]
 
         # Obtain residuals, TOAs, etc.
         psr.toas = np.array(self.getData(psrname, 'TOAs'))
@@ -528,7 +524,7 @@ class DataFile(object):
         psr.detresiduals = np.array(self.getData(psrname, 'prefitRes'))
         psr.freqs = np.array(self.getData(psrname, 'freq'))
         psr.Mmat = np.array(self.getData(psrname, 'designmatrix'))
-        #psr.unitconversion = np.array(self.getData(psrname, 'unitConversion', required=False))
+        psr.unitconversion = np.array(self.getData(psrname, 'unitConversion', required=False))
         
         # get number of epochs (i.e 10 s window)
         (avetoas, Umat) = PALutils.exploderMatrix(psr.toas, dt=10)

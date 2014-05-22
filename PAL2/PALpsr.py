@@ -22,6 +22,7 @@ import matplotlib.pyplot as plt
 import os, sys
 import json
 import tempfile
+import libstempo as t2
 
 import PALutils
 import PALdatafile
@@ -131,6 +132,316 @@ class Pulsar(object):
 
     
     """
+    Initialise the libstempo object for use in nonlinear timing model modelling.
+    No parameters are required, all content must already be in memory
+    """
+    def initLibsTempoObject(self):
+        # Check that the parfile_content and timfile_content are set
+        if self.parfile_content is None or self.timfile_content is None:
+            raise ValueError('No par/tim file present for pulsar {0}'.format(self.name))
+
+        # For non-linear timing models, libstempo must be imported
+        if t2 is None:
+            raise ImportError("libstempo")
+
+        # Write a temporary par-file and tim-file for libstempo to read. First
+        # obtain 
+        parfilename = tempfile.mktemp()
+        timfilename = tempfile.mktemp()
+        parfile = open(parfilename, 'w')
+        timfile = open(timfilename, 'w')
+        parfile.write(self.parfile_content)
+        timfile.write(self.timfile_content)
+        parfile.close()
+        timfile.close()
+
+        # Create the libstempo object
+        self.t2psr = t2.tempopulsar(parfilename, timfilename)
+
+        # Create the BATS?
+        # tempresiduals = self.t2psr.residuals(updatebats=True, formresiduals=False)
+
+        # Delete the temporary files
+        os.remove(parfilename)
+        os.remove(timfilename)
+
+    """
+    Constructs a new modified design matrix by adding some columns to it. Returns
+    a list of new objects that represent the new timing model
+
+    @param newpars:     Names of the parameters/columns that need to be added
+                        For now, can only be [Offset, F0, F1, DM, DM0, DM1]
+                        (or higher derivatives of F/DM)
+
+    @param oldMat:      The old design matrix. If None, use current one
+
+    @param oldGmat:     The old G-matrix. ''
+
+    @param oldGcmat:    The old co-G-matrix ''
+
+    @param oldptmpars:  The old timing model parameter values
+
+    @param oldptmdescription:   The old timing model parameter labels
+
+    @param noWarning:   If True, do not warn for duplicate parameters
+
+    @return (list):     Return the elements: (newM, newG, newGc,
+                        newptmpars, newptmdescription)
+                        in order: the new design matrix, the new G-matrix, the
+                        new co-Gmatrix (orthogonal complement), the new values
+                        of the timing model parameters, the new descriptions of
+                        the timing model parameters. Note that the timing model
+                        parameters are not really 'new', just re-selected
+    """
+    def addToDesignMatrix(self, addpars, \
+            oldMmat=None, oldGmat=None, oldGcmat=None, \
+            oldptmpars=None, oldptmdescription=None, \
+            noWarning=False):
+        if oldMmat is None:
+            oldMmat = self.Mmat
+        if oldptmdescription is None:
+            oldptmdescription = self.ptmdescription
+        if oldptmpars is None:
+            oldptmpars = self.ptmpars
+        #if oldunitconversion is None:
+        #    oldunitconversion = self.unitconversion
+        if oldGmat is None:
+            oldGmat = self.Gmat
+        if oldGcmat is None:
+            oldGcmat = self.Gcmat
+
+        # First make sure that the parameters we are adding are not already in
+        # the design matrix
+        indok = np.array([1]*len(addpars), dtype=np.bool)
+        addpars = np.array(addpars)
+        #for ii, parlabel in enumerate(oldptmdescription):
+        for ii, parlabel in enumerate(addpars):
+            if parlabel in oldptmdescription:
+                indok[ii] = False
+
+        if sum(indok) != len(indok) and not noWarning:
+            print "WARNING: cannot add parameters to the design matrix that are already present"
+            print "         refusing to add:", map(str, addpars[indok == False])
+
+        # Only add the parameters with indok == True
+        if sum(indok) > 0:
+            # We have some parameters to add
+            addM = np.zeros((oldMmat.shape[0], np.sum(indok)))
+            adddes = map(str, addpars[indok])
+            addparvals = []
+            addunitvals = []
+
+            Dmatdiag = pic_DMk / (self.freqs**2)
+            for ii, par in enumerate(addpars[indok]):
+                addparvals.append(0.0)
+                addunitvals.append(1.0)
+                if par == 'DM':
+                    addM[:, ii] = Dmatdiag.copy()
+                elif par[:2] == 'DM':
+                    power = int(par[2:])
+                    addM[:, ii] = Dmatdiag * (self.toas ** power)
+                elif par == 'Offset':
+                    addM[:, ii] = 1.0
+                elif par[0] == 'F':
+                    try:
+                        power = int(par[1:])
+                        addM[:, ii] = (self.toas ** power)
+                    except ValueError:
+                        raise ValueError("ERROR: parameter {0} not implemented in 'addToDesignMatrix'".format(par))
+                else:
+                    raise ValueError("ERROR: parameter {0} not implemented in 'addToDesignMatrix'".format(par))
+
+            newM = np.append(oldMmat, addM, axis=1)
+            newptmdescription = np.append(oldptmdescription, adddes)
+            newptmpars = np.append(oldptmpars, addparvals)
+            #newunitconversion = np.append(oldunitconversion, addunitvals)
+
+            # Construct the G-matrices
+            U, s, Vh = sl.svd(newM)
+            newG = U[:, (newM.shape[1]):].copy()
+            newGc = U[:, :(newM.shape[1])].copy()
+        else:
+            newM = oldMmat.copy()
+            newptmdescription = np.array(oldptmdescription)
+            #newunitconversion = np.array(oldunitconversion)
+            newptmpars = oldptmpars.copy()
+
+            if oldGmat is not None:
+                newG = oldGmat.copy()
+                newGc = oldGcmat.copy()
+            else:
+                U, s, Vh = sl.svd(newM)
+                newG = U[:, (newM.shape[1]):].copy()
+                newGc = U[:, :(newM.shape[1])].copy()
+
+
+        return newM, newG, newGc, newptmpars, map(str, newptmdescription)
+
+    """
+    Constructs a new modified design matrix by deleting some columns from it.
+    Returns a list of new objects that represent the new timing model
+
+    @param delpars:     Names of the parameters/columns that need to be deleted.
+    
+    @return (list):     Return the elements: (newM, newptmpars, newptmdescription)
+                        in order: the new design matrix , the new values
+                        of the timing model parameters, the new descriptions of
+                        the timing model parameters. Note that the timing model
+                        parameters are not really 'new', just re-selected
+    """
+    def delFromDesignMatrix(self, delpars):
+
+        # First make sure that the parameters we are deleting are actually in
+        # the design matrix
+        inddel = np.array([1]*len(delpars), dtype=np.bool)
+        indkeep = np.array([1]*self.Mmat.shape[1], dtype=np.bool)
+        delpars = np.array(delpars)
+        for ii, parlabel in enumerate(delpars):
+            if not parlabel in self.ptmdescription:
+                inddel[ii] = False
+                print "WARNING: {0} not in design matrix. Not deleting".format(parlabel)
+            else:
+                index = np.flatnonzero(np.array(self.ptmdescription) == parlabel)
+                indkeep[index] = False
+
+        if np.sum(indkeep) != len(indkeep):
+            # We have actually deleted some parameters
+            newM = self.Mmat[:, indkeep]
+            newptmdescription = np.array(self.ptmdescription)[indkeep]
+            newptmpars = self.ptmpars[indkeep]
+
+        else:
+            newM = self.Mmat.copy()
+            newptmdescription = np.array(self.ptmdescription)
+            newptmpars = self.ptmpars.copy()
+
+        return newM, newptmpars, map(str, newptmdescription)
+
+
+    """
+    Construct a modified design matrix, based on some options. Returns a list of
+    new objects that represent the new timing model
+
+    @param addDMQSD:    Whether we should make sure that the DM quadratics are
+                        fit for. Should have 'DM', 'DM1', 'DM2'. If not present,
+                        add them
+    @param addQSD:      Same as addDMQSD, but now for pulsar spin frequency.
+    @param removeJumps: Remove the jumps from the timing model.
+    @param removeAll:   This removes all parameters from the timing model,
+                        except for the DM parameters, and the QSD parameters
+
+    @return (list):     Return the elements: (newM, newG, newGc,
+                        newptmpars, newptmdescription)
+                        in order: the new design matrix, the new G-matrix, the
+                        new co-Gmatrix (orthogonal complement), the new values
+                        of the timing model parameters, the new descriptions of
+                        the timing model parameters. Note that the timing model
+                        parameters are not really 'new', just re-selected
+
+    TODO: Split this function in two parts. One that receives a list of
+          names/identifiers of which parameters to include. The other that
+          constructs the list, and calls that function.
+    """
+    def getModifiedDesignMatrix(self, addDMQSD=False, addQSD=False, \
+            removeJumps=False, removeAll=False):
+        
+        (newM, newG, newGc, newptmpars, newptmdescription) = \
+                (self.Mmat, self.Gmat, self.Gcmat, self.ptmpars, \
+                self.ptmdescription)
+
+        # DM and QSD parameter names
+        dmaddes = ['DM', 'DM1', 'DM2']
+        qsdaddes = ['Offset', 'F0', 'F1']
+
+        # See which parameters need to be added
+        addpar = []
+        for parlabel in dmaddes:
+            if addDMQSD and not parlabel in self.ptmpars:
+                addpar += [parlabel]
+        for parlabel in qsdaddes:
+            if addQSD and not parlabel in self.ptmpars:
+                addpar += [parlabel]
+
+        # Add those parameters
+        if len(addpar) > 0:
+            (newM, newG, newGc, newptmpars, newptmdescription) = \
+                    self.addToDesignMatrix(addpar, newM, newG, newGc, \
+                    newptmpars, newptmdescription, \
+                    noWarning=True)
+
+        # See whether some parameters need to be deleted
+        delpar = []
+        for ii, parlabel in enumerate(self.ptmdescription):
+            if (removeJumps or removeAll) and parlabel[:4].upper() == 'JUMP':
+                delpar += [parlabel]
+            elif removeAll and (not parlabel in dmaddes and not parlabel in qsdaddes):
+                delpar += [parlabel]
+
+        # Delete those parameters
+        if len(delpar) > 0:
+            (newM, newG, newGc, newptmpars, newptmdescription) = \
+                    self.delFromDesignMatrix(delpar, newM, newG, newGc, \
+                    newptmpars, newptmdescription)
+
+        return newM, newG, newGc, newptmpars, newptmdescription
+
+
+
+
+    # Modify the design matrix to include fitting for a quadratic in the DM
+    # signal.
+    # TODO: Check if the DM is fit for in the design matrix. Use ptmdescription
+    #       for that. It should have a field with 'DM' in it.
+    def addDMQuadratic(self):
+        self.Mmat, self.Gmat, self.Gcmat, self.ptmpars, \
+                self.ptmdescription = \
+                self.getModifiedDesignMatrix(addDMQSD=True, removeJumps=False)
+
+    """
+    Figure out what the list of timing model parameters is that needs to be
+    deleted from the design matrix in order to do nonlinear timing model
+    parameter analysis, given 
+
+    @param tmpars:  A list of suggested parameters to keep in the design
+                    matrix. Only parameters not present in this list and present
+                    in the design matrix will be returned.
+    @param keep:    If True, return the parameters that we keep in the design
+                    matrix. If False, return the parameters that we will delete
+                    from the design matrix
+
+    @return:        List of parameters to be deleted
+    """
+    def getNewTimingModelParameterList(self, keep=True, tmpars=None):
+
+        # Remove from the timing model parameter list of the design matrix,
+        # all parameters not in the list 'tmpars'. The parameters not in
+        # tmpars are numerically included
+        if tmpars is None:
+            tmpars = ['Offset', 'F0', 'F1', 'RAJ', 'DECJ', 'PMRA', 'PMDEC', \
+                    'PX', 'DM', 'DM1', 'DM2']
+
+        tmparkeep = []
+        tmpardel = []
+        for tmpar in self.ptmdescription:
+            if tmpar in tmpars:
+                # This parameter stays in the compression matrix (so is
+                # marginalised over
+                tmparkeep += [tmpar]
+            #elif tmpar == 'Offset':
+            #    print "WARNING: Offset needs to be included in the design matrix. Including it anyway..."
+            #    tmparkeep += [tmpar]
+            else:
+                tmpardel += [tmpar]
+
+        if keep:
+            returnpars = tmparkeep
+        else:
+            returnpars = tmpardel
+
+        return returnpars
+
+    
+    """
     Estimate how many frequency modes are required for this pulsar. This
     function uses a simplified method, based on van Haasteren (2013). Given a
     red-noise spectrum (power-law here), a high-fidelity compression technique
@@ -221,6 +532,7 @@ class Pulsar(object):
     def constructCompressionMatrix(self, compression='None', \
             nfmodes=-1, ndmodes=-1, likfunc='mark4', threshold=1.0, \
             tmpars = None):
+
         if compression == 'average':
             
             (self.avetoas, self.Umat) = PALutils.exploderMatrix(self.toas, dt=10)
@@ -413,7 +725,7 @@ class Pulsar(object):
     def createPulsarAuxiliaries(self, h5df, Tmax, nfreqs, ndmfreqs, \
             twoComponent=False, nSingleFreqs=0, nSingleDMFreqs=0, \
             compression='None', likfunc='mark1', write='no', \
-                                memsave=True):
+            tmpars=None, memsave=True):
 
 
         # For creating the auxiliaries it does not really matter: we are now
@@ -551,14 +863,23 @@ class Pulsar(object):
                 h5df.addData(self.name, 'DFAv', self.DFAv)
 
         # Next we'll need the G-matrices, and the compression matrices.
-        U, s, Vh = sl.svd(self.Mmat)
-        self.Gmat = U[:, self.Mmat.shape[1]:].copy()
-        self.Gcmat = U[:, :self.Mmat.shape[1]].copy()
+        if tmpars is not None:
+            # list of parameters to delete from design matrix
+            print tmpars
+            tmparkeep = self.getNewTimingModelParameterList(keep=True, tmpars=tmpars)
+            print 'Deleting timing model parameters', tmparkeep
+            Mmat, newptmpars, newptmdescription = self.delFromDesignMatrix(tmparkeep)
+            
+            tmpardel = self.getNewTimingModelParameterList(keep=False, tmpars=tmpars)
+            print 'Deleting timing model parameters', tmpardel
+            self.Mmat, newptmpars, newptmdescription = self.delFromDesignMatrix(tmpardel)
 
-        #R = PALutils.createRmatrix(self.Mmat, self.toaerrs)
-        #self.QR = np.dot(self.Qmat.T, R)
-        #self.QRr = np.dot(self.QR, self.residuals)
-        #self.QRF = np.dot(self.QR, self.Ftot)
+        else:
+            Mmat = self.Mmat
+
+        U, s, Vh = sl.svd(Mmat)
+        self.Gmat = U[:, Mmat.shape[1]:].copy()
+        self.Gcmat = U[:, :Mmat.shape[1]].copy()
 
         # Construct the compression matrix
         self.constructCompressionMatrix(compression, nfmodes=2*nf,
@@ -682,7 +1003,7 @@ class Pulsar(object):
     """
     def readPulsarAuxiliaries(self, h5df, Tmax, nfreqs, ndmfreqs, \
             twoComponent=False, nSingleFreqs=0, nSingleDMFreqs=0, \
-            compression='None', likfunc='mark1', memsave=True):
+            compression='None', likfunc='mark1', tmpars=None,  memsave=True):
 
 
         # For creating the auxiliaries it does not really matter: we are now
