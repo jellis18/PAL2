@@ -293,12 +293,6 @@ class DataFile(object):
         desmat = t2pulsar.designmatrix(fixunits=True)
         self.writeData(psrGroup, 'designmatrix', desmat[t2pulsar.deleted==0, :], overwrite=overwrite)
 
-        # Write the unit conversions for the design matrix (to timing model
-        # parameters
-        unitConversion = t2pulsar.getUnitConversion()
-        self.writeData(psrGroup, 'unitConversion', unitConversion, overwrite=overwrite)
-
-
         # Now obtain and write the timing model parameters
         tmpname = ['Offset'] + list(t2pulsar.pars)
         tmpvalpre = np.zeros(len(tmpname))
@@ -524,7 +518,6 @@ class DataFile(object):
         psr.detresiduals = np.array(self.getData(psrname, 'prefitRes'))
         psr.freqs = np.array(self.getData(psrname, 'freq'))
         psr.Mmat = np.array(self.getData(psrname, 'designmatrix'))
-        psr.unitconversion = np.array(self.getData(psrname, 'unitConversion', required=False))
         
         # get number of epochs (i.e 10 s window)
         (avetoas, Umat) = PALutils.exploderMatrix(psr.toas, dt=10)

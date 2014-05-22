@@ -866,12 +866,16 @@ class Pulsar(object):
         if tmpars is not None:
             # list of parameters to delete from design matrix
             print tmpars
-            tmparkeep = self.getNewTimingModelParameterList(keep=True, tmpars=tmpars)
-            print 'Deleting timing model parameters', tmparkeep
-            Mmat, newptmpars, newptmdescription = self.delFromDesignMatrix(tmparkeep)
+            if likfunc == 'mark4':
+                print 'Including all timing model parameters Numerically'
+                Mmat = self.Mmat
+            else:
+                tmparkeep = self.getNewTimingModelParameterList(keep=True, tmpars=tmpars)
+                print 'Numerically including', tmparkeep
+                Mmat, newptmpars, newptmdescription = self.delFromDesignMatrix(tmparkeep)
             
             tmpardel = self.getNewTimingModelParameterList(keep=False, tmpars=tmpars)
-            print 'Deleting timing model parameters', tmpardel
+            print 'Analytically marginalizing over', tmpardel
             self.Mmat, newptmpars, newptmdescription = self.delFromDesignMatrix(tmpardel)
 
         else:
