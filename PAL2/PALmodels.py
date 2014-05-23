@@ -469,8 +469,8 @@ class PTAmodels(object):
                     errs = []
                     est = []
                     for t2par in p.t2psr.pars:
-                        errs += [np.double(p.t2psr[t2par].err)]
-                        est += [np.double(p.t2psr[t2par].val)]
+                        errs += [np.longdouble(p.t2psr[t2par].err)]
+                        est += [np.longdouble(p.t2psr[t2par].val)]
                     tmperrs = np.array([0.0] + errs)
                     tmpest = np.array([0.0] + est)
                 else:
@@ -495,21 +495,24 @@ class PTAmodels(object):
                 # Figure out which parameters we'll keep in the design matrix
                 jumps = []
                 dmx = []
+                fds = []
                 for tmpar in p.ptmdescription:
                     if tmpar[:4] == 'JUMP':
                         jumps += [tmpar]
                     if tmpar[:3] == 'DMX':
                         dmx += [tmpar]
+                    if tmpar[:2] == 'FD':
+                        fds += [tmpar]
 
                 #newptmdescription = m2psr.getNewTimingModelParameterList(keep=True, \
                 #        tmpars=['Offset', 'F0', 'F1', 'RAJ', 'DECJ', 'PMRA', \
                 #        'PMDEC', 'PX', 'DM', 'DM1', 'DM2'] + jumps)
                 newptmdescription = p.getNewTimingModelParameterList(keep=True, \
                         tmpars=['Offset', 'F0', 'F1', 'DM', 'DM1', 'RAJ', \
-                                'DECJ', 'DM2'] + jumps + dmx)
+                                'DECJ', 'DM2'] + jumps + dmx + fds)
                 
                 #newptmdescription = p.getNewTimingModelParameterList(keep=True, \
-                #        tmpars=['Offset', 'F0'])
+                #        tmpars=['Offset'])
 
                 # Select the numerical parameters. These are the ones not
                 # present in the quantities that getModifiedDesignMatrix
@@ -553,13 +556,13 @@ class PTAmodels(object):
                             pmin += [-500*tmperrs[jj]]
                             pmax += [500*tmperrs[jj]]
                             pwidth += [tmperrs[jj]]
-                            pstart += [0.0]
+                            pstart += [np.longdouble(0.0)]
                         
                         elif parid == 'F1':
                             pmin += [-500*tmperrs[jj]]
                             pmax += [500*tmperrs[jj]]
                             pwidth += [tmperrs[jj]]
-                            pstart += [0.0]
+                            pstart += [np.longdouble(0.0)]
 
                         else:
                             pmin += [-500.0 * tmperrs[jj] + tmpest[jj]]
@@ -1370,7 +1373,7 @@ class PTAmodels(object):
                     if startEfacAtOne and sig['stype'] == 'efac':
                         p0.append(1)
                     else:
-                        p0.append(pstart)
+                        p0.append(np.double(pstart))
                         #p0.append(min + np.random.rand()*(max - min))     
             
         return np.array(p0)
@@ -1386,7 +1389,7 @@ class PTAmodels(object):
         for ct, sig in enumerate(self.ptasignals):
             if np.any(sig['bvary']):
                 for step in sig['pwidth'][sig['bvary']]:
-                    cov_diag.append((step)**2)
+                    cov_diag.append((np.double(step))**2)
                     
         return np.diag(cov_diag)
 
@@ -1959,13 +1962,15 @@ class PTAmodels(object):
                         if sig['parid'][jj] == 'Offset':
                             offset = sparameters[pindex]
                         elif sig['parid'][jj] == 'F0':
-                            psr.t2psr[sig['parid'][jj]].val = \
-                                    np.longdouble(sparameters[pindex]) + np.longdouble(sig['pstart'][jj])
+                            psr.t2psr[sig['parid'][jj]].val =  \
+                                    (sparameters[pindex]) + \
+                                    psr.t2psr.fitvals[np.array(psr.t2psr.pars) == 'F0']
                         elif sig['parid'][jj] == 'F1':
-                            psr.t2psr[sig['parid'][jj]].val = \
-                                    np.longdouble(sparameters[pindex]) + np.longdouble(sig['pstart'][jj])
+                            psr.t2psr[sig['parid'][jj]].val =  \
+                                    (sparameters[pindex]) + \
+                                    psr.t2psr.fitvals[np.array(psr.t2psr.pars) == 'F1']
                         else:
-                            psr.t2psr[sig['parid'][jj]].val = sparameters[pindex]
+                            psr.t2psr[sig['parid'][jj]].val = np.longdouble(sparameters[pindex])
                         pindex += 1
 
                 # Generate the new residuals
