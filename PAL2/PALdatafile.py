@@ -134,7 +134,10 @@ class DataFile(object):
                     raise IOError, "Field {0} not present for pulsar {1}/{2}".format(field, psrname, subgroup)
 
         if field in datGroup:
-            data = np.array(datGroup[field])
+            if field == 'parfile' or field == 'timfile':
+                data = datGroup[field].value
+            else:
+                data = np.array(datGroup[field])
             self.h5file.close()
         else:
             self.h5file.close()
