@@ -466,31 +466,32 @@ class PTAmodels(object):
                     # libstempo object
                     p.initLibsTempoObject()
 
-                    errs = []
-                    est = []
-                    for t2par in p.t2psr.pars:
-                        errs += [np.longdouble(p.t2psr[t2par].err)]
-                        est += [np.longdouble(p.t2psr[t2par].val)]
-                    tmperrs = np.array([0.0] + errs)
-                    tmpest = np.array([0.0] + est)
-                else:
+                    #errs = []
+                    #est = []
+                    #for t2par in p.t2psr.pars:
+                    #    errs += [np.longdouble(p.t2psr[t2par].err)]
+                    #    est += [np.longdouble(p.t2psr[t2par].val)]
+                    #tmperrs = np.array([0.0] + errs)
+                    #tmpest = np.array([0.0] + est)
+                #else:
 
-                    # Just do the timing-model fit ourselves here, in order to set
-                    # the prior.
-                    w = 1.0 / p.toaerrs**2
-                    Sigi = np.dot(p.Mmat.T, (w * p.Mmat.T).T)
-                    try:
-                        cf = sl.cho_factor(Sigi)
-                        Sigma = sl.cho_solve(cf, np.eye(Sigi.shape[0]))
-                    except np.linalg.LinAlgError:
-                        U, s, Vh = sl.svd(Sigi)
-                        if not np.all(s > 0):
-                            raise ValueError("Sigi singular according to SVD")
-                        Sigma = np.dot(Vh.T, np.dot(np.diag(1.0/s), U.T))
-                    tmperrs = np.sqrt(np.diag(Sigma))
-                    tmpest = p.ptmpars
-                    #tmperrs = p.ptmparerrs
-                    #tmpest2 = np.dot(Sigma, np.dot(p.Mmat.T, w*p.detresiduals))
+                # Just do the timing-model fit ourselves here, in order to set
+                # the prior.
+                w = 1.0 / p.toaerrs**2
+                Sigi = np.dot(p.Mmat.T, (w * p.Mmat.T).T)
+                try:
+                    cf = sl.cho_factor(Sigi)
+                    Sigma = sl.cho_solve(cf, np.eye(Sigi.shape[0]))
+                except np.linalg.LinAlgError:
+                    U, s, Vh = sl.svd(Sigi)
+                    if not np.all(s > 0):
+                        raise ValueError("Sigi singular according to SVD")
+                    Sigma = np.dot(Vh.T, np.dot(np.diag(1.0/s), U.T))
+                
+                tmperrs = np.sqrt(np.diag(Sigma))
+                tmpest = p.ptmpars
+                tmperrs = p.ptmparerrs
+                #tmpest2 = np.dot(Sigma, np.dot(p.Mmat.T, w*p.detresiduals))
 
                 # Figure out which parameters we'll keep in the design matrix
                 jumps = []
@@ -512,7 +513,7 @@ class PTAmodels(object):
                                 'DECJ', 'DM2'] + jumps + dmx + fds)
                 
                 #newptmdescription = p.getNewTimingModelParameterList(keep=True, \
-                #        tmpars=['Offset'])
+                #        tmpars=[])
 
                 # Select the numerical parameters. These are the ones not
                 # present in the quantities that getModifiedDesignMatrix
@@ -524,10 +525,12 @@ class PTAmodels(object):
                 pwidth = []
                 pstart = []
                 for jj, parid in enumerate(p.ptmdescription):
-                    print parid, tmpest[jj], tmperrs[jj]
                     if not parid in newptmdescription:
                         parids += [parid]
                         bvary += [True]
+
+                        if tmperrs[jj] == 0:
+                            tmperrs[jj] = tmpest[jj]
 
                         # physical priors
                         if parid == 'SINI':
@@ -541,27 +544,41 @@ class PTAmodels(object):
                             pwidth += [tmperrs[jj]]
                             pstart += [tmpest[jj]]
                         elif parid == 'PX':
+                            if tmpest[jj] < 0:
+                                tmpest[jj] = 0.001
                             pmin += [0.0]
                             pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
                             pwidth += [tmperrs[jj]]
                             pstart += [tmpest[jj]]
                         elif parid == 'M2':
+                            if tmpest[jj] < 0:
+                                tmpest[jj] = 0.001
+                            pmin += [0.0]
+                            pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
+                            pwidth += [tmperrs[jj]]
+                            pstart += [tmpest[jj]]
+                        elif parid == 'GAMMA':
                             pmin += [0.0]
                             pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
                             pwidth += [tmperrs[jj]]
                             pstart += [tmpest[jj]]
                         
                         # make parameter be the 'parameter offset'
+                        elif parid == 'Offset':
+                            pmin += [-500*tmperrs[jj]]
+                            pmax += [500*tmperrs[jj]]
+                            pwidth += [tmperrs[jj]/10]
+                            pstart += [np.longdouble(0.0)]
                         elif parid == 'F0':
                             pmin += [-500*tmperrs[jj]]
                             pmax += [500*tmperrs[jj]]
-                            pwidth += [tmperrs[jj]]
+                            pwidth += [tmperrs[jj]/10]
                             pstart += [np.longdouble(0.0)]
                         
                         elif parid == 'F1':
                             pmin += [-500*tmperrs[jj]]
                             pmax += [500*tmperrs[jj]]
-                            pwidth += [tmperrs[jj]]
+                            pwidth += [tmperrs[jj]/10]
                             pstart += [np.longdouble(0.0)]
 
                         else:
@@ -569,6 +586,7 @@ class PTAmodels(object):
                             pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
                             pwidth += [tmperrs[jj]]
                             pstart += [tmpest[jj]]
+                        print parid, pmin[-1], pmax[-1], pwidth[-1], pstart[-1]
 
                 if nonLinear:
                     stype = 'nonlineartimingmodel'
@@ -1168,10 +1186,10 @@ class PTAmodels(object):
         #Tmax = 1/1.33950638e-09
         self.Tmax = Tmax
 
-        #print 'WARNING: Using seperate Tmax for each pulsar'
+        print 'WARNING: Using seperate Tmax for each pulsar'
         for p in self.psr:
-            #p.Tmax = p.toas.max() - p.toas.min()
-            p.Tmax = self.Tmax
+            p.Tmax = p.toas.max() - p.toas.min()
+            #p.Tmax = self.Tmax
 
         # If the compressionComplement is defined, overwrite the default
         if evalCompressionComplement != 'None':
@@ -1363,18 +1381,21 @@ class PTAmodels(object):
     Determine intial parameters drawn from prior ranges
 
     """
-    def initParameters(self, startEfacAtOne=True):
+    def initParameters(self, startEfacAtOne=True, fixpstart=False):
         
         p0 = []
         for ct, sig in enumerate(self.ptasignals):
             if np.any(sig['bvary']):
-                for min, max, pstart in zip(sig['pmin'][sig['bvary']], \
-                    sig['pmax'][sig['bvary']], sig['pstart'][sig['bvary']]):
+                for min, max, pstart, pwidth in zip(sig['pmin'][sig['bvary']], \
+                    sig['pmax'][sig['bvary']], sig['pstart'][sig['bvary']],\
+                    sig['pwidth'][sig['bvary']]):
                     if startEfacAtOne and sig['stype'] == 'efac':
                         p0.append(1)
                     else:
-                        p0.append(np.double(pstart))
-                        #p0.append(min + np.random.rand()*(max - min))     
+                        if fixpstart:
+                            p0.append(np.double(pstart))
+                        else:
+                            p0.append(pstart + np.random.randn()*pwidth*10)     
             
         return np.array(p0)
     
@@ -1390,8 +1411,25 @@ class PTAmodels(object):
             if np.any(sig['bvary']):
                 for step in sig['pwidth'][sig['bvary']]:
                     cov_diag.append((np.double(step))**2)
+
+        cov = np.diag(cov_diag)
+
+        # if we have timing model parameters use fisher matrix
+        #for ct, sig in enumerate(self.ptasignals):
+        #    if 'timingmodel' in sig['stype']:           
+        #        parinds = np.arange(sig['parindex'], sig['parindex']+sig['npars'])
+        #        pulsarind = sig['pulsarind']
+        #        w = 1/self.psr[pulsarind].toaerrs**2
+        #        fishinv = np.dot(self.psr[pulsarind].Mmat.T, \
+        #                        (w * self.psr[pulsarind].Mmat.T).T)
+        #        fisher = np.sqrt(np.linalg.inv(fishinv))
+        #        print np.diag(fisher), sig['pwidth']
+        #        for ct1, ii in enumerate(parinds):
+        #            for ct2, jj in enumerate(parinds):
+        #                cov[ii,jj] = fisher[ct1,ct2]
+
                     
-        return np.diag(cov_diag)
+        return cov
 
 
     """
@@ -1559,6 +1597,7 @@ class PTAmodels(object):
                 if self.psr[psrind].twoComponentNoise and twoComponent:
                     self.psr[psrind].Nwvec += self.psr[psrind].Wvec * pefac**2
                     self.psr[psrind].Nwovec += self.psr[psrind].Wovec * pefac**2
+                    self.psr[psrind].Nvec += sig['Nvec'] * pefac**2
 
                 else:   # use Nvec stored in dictionary
                     self.psr[psrind].Nvec += sig['Nvec'] * pefac**2
@@ -1578,6 +1617,7 @@ class PTAmodels(object):
                 if self.psr[psrind].twoComponentNoise and twoComponent:
                     self.psr[psrind].Nwvec += pequadsqr
                     self.psr[psrind].Nwovec += pequadsqr
+                    self.psr[psrind].Nvec += sig['Nvec'] * pequadsqr
                 
                 else:   # use Nvec stored in dictionary
                     self.psr[psrind].Nvec += sig['Nvec'] * pequadsqr
@@ -1935,7 +1975,9 @@ class PTAmodels(object):
                 for jj in range(sig['ntotpars']):
                     if sig['bvary'][jj]:
                         # check for direct offset parameters
-                        if sig['parid'][jj] == 'F0':
+                        if sig['parid'][jj] == 'Offset':
+                            offset += [sparameters[pindex]]
+                        elif sig['parid'][jj] == 'F0':
                             offset += [sparameters[pindex]]
                         elif sig['parid'][jj] == 'F1':
                             offset += [sparameters[pindex]]
@@ -1955,20 +1997,16 @@ class PTAmodels(object):
                 # For each varying parameter, update the libstempo object
                 # parameter with the new value
                 pindex = 0
-                offset = 0
+                offset = np.zeros(len(psr.detresiduals))
                 for jj in range(sig['ntotpars']):
                     if sig['bvary'][jj]:
                         # If this parameter varies, update the parameter
                         if sig['parid'][jj] == 'Offset':
-                            offset = sparameters[pindex]
+                            offset[:] += sparameters[pindex] 
                         elif sig['parid'][jj] == 'F0':
-                            psr.t2psr[sig['parid'][jj]].val =  \
-                                    (sparameters[pindex]) + \
-                                    psr.t2psr.fitvals[np.array(psr.t2psr.pars) == 'F0']
+                            offset[:] += np.dot(psr.Mmat[:,jj],sparameters[pindex])
                         elif sig['parid'][jj] == 'F1':
-                            psr.t2psr[sig['parid'][jj]].val =  \
-                                    (sparameters[pindex]) + \
-                                    psr.t2psr.fitvals[np.array(psr.t2psr.pars) == 'F1']
+                            offset[:] += np.dot(psr.Mmat[:,jj],sparameters[pindex])
                         else:
                             psr.t2psr[sig['parid'][jj]].val = np.longdouble(sparameters[pindex])
                         pindex += 1
@@ -2316,7 +2354,6 @@ class PTAmodels(object):
     """
 
     def mark1LogLikelihood(self, parameters, incCorrelations=True):
-
 
         loglike = 0
 
@@ -2981,7 +3018,6 @@ class PTAmodels(object):
 
     def mark4LogLikelihood(self, parameters, incCorrelations=True):
 
-
         loglike = 0
 
         # set pulsar white noise parameters
@@ -2999,9 +3035,9 @@ class PTAmodels(object):
         for ct, p in enumerate(self.psr):
 
             if ct == 0:
-                d = np.dot(p.Ftot, p.detresiduals/p.Nvec)
+                d = np.dot(p.Ftot.T, p.detresiduals/p.Nvec)
             else:
-                d = np.append(d, np.dot(p.Ftot, p.detresiduals/p.Nvec))
+                d = np.append(d, np.dot(p.Ftot.T, p.detresiduals/p.Nvec))
 
             # log determinant of N
             logdet_N = np.sum(np.log(p.Nvec))
@@ -3014,7 +3050,7 @@ class PTAmodels(object):
             FNF.append(np.dot(p.Ftot.T, right))
             
             # first component of likelihood function
-            loglike += -0.5 * (logdet_N + rGGNGGr)
+            loglike += -0.5 * (logdet_N + rNr)
 
         
 
@@ -3595,6 +3631,37 @@ class PTAmodels(object):
         
         return q, qxy
 
+    # draws from timing model fisher matrix
+    def drawFromTMfisherMatrix(self, parameters, iter, beta):
+        
+        # post-jump parameters
+        q = parameters.copy()
+
+        # transition probability
+        qxy = 0
+
+        # find number of signals
+        nsigs = np.sum(self.getNumberOfSignalsFromDict(self.ptasignals, \
+                    stype='nonlineartimingmodel', corr='single'))
+        signum = self.getSignalNumbersFromDict(self.ptasignals, 
+                    stype='nonlineartimingmodel', corr='single')
+        
+        # current timing model parameters
+        sig = self.ptasignals[signum]
+        x = parameters[sig['parindex']:(sig['parindex']+sig['ntotpars'])]
+
+        alpha = np.random.rand()
+        scale = 1
+        if alpha > 0.9:
+            scale = 10
+        
+        sd = 2.4**2/len(x) * scale
+        q[sig['parindex']:(sig['parindex']+sig['ntotpars'])] = \
+                np.random.multivariate_normal(x, sd*self.psr[0].fisher)
+
+        return q, qxy
+
+
     """
     Reconstruct maximum likelihood and uncertainty of fourier coefficients
 
@@ -3686,10 +3753,7 @@ class PTAmodels(object):
                 raise ValueError("ERROR: Sigma singular according to SVD")
 
             # calculate uncertainty in max-likelihood fourier coefficients
-            term1 = np.dot(SigmaInv, np.dot(FGGNGGF[ct], SigmaInv))
-            tmp = np.dot(SigmaInv, FGGNGGF[ct])
-            term2 = np.dot(tmp, np.dot(Phi, tmp.T))
-            sigma_ahat.append(np.diag(term1+term2))
+            sigma_ahat.append(np.diag(SigmaInv))
 
 
             # increment frequency counter
@@ -3697,5 +3761,114 @@ class PTAmodels(object):
             
 
         return ahat, sigma_ahat
+
+
+    def maxLikePTpars(self, parameters, ptmpars=None, incJitter=False):
+
+        # set pulsar white noise parameters
+        self.setPsrNoise(parameters, incJitter=False)
+
+        # set red noise, DM and GW parameters
+        self.constructPhiMatrix(parameters)
+
+        # set deterministic sources
+        if self.haveDetSources:
+            self.updateDetSources(parameters)
+
+
+        # loop over all pulsars and contruct ML estimates
+        cov, eps = [], []
+        nfref = 0
+        for ct, p in enumerate(self.psr):
+
+            # determine which parameters were analytically marginalized
+            if ptmpars is not None:
+                tmpardel = p.getNewTimingModelParameterList(keep=False, tmpars=pttmpars)
+                Mmat, newptmpars, newptmdescription = self.delFromDesignMatrix(tmpardel) 
+            else:
+                Mmat = p.Mmat
+
+
+            # compute F^TN^{-1}F
+            right = ((1/p.Nvec) * p.Ftot.T).T
+            FNF = np.dot(p.Ftot.T, right)
+
+            if incJitter:
+                # compute F^TN^{-1}F
+                right = ((1/p.Nvec) * p.Umat.T).T
+                UNU = np.dot(p.Umat.T, right)
+
+
+            # compute sigma
+            nf = self.npftot[ct]
+            Sigma = FNF + self.Phiinv[nfref:(nfref+nf), nfref:(nfref+nf)]
+            
+            if incJitter:
+                Phi0 = np.diag(self.Phi[nfref:(nfref+nf)])
+                UPhiU = np.dot(p.UtF, np.dot(Phi0, p.UtF.T))
+                Phi = UPhiU + np.diag(p.Qamp) 
+
+            
+                try:
+                    cf = sl.cho_factor(Phi)
+                    Phiinv = sl.cho_solve(cf, np.identity(Phi.shape[0]))
+                except np.linalg.LinAlgError:
+                    raise ValueError("ERROR: Phi0 singular according to SVD")
+
+                Sigma = Phiinv + UNU 
+
+            # cholesky decomp for ML estimators
+            try:
+                cf = sl.cho_factor(Sigma)
+                SigmaInv = sl.cho_solve(cf, np.eye(Sigma.shape[0]))
+            except np.linalg.LinAlgError:
+                raise ValueError("ERROR: Sigma singular according to SVD")
+
+
+            # ML estimate for parameter offset
+            if incJitter:
+                tmp = np.dot(SigmaInv, np.dot(p.Umat.T, (1/p.Nvec * Mmat.T).T))
+                tmp2 = np.dot(SigmaInv, np.dot(p.Umat.T, p.detresiduals/p.Nvec))
+                g = np.dot(Mmat.T, p.detresiduals/p.Nvec) - \
+                        np.dot(Mmat.T, np.dot((1/p.Nvec * p.Umat.T).T, tmp2))
+                Gamma = np.dot(Mmat.T, (1/p.Nvec*Mmat.T).T) - \
+                        np.dot(Mmat.T, np.dot((1/p.Nvec * p.Umat.T).T, tmp))
+                GammaInv = np.linalg.inv(Gamma)
+                cov.append(GammaInv)
+                eps.append(np.dot(GammaInv, g))
+
+            else:
+                tmp = np.dot(SigmaInv, np.dot(p.Ftot.T, (1/p.Nvec * Mmat.T).T))
+                tmp2 = np.dot(SigmaInv, np.dot(p.Ftot.T, p.detresiduals/p.Nvec))
+                g = np.dot(Mmat.T, p.detresiduals/p.Nvec) - \
+                        np.dot(Mmat.T, np.dot((1/p.Nvec * p.Ftot.T).T, tmp2))
+                Gamma = np.dot(Mmat.T, (1/p.Nvec*Mmat.T).T) - \
+                        np.dot(Mmat.T, np.dot((1/p.Nvec * p.Ftot.T).T, tmp))
+                GammaInv = np.linalg.inv(Gamma)
+                cov.append(GammaInv)
+                eps.append(np.dot(GammaInv, g))
+            
+            p.detresiduals -= np.dot(Mmat, eps[-1])
+            if incJitter:
+                d = np.dot(p.Umat.T, p.detresiduals/p.Nvec)
+            else:
+                d = np.dot(p.Ftot.T, p.detresiduals/p.Nvec)
+
+            expval2 = sl.cho_solve(cf, d)
+
+            # triple product
+            rNr = np.dot(p.detresiduals, p.detresiduals/p.Nvec)
+
+            chisq = rNr - np.dot(d, expval2)
+
+            # increment frequency counter
+            nfref += nf
+
+        return eps, cov, chisq
+            
+
+        
+
+
     
 

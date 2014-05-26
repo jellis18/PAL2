@@ -489,8 +489,8 @@ class DataFile(object):
 
         # Read the timing model parameter descriptions
         psr.ptmdescription = map(str, self.getData(psrname, 'tmp_name'))
-        psr.ptmpars = np.array(self.getData(psrname, 'tmp_valpost'))
-        psr.ptmparerrs = np.array(self.getData(psrname, 'tmp_errpost'))
+        psr.ptmpars = np.array(self.getData(psrname, 'tmp_valpre'))
+        psr.ptmparerrs = np.array(self.getData(psrname, 'tmp_errpre'))
         psr.flags = map(str, self.getData(psrname, 'efacequad', 'Flags'))
         psr.tobsflags = map(float, self.getData(psrname, 'tobs_all', 'Flags'))
 

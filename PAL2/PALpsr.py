@@ -878,6 +878,20 @@ class Pulsar(object):
             print 'Analytically marginalizing over', tmpardel
             self.Mmat, newptmpars, newptmdescription = self.delFromDesignMatrix(tmpardel)
 
+            w = 1.0 / self.toaerrs**2
+            Sigi = np.dot(self.Mmat.T, (w * self.Mmat.T).T)
+            try:
+                cf = sl.cho_factor(Sigi)
+                Sigma = sl.cho_solve(cf, np.eye(Sigi.shape[0]))
+            except np.linalg.LinAlgError:
+                U, s, Vh = sl.svd(Sigi)
+                if not np.all(s > 0):
+                    raise ValueError("Sigi singular according to SVD")
+                Sigma = np.dot(Vh.T, np.dot(np.diag(1.0/s), U.T))
+            
+            # set fisher matrix
+            self.fisher = Sigma
+
         else:
             Mmat = self.Mmat
 
