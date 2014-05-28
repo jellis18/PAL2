@@ -8,7 +8,8 @@ import os, sys, time
 import json
 import tempfile
 import scipy.linalg as sl
-import scipy.sparse
+import scipy.special as ss
+from numpy.polynomial.hermite import hermval
 
 import PALutils
 import PALdatafile
@@ -131,7 +132,8 @@ class PTAmodels(object):
             incEquad=False,separateEquads=False, separateEquadsByFreq=False, \
             incJitter=False, separateJitter=False, separateJitterByFreq=False, \
             incTimingModel=False, nonLinear=False, \
-            incJitterEpoch = False, nepoch = None, \
+            incJitterEpoch=False, nepoch=None, \
+            incNonGaussian=False, nnongaussian=3, \
             incJitterEquad=False, separateJitterEquad=False, separateJitterEquadByFreq=False, \
             efacPrior='uniform', equadPrior='log', jitterPrior='uniform', \
             jitterEquadPrior='log', \
@@ -490,7 +492,7 @@ class PTAmodels(object):
                 
                 tmperrs = np.sqrt(np.diag(Sigma))
                 tmpest = p.ptmpars
-                tmperrs = p.ptmparerrs
+                #tmperrs = p.ptmparerrs
                 #tmpest2 = np.dot(Sigma, np.dot(p.Mmat.T, w*p.detresiduals))
 
                 # Figure out which parameters we'll keep in the design matrix
@@ -509,8 +511,7 @@ class PTAmodels(object):
                 #        tmpars=['Offset', 'F0', 'F1', 'RAJ', 'DECJ', 'PMRA', \
                 #        'PMDEC', 'PX', 'DM', 'DM1', 'DM2'] + jumps)
                 newptmdescription = p.getNewTimingModelParameterList(keep=True, \
-                        tmpars=['Offset', 'F0', 'F1', 'DM', 'DM1', 'RAJ', \
-                                'DECJ', 'DM2'] + jumps + dmx + fds)
+                        tmpars=['Offset', 'F0', 'F1', 'DM', 'DM1', 'DM2'] + jumps + dmx + fds)
                 
                 #newptmdescription = p.getNewTimingModelParameterList(keep=True, \
                 #        tmpars=[])
@@ -570,7 +571,7 @@ class PTAmodels(object):
                             pwidth += [tmperrs[jj]/10]
                             pstart += [np.longdouble(0.0)]
                         elif parid == 'F0':
-                            pmin += [-500*tmperrs[jj]]
+                            pmin += [0.0]
                             pmax += [500*tmperrs[jj]]
                             pwidth += [tmperrs[jj]/10]
                             pstart += [np.longdouble(0.0)]
@@ -606,6 +607,30 @@ class PTAmodels(object):
                     "prior":'flat'
                     })
                 signals.append(newsignal)
+        
+        if incNonGaussian:
+            bvary = [True] * nnongaussian
+            pmin = [-1.0] * nnongaussian
+            pmax = [1.0] * nnongaussian
+            pstart = [0.0] * nnongaussian
+            pwidth = [0.1] * nnongaussian
+            prior = ['uniform'] * nnongaussian
+            
+            newsignal = OrderedDict({
+                "stype":'nongausscoeff',
+                "corr":"single",
+                "pulsarind":ii,
+                "flagname":"pulsarname",
+                "flagvalue":p.name,
+                "bvary":bvary,
+                "pmin":pmin,
+                "pmax":pmax,
+                "pwidth":pwidth,
+                "pstart":pstart,
+                "prior":prior
+            })
+            signals.append(newsignal)
+
             
 
         if incCW:
@@ -720,6 +745,11 @@ class PTAmodels(object):
         elif signal['stype'] == 'jitter_epoch':
             # Jitter by epoch
             self.addSignalJitterEpoch(signal)
+            
+        elif signal['stype'] == 'nongausscoeff':
+            # non-gaussian coefficients
+            self.addSignalNonGaussian(signal)
+            self.haveNonGaussian = True
 
         elif signal['stype'] in ['powerlaw', 'spectrum', 'spectralModel']:
             # Any time-correlated signal
@@ -947,6 +977,32 @@ class PTAmodels(object):
                              Keys: {0}. Required: {1}".format(signal.keys(), keys))
 
         self.ptasignals.append(signal.copy())
+
+    """
+    Add non gaussian coefficients
+
+    Required keys in signal
+    @param stype:       Either 'frequencyline' or 'dmfrequencyline'
+    @param psrind:      Index of the pulsar this signal applies to
+    @param index:       Index of first parameter in total parameters array
+    @param freqindex:   If there are several of these sources, which is this?
+    @param bvary:       List of indicators, specifying whether parameters can vary
+    @param pmin:        Minimum bound of prior domain
+    @param pmax:        Maximum bound of prior domain
+    @param pwidth:      Typical width of the parameters (e.g. initial stepsize)
+    @param pstart:      Typical start position for the parameters
+    """
+    def addSignalNonGaussian(self, signal):
+        # Assert that all the correct keys are there...
+        keys = ['pulsarind', 'stype', 'corr', 'bvary', \
+                'pmin', 'pmax', 'pwidth', 'pstart', 'parindex']
+        if not all(k in signal for k in keys):
+            raise ValueError("ERROR: Not all signal keys are present in non gaussian coeffieicnt signal. \
+                             Keys: {0}. Required: {1}".format(signal.keys(), keys))
+        
+        self.ptasignals.append(signal.copy())
+
+
 
 
     """
@@ -1318,6 +1374,10 @@ class PTAmodels(object):
                 elif sig['stype'] == 'jitter_epoch':
                     flagname = sig['flagname']
                     flagvalue = 'jitter_p_' + str(jj)
+                
+                elif sig['stype'] == 'nongausscoeff':
+                    flagname = sig['flagname']
+                    flagvalue = 'alpha_' + str(jj+1)
 
                 elif sig['stype'] == 'spectrum':
                     flagname = 'frequency'
@@ -1395,7 +1455,8 @@ class PTAmodels(object):
                         if fixpstart:
                             p0.append(np.double(pstart))
                         else:
-                            p0.append(pstart + np.random.randn()*pwidth*10)     
+                            p0.append(min + np.random.rand() * (max-min))
+                            #p0.append(pstart + np.random.randn()*pwidth*10)     
             
         return np.array(p0)
     
@@ -1936,6 +1997,30 @@ class PTAmodels(object):
                 for jj in range(0, self.npsr):
                     self.Phiinv[ind1,ind2[jj]] = smallMatrix[:,ii,jj]
 
+    """
+    Function to contruct non-gaussian signal
+    coefficients.
+    """
+
+    def getNonGaussianComponents(self, parameters):
+
+        for ss, sig in enumerate(self.ptasignals):
+
+            # Create a parameters array for this particular signal
+            sparameters = sig['pstart'].copy()
+            sparameters[sig['bvary']] = \
+                    parameters[sig['parindex']:sig['parindex']+sig['npars']]
+
+            # shorthand
+            psrind = sig['pulsarind']
+
+            if sig['stype'] == 'nongausscoeff':
+                self.psr[psrind].nalpha = sig['npars'] + 1
+                self.psr[psrind].alphacoeff = sparameters
+
+                # prepend 0th component
+                val = np.sqrt(1-np.sum(self.psr[psrind].alphacoeff**2))
+                self.psr[psrind].alphacoeff = np.insert(self.psr[psrind].alphacoeff, 0, val)
 
 
     """ 
@@ -3075,6 +3160,54 @@ class PTAmodels(object):
         loglike += -0.5 * (self.logdetPhi + logdet_Sigma) + 0.5 * (np.dot(d, expval2)) 
 
         return loglike
+
+    """
+    Mark 5 Log Likelihood
+
+    Uses non-gaussian framework of Lentati et al, 2014 (arXiv:1405.2460)
+
+    Only includes EFAC and EQUAD for now, also only works with 1 pulsar
+
+    """
+    def mark5LogLikelihood(self, parameters):
+        
+        loglike = 0
+
+        # set pulsar white noise parameters
+        self.setPsrNoise(parameters, incJitter=False)
+
+        # set deterministic sources
+        if self.haveDetSources:
+            self.updateDetSources(parameters)
+
+        # get non-gaussian amplitudes
+        if self.haveNonGaussian:
+            self.getNonGaussianComponents(parameters)
+
+        # shorthand
+        if self.npsr > 1:
+            raise ValueError('ERROR: Mark 5 likelihood only valid with 1 pulsar')
+        p = self.psr[0]
+
+        # get gaussian part
+        loglike += -0.5 * np.dot(p.detresiduals, p.detresiduals/p.Nvec)
+
+        # non-gaussian part
+        hermargs = p.detresiduals/np.sqrt(2*p.Nvec)
+        hermcoeff = []
+        if np.abs(np.sum(p.alphacoeff[1:])) > 1:
+            return -np.inf
+        for ii in range(p.nalpha):
+            hermcoeff.append(p.alphacoeff[ii] * np.sqrt(1/2**ii/ss.gamma(ii+1)/np.sqrt(2*np.pi*p.Nvec*1e12)))
+        
+        # evaluate hermite polynomial sums
+        hval = hermval(hermargs, np.array(hermcoeff).T)
+        tmp = np.sum(hval, axis=0)*1e3
+        loglike += 2*np.sum(np.log(np.abs(tmp)))
+
+        return loglike
+
+
     
     """
     Zero log likelihood for prior testing purposes
