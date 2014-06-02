@@ -127,7 +127,7 @@ class PTAmodels(object):
             incDM=False, dmModel='powerlaw', \
             incGWB=False, gwbModel='powerlaw', \
             incBWM=False, \
-            incCW=False, \
+            incCW=False, incPulsarDistance=False, \
             varyEfac=True, separateEfacs=False, separateEfacsByFreq=False, \
             incEquad=False,separateEquads=False, separateEquadsByFreq=False, \
             incJitter=False, separateJitter=False, separateJitterByFreq=False, \
@@ -263,7 +263,7 @@ class PTAmodels(object):
                             "flagname":"jitter_equad",
                             "flagvalue":flagval,
                             "bvary":[True],
-                            "pmin":[-10.0],
+                            "pmin":[-8.5],
                             "pmax":[-4.0],
                             "pwidth":[0.1],
                             "pstart":[-8.0],
@@ -278,7 +278,7 @@ class PTAmodels(object):
                         "flagname":"pulsarname",
                         "flagvalue":p.name,
                         "bvary":[True],
-                        "pmin":[-10.0],
+                        "pmin":[-8.5],
                         "pmax":[-4.0],
                         "pwidth":[0.1],
                         "pstart":[-8.0],
@@ -492,7 +492,7 @@ class PTAmodels(object):
                 
                 tmperrs = np.sqrt(np.diag(Sigma))
                 tmpest = p.ptmpars
-                #tmperrs = p.ptmparerrs
+                tmperrs = p.ptmparerrs
                 #tmpest2 = np.dot(Sigma, np.dot(p.Mmat.T, w*p.detresiduals))
 
                 # Figure out which parameters we'll keep in the design matrix
@@ -507,9 +507,6 @@ class PTAmodels(object):
                     if tmpar[:2] == 'FD':
                         fds += [tmpar]
 
-                #newptmdescription = m2psr.getNewTimingModelParameterList(keep=True, \
-                #        tmpars=['Offset', 'F0', 'F1', 'RAJ', 'DECJ', 'PMRA', \
-                #        'PMDEC', 'PX', 'DM', 'DM1', 'DM2'] + jumps)
                 newptmdescription = p.getNewTimingModelParameterList(keep=True, \
                         tmpars=['Offset', 'F0', 'F1', 'DM', 'DM1', 'DM2'] + jumps + dmx + fds)
                 
@@ -563,6 +560,11 @@ class PTAmodels(object):
                             pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
                             pwidth += [tmperrs[jj]]
                             pstart += [tmpest[jj]]
+                        elif parid == 'EDOT':
+                            pmin += [-500.0 * tmperrs[jj] + tmpest[jj]]
+                            pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
+                            pwidth += [tmperrs[jj]]
+                            pstart += [0]
                         
                         # make parameter be the 'parameter offset'
                         elif parid == 'Offset':
@@ -608,34 +610,77 @@ class PTAmodels(object):
                     })
                 signals.append(newsignal)
         
-        if incNonGaussian:
-            bvary = [True] * nnongaussian
-            pmin = [-1.0] * nnongaussian
-            pmax = [1.0] * nnongaussian
-            pstart = [0.0] * nnongaussian
-            pwidth = [0.1] * nnongaussian
-            prior = ['uniform'] * nnongaussian
+            if incNonGaussian:
+                bvary = [True] * nnongaussian
+                pmin = [-1.0] * nnongaussian
+                pmax = [1.0] * nnongaussian
+                pstart = [0.0] * nnongaussian
+                pwidth = [0.1] * nnongaussian
+                prior = ['uniform'] * nnongaussian
+                
+                newsignal = OrderedDict({
+                    "stype":'nongausscoeff',
+                    "corr":"single",
+                    "pulsarind":ii,
+                    "flagname":"pulsarname",
+                    "flagvalue":p.name,
+                    "bvary":bvary,
+                    "pmin":pmin,
+                    "pmax":pmax,
+                    "pwidth":pwidth,
+                    "pstart":pstart,
+                    "prior":prior
+                })
+                signals.append(newsignal)
+
+            # pulsar distance for CW signal
+            if incCW and incPulsarDistance:
+                bvary = [True]
+                pmin = [0]
+                pmax = [10]
+                pstart = [p.pdist]
+                pwidth = [p.pdistErr]
+                prior = ['gaussian']
+                
+                newsignal = OrderedDict({
+                    "stype":'pulsardistance',
+                    "corr":"single",
+                    "pulsarind":ii,
+                    "flagname":"pulsarname",
+                    "flagvalue":p.name,
+                    "bvary":bvary,
+                    "pmin":pmin,
+                    "pmax":pmax,
+                    "pwidth":pwidth,
+                    "pstart":pstart,
+                    "prior":prior
+                })
+                signals.append(newsignal)
+
+
+        if incCW:
+            bvary = [True] * 8
+            pmin = [0, 0, 7, 0.1, -9, 0, 0, 0]
+            pmax = [np.pi, 2*np.pi, 10, 3, -7, np.pi, np.pi, np.pi]
+            pstart = [np.pi/2, np.pi/2, 8, 1, -8, np.pi, np.pi, np.pi/2]
+            pwidth = [0.1, 0.1, 0.1, 0.1, 0.001, 0.1, 0.1, 0.1]
+            prior = ['cos', 'uniform', 'log', 'log', 'log', 'uniform', 'uniform', 'cos']
+            parids = ['theta', 'phi', 'logmc', 'logd', 'logf', 'phase', 'pol', 'inc']
             
             newsignal = OrderedDict({
-                "stype":'nongausscoeff',
-                "corr":"single",
-                "pulsarind":ii,
-                "flagname":"pulsarname",
-                "flagvalue":p.name,
+                "stype":"cw",
+                "corr":"gr",
+                "pulsarind":-1,
                 "bvary":bvary,
                 "pmin":pmin,
                 "pmax":pmax,
                 "pwidth":pwidth,
                 "pstart":pstart,
+                "parid":parids,
                 "prior":prior
-            })
+                })
             signals.append(newsignal)
 
-            
-
-        if incCW:
-            #TODO implement this
-            pass
  
         if incGWB:
             if gwbModel=='spectrum':
@@ -751,6 +796,10 @@ class PTAmodels(object):
             self.addSignalNonGaussian(signal)
             self.haveNonGaussian = True
 
+        elif signal['stype'] == 'pulsardistance':
+            # pulsar distance parameters used with CW sigal
+            self.ptasignals.append(signal)
+
         elif signal['stype'] in ['powerlaw', 'spectrum', 'spectralModel']:
             # Any time-correlated signal
             self.addSignalTimeCorrelated(signal)
@@ -760,6 +809,11 @@ class PTAmodels(object):
             # A DM variation signal
             self.addSignalDMV(signal)
             self.haveStochSources = True
+
+        elif signal['stype'] == 'cw':
+            # a continuous GW signal
+            self.ptasignals.append(signal)
+            self.haveDetSources = True
         
         elif signal['stype'] == 'lineartimingmodel':
             # A Tempo2 linear timing model, except for (DM)QSD parameters
@@ -1379,6 +1433,10 @@ class PTAmodels(object):
                     flagname = sig['flagname']
                     flagvalue = 'alpha_' + str(jj+1)
 
+                elif sig['stype'] == 'pulsardistance':
+                    flagname = sig['flagname']
+                    flagvalue = 'pdist_'+sig['flagvalue'] 
+
                 elif sig['stype'] == 'spectrum':
                     flagname = 'frequency'
                     #flagvalue = 'rho' + str(jj)
@@ -1390,6 +1448,10 @@ class PTAmodels(object):
                 elif sig['stype'] == 'dmspectrum':
                     flagname = 'dmfrequency'
                     flagvalue = 'dm_' +str(self.psr[psrindex].Fdmfreqs[2*jj])
+
+                elif sig['stype'] == 'cw':
+                    flagname = 'cw'
+                    flagvalue = sig['parid'][jj]
 
                 elif sig['stype'] == 'powerlaw':
                     flagname = 'powerlaw'
@@ -1471,7 +1533,7 @@ class PTAmodels(object):
         for ct, sig in enumerate(self.ptasignals):
             if np.any(sig['bvary']):
                 for step in sig['pwidth'][sig['bvary']]:
-                    cov_diag.append((np.double(step))**2)
+                    cov_diag.append((step)**2)
 
         cov = np.diag(cov_diag)
 
@@ -2097,7 +2159,50 @@ class PTAmodels(object):
                         pindex += 1
 
                 # Generate the new residuals
-                psr.detresiduals = np.array(psr.t2psr.residuals(updatebats=True), dtype=np.double) + offset
+                psr.detresiduals = np.array(psr.t2psr.residuals(updatebats=True), 
+                                            dtype=np.double) + offset
+
+        
+            # continuous wave signal
+            elif sig['stype'] == 'cw':
+
+                # get pulsar distances  
+                nsigs= self.getNumberOfSignalsFromDict(self.ptasignals, \
+                    stype='pulsardistance', corr='single')
+                
+                # including pulsar term
+                pdist = []
+                if np.any(nsigs):
+                    incPterm = True
+                    signum = self.getSignalNumbersFromDict(self.ptasignals, \
+                        stype='pulsardistance', corr='single')
+
+                    # check to make sure we have all distances
+                    if len(signum) != self.npsr:
+                        raise ValueError('ERROR: Number of pulsar distances != number of pulsars!')
+            
+                    # current timing model parameters
+                    for signum0 in signum:
+                        sig0 = self.ptasignals[signum0]
+                        pdist.append(parameters[sig0['parindex']:(sig0['parindex']+ \
+                                                                  sig0['npars'])])
+                    pdist = np.array(pdist).copy()
+
+                else:
+                    incPterm = False
+                    pdist = None
+
+                # construct CW signal
+                cwsig = PALutils.createResidualsFast(self.psr, sparameters[0], \
+                            sparameters[1], 10**sparameters[2], 10**sparameters[3], \
+                            10**sparameters[4], sparameters[5], sparameters[6], \
+                            sparameters[7], pdist=pdist, psrTerm=incPterm, 
+                            phase_approx=True)
+
+                
+                # loop over all pulsars and subtract off CW signal
+                for ct, p in enumerate(self.psr):
+                    p.detresiduals -= cwsig[ct]
 
 
         # If necessary, transform these residuals to two-component basis
@@ -2455,7 +2560,12 @@ class PTAmodels(object):
         
         # compute the white noise terms in the log likelihood
         FGGNGGF = []
+        nfref = 0
         for ct, p in enumerate(self.psr):
+
+            # check for nans or infs
+            if np.any(np.isnan(p.detresiduals)) or np.any(np.isinf(p.detresiduals)):
+                return -np.inf
                         
             if p.twoComponentNoise:
                 
@@ -2510,26 +2620,49 @@ class PTAmodels(object):
                 
             # first component of likelihood function
             loglike += -0.5 * (logdet_N + rGGNGGr)
+            
+            # calculate red noise piece
+            if not incCorrelations:
+
+                # compute sigma
+                logdet_Sigma = 0
+                nf = self.npftot[ct]
+                Sigma = FGGNGGF[ct] + self.Phiinv[nfref:(nfref+nf), nfref:(nfref+nf)]
+                dd = d[nfref:(nfref+nf)]
+
+                # cholesky decomp for maximum likelihood fourier components
+                try:
+                    cf = sl.cho_factor(Sigma)
+                    expval2 = sl.cho_solve(cf, dd)
+                    logdet_Sigma += np.sum(2*np.log(np.diag(cf[0])))
+                except np.linalg.LinAlgError:
+                    raise ValueError("ERROR: Sigma singular according to SVD")
+
+                loglike += -0.5 * (self.logdetPhi + logdet_Sigma) + 0.5 * (np.dot(dd, expval2))
+
+                # increment frequency counter
+                nfref += nf
+
 
         # compute the red noise, DMV and GWB terms in the log likelihood
-        
-        # compute sigma
-        Sigma = sl.block_diag(*FGGNGGF) + self.Phiinv
+        if incCorrelations: 
+            # compute sigma
+            Sigma = sl.block_diag(*FGGNGGF) + self.Phiinv
 
-        # cholesky decomp for second term in exponential
-        try:
-            cf = sl.cho_factor(Sigma)
-            expval2 = sl.cho_solve(cf, d)
-            logdet_Sigma = np.sum(2*np.log(np.diag(cf[0])))
-        except np.linalg.LinAlgError:
-            U, s, Vh = sl.svd(Sigma)
-            if not np.all(s > 0):
-                raise ValueError("ERROR: Sigma singular according to SVD")
-            logdet_Sigma = np.sum(np.log(s))
-            expval2 = np.dot(Vh.T, np.dot(np.diag(1.0/s), np.dot(U.T, d)))
+            # cholesky decomp for second term in exponential
+            try:
+                cf = sl.cho_factor(Sigma)
+                expval2 = sl.cho_solve(cf, d)
+                logdet_Sigma = np.sum(2*np.log(np.diag(cf[0])))
+            except np.linalg.LinAlgError:
+                U, s, Vh = sl.svd(Sigma)
+                if not np.all(s > 0):
+                    raise ValueError("ERROR: Sigma singular according to SVD")
+                logdet_Sigma = np.sum(np.log(s))
+                expval2 = np.dot(Vh.T, np.dot(np.diag(1.0/s), np.dot(U.T, d)))
 
 
-        loglike += -0.5 * (self.logdetPhi + logdet_Sigma) + 0.5 * (np.dot(d, expval2)) 
+            loglike += -0.5 * (self.logdetPhi + logdet_Sigma) + 0.5 * (np.dot(d, expval2)) 
 
         return loglike
     
@@ -3351,6 +3484,50 @@ class PTAmodels(object):
                 if sig_red > sig_data:
                     prior += -np.inf
 
+            # prior on ECC, EDOT and T0
+            if sig['stype'] == 'lineartimingmodel' or sig['stype'] == 'nonlineartimingmodel':
+                
+                ecc, edot, t0 = 0, 0, 0
+                pindex = 0
+                for jj in range(sig['ntotpars']):
+                    if sig['bvary'][jj]:
+                        # get ECC
+                        if sig['parid'][jj] == 'ECC':
+                            ecc = sparameters[pindex]
+                        elif sig['parid'][jj] == 'T0':
+                            t0 = sparameters[pindex]
+                        elif sig['parid'][jj] == 'EDOT':
+                            edot = sparameters[pindex]
+
+                        pindex += 1
+
+                # check if including all three
+                if ecc and edot and t0:
+                    tt0 = (self.psr[psrind].toas - t0*86400)
+                    check = ecc + edot*tt0
+
+                    if np.any(check > 1) or np.any(check<0):
+                        prior += -np.inf
+
+
+            # CW parameters
+            if sig['stype'] == 'cw':
+                pindex = 0
+                for jj in range(sig['ntotpars']):
+                    if sig['bvary'][jj]:
+
+                        if sig['prior'][jj] == 'cos':
+                            prior += np.log(np.abs(np.sin(sparameters[pindex])))
+
+                        pindex += 1
+
+            # pulsar distance prior
+            if sig['stype'] == 'pulsardistance':
+                pdist = sparameters
+                m = self.psr[psrind].pdist
+                s = self.psr[psrind].pdistErr
+                prior += -0.5 * (np.log(2*np.pi*s**2) + (m-pdist)**2/s**2)
+                
         return prior
 
 
@@ -3581,6 +3758,147 @@ class PTAmodels(object):
         
         return q, qxy
 
+    # CW draws from prior
+    def drawFromCWPrior(self, parameters, iter, beta):
+        
+        # post-jump parameters
+        q = parameters.copy()
+
+        # transition probability
+        qxy = 0
+
+        for ct, sig in enumerate(self.ptasignals):
+
+        # CW parameters
+            if sig['stype'] == 'cw':
+                pindex = 0
+                for jj in range(sig['ntotpars']):
+                    if sig['bvary'][jj]:
+
+                        parind = sig['parindex']
+
+                        if sig['prior'][jj] == 'cos':
+                            q[parind+jj] = np.arccos(np.random.uniform(-1, 1))
+                            qxy += np.log(np.sin(parameters[parind+jj])/np.sin(q[parind+jj]))
+
+                        else:
+                            q[parind+jj] = np.random.uniform(self.pmin[parind+jj], \
+                                                             self.pmax[parind+jj])
+
+        
+        return q, qxy
+
+    # pulsar mode jump
+    def pulsarPhaseFix(self, prepar, postpar, iter, beta):
+
+        pre = prepar.copy()
+        post = postpar.copy()
+
+        # get pulsar distances
+        L0, L1 = [], []
+        signum = self.getSignalNumbersFromDict(self.ptasignals, \
+            stype='pulsardistance', corr='single')
+
+        # check to make sure we have all distances
+        if len(signum) != self.npsr:
+            raise ValueError('ERROR: Number of pulsar distances != number of pulsars!')
+
+
+        # get distances
+        pdist_inds = []
+        for signum0 in signum:
+            sig0 = self.ptasignals[signum0]
+            pdist_inds.append(sig0['parindex'])
+            L0.append(pre[sig0['parindex']])
+            L1.append(post[sig0['parindex']])
+
+        # make indices array
+        pdist_inds = np.array(pdist_inds)
+        L0 = np.array(L0)
+        L1 = np.array(L1)
+
+        # now get other relevant parameters
+        for ct, sig in enumerate(self.ptasignals):
+            
+            if sig['stype'] == 'cw':
+
+                par0 = pre[sig['parindex']:(sig['parindex']+sig['npars'])]
+                par1 = post[sig['parindex']:(sig['parindex']+sig['npars'])]
+
+                theta0, phi0, mc0, omega0 = par0[0], par0[1], 10**par0[2], 10**par0[4]*np.pi
+                theta1, phi1, mc1, omega1 = par1[0], par1[1], 10**par1[2], 10**par1[4]*np.pi
+                
+        # get angular separations
+        cosMu0 = np.array([p.cosMu(theta0, phi0) for p in self.psr])
+        cosMu1 = np.array([p.cosMu(theta1, phi1) for p in self.psr])
+
+        # get in correct units
+        L0 *= 1.0267e11
+        L1 *= 1.0267e11
+        mc0 *= 4.9e-6
+        mc1 *= 4.9e-6
+
+        # pulsar frequency
+        omegap0 = omega0 * (1+256/5*mc0**(5/3)*omega0**(8/3)*L0*(1-cosMu0))**(-3/8)
+        omegap1 = omega1 * (1+256/5*mc1**(5/3)*omega1**(8/3)*L1*(1-cosMu1))**(-3/8)
+
+        # pulsar phase
+        phase0 = 1/32/mc0**(5/3) * (omega0**(-5/3) - omegap0**(-5/3))
+        phase1 = 1/32/mc1**(5/3) * (omega1**(-5/3) - omegap1**(-5/3))
+
+        # size of phase jump
+        prob = np.random.rand()
+        if prob > 0.8:
+            sigma = 0.1 * np.random.randn(self.npsr)
+
+        elif prob > 0.6:
+            sigma = 0.02 * np.random.randn(self.npsr)
+
+        elif prob > 0.4:
+            sigma = 0.002 * np.random.randn(self.npsr)
+
+        else:
+            sigma = 0.005 * np.random.randn(self.npsr)
+
+        deltaL = (np.mod(phase1, 2*np.pi) - np.mod(phase0, 2*np.pi)
+                     + sigma * np.sqrt(1/beta))/(omegap1*(1-cosMu1))
+
+        L_new  = (L1 + deltaL) / 1.0267e11
+        post[pdist_inds] = L_new
+
+        return post, 0
+
+    # mass distance correlation jump
+    def massDistanceJump(self, parameters, iter, beta):
+
+        # post-jump parameters
+        q = parameters.copy()
+
+        # transition probability
+        qxy = 0
+
+        # now get other relevant parameters
+        for ct, sig in enumerate(self.ptasignals):
+            if sig['stype'] == 'cw':
+
+                par0 = parameters[sig['parindex']:(sig['parindex']+sig['npars'])]
+                mc0, dist0  = 10**par0[2]*4.9e-6, 10**par0[3]*1.0267e14
+
+                # draw distance uniformly from prior
+                dist1 = 10**np.random.uniform(sig['pmin'][3], sig['pmax'][3])
+                dist1 *= 1.0267e14
+
+                # find chirp mass that keeps M^{5/3}/dL constant
+                mc1 = (dist1 * mc0**(5/3)/dist0)**(3/5)
+
+                # put values in return array
+                q[sig['parindex']+2] = np.log10(mc1/4.9e-6)
+                q[sig['parindex']+3] = np.log10(dist1/1.0267e14)
+
+        return q, qxy
+
+
+
     # draws from equad prior
     def drawFromEquadPrior(self, parameters, iter, beta):
         
@@ -3776,8 +4094,12 @@ class PTAmodels(object):
         # find number of signals
         nsigs = np.sum(self.getNumberOfSignalsFromDict(self.ptasignals, \
                     stype='nonlineartimingmodel', corr='single'))
-        signum = self.getSignalNumbersFromDict(self.ptasignals, 
+        if np.any(nsigs):
+            signum = self.getSignalNumbersFromDict(self.ptasignals, 
                     stype='nonlineartimingmodel', corr='single')
+        else:
+            signum = self.getSignalNumbersFromDict(self.ptasignals, 
+                    stype='lineartimingmodel', corr='single')
         
         # current timing model parameters
         sig = self.ptasignals[signum]
@@ -3910,7 +4232,7 @@ class PTAmodels(object):
 
 
         # loop over all pulsars and contruct ML estimates
-        cov, eps = [], []
+        cov, eps, chisq = [], [], []
         nfref = 0
         for ct, p in enumerate(self.psr):
 
@@ -3992,7 +4314,7 @@ class PTAmodels(object):
             # triple product
             rNr = np.dot(p.detresiduals, p.detresiduals/p.Nvec)
 
-            chisq = rNr - np.dot(d, expval2)
+            chisq.append(rNr - np.dot(d, expval2))
 
             # increment frequency counter
             nfref += nf

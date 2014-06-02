@@ -273,7 +273,7 @@ class DataFile(object):
 
         # determine whether or not to drop points
         dat = t2pulsar.residuals()/t2pulsar.toaerrs/1e-6
-        t2pulsar.deleted = np.abs(dat) > sigma
+        #t2pulsar.deleted = np.abs(dat) > sigma
         if sigma < 10:
             print 'Deleting {0} points for pulsar {1}'.format(np.sum(t2pulsar.deleted), \
                                                                     t2pulsar.name)
@@ -295,6 +295,27 @@ class DataFile(object):
         # TODO: writing the design matrix should be done irrespective of the fitting flag
         desmat = t2pulsar.designmatrix(fixunits=True)
         self.writeData(psrGroup, 'designmatrix', desmat[t2pulsar.deleted==0, :], overwrite=overwrite)
+
+        # get pulsar distance and uncertainty (need pulsarDistances.txt file for this)
+        fin = open('pulsarDistances.txt', 'r')
+        lines = fin.readlines()
+        found = 0
+        for line in lines:
+            vals = line.split()
+            if t2pulsar.name in vals[0]:
+                pdist, pdistErr = vals[1], vals[2]
+                found = True
+        if not(found):
+            print 'WARNING: Could not find pulsar distance for PSR {0}. \
+                    Setting value to 1 with 20% uncertainty'.format(t2pulsar.name)
+            pdist, pdistErr = 1.0, 0.2
+
+        # write to file
+        self.writeData(psrGroup, 'pdist', pdist, overwrite=overwrite)
+        self.writeData(psrGroup, 'pdistErr', pdistErr, overwrite=overwrite)
+        
+        # close file
+        fin.close()
 
         # Now obtain and write the timing model parameters
         tmpname = ['Offset'] + list(t2pulsar.pars)
@@ -512,6 +533,10 @@ class DataFile(object):
         # period of pulsar
         perind = np.flatnonzero(np.array(psr.ptmdescription) == 'F0')
         psr.period = 1/np.array(self.getData(psrname, 'tmp_valpost'))[perind]
+
+        # pulsar distance and uncertainty
+        psr.pdist = np.double(self.getData(psrname, 'pdist'))
+        psr.pdistErr = np.double(self.getData(psrname, 'pdistErr'))
 
         # Obtain residuals, TOAs, etc.
         psr.toas = np.array(self.getData(psrname, 'TOAs'))

@@ -249,7 +249,7 @@ def createResidualsFast(psr, gwtheta, gwphi, mc, dist, fgw, phase0, psi, inc, pd
         # get values from pulsar object
         toas = p.toas
         if pdist is None and pphase is None:
-            pd = p.dist
+            pd = p.pdist
         elif pdist is None and pphase is not None:
             pd = pphase[ct]/(2*np.pi*fgw*(1-cosMu)) / 1.0267e11
         else:

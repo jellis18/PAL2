@@ -131,7 +131,8 @@ def confinterval(samples, sigma=0.68, onesided=False, weights=None, bins=40,
 
 
 
-def makesubplot2d(ax, samples1, samples2, cmap, color=True, weights=None, smooth=True, \
+def makesubplot2d(ax, samples1, samples2, cmap=None, color='k', weights=None, 
+                  smooth=True, \
                   bins=[40, 40], contours=True, x_range=None, y_range=None, \
                   logx=False, logy=False, logz=False):
     
@@ -180,7 +181,7 @@ def makesubplot2d(ax, samples1, samples2, cmap, color=True, weights=None, smooth
         contourlevels = (level1, level2, level3)
         
         #contourcolors = ('darkblue', 'darkblue', 'darkblue')
-        contourcolors = ('black', 'black', 'black')
+        contourcolors = (color, color, color)
         contourlinestyles = ('-', '--', '-.')
         #contourlinewidths = (2.0, 2.0, 2.0)
         contourlinewidths = (1.5, 1.5, 1.5)
@@ -191,7 +192,7 @@ def makesubplot2d(ax, samples1, samples2, cmap, color=True, weights=None, smooth
         c1 = ax.contour(xedges,yedges,hist2d.T,contourlevels, \
                 colors=contourcolors, linestyles=contourlinestyles, \
                 linewidths=contourlinewidths, zorder=2)
-    if color:
+    if cmap:
         if logz:
             c2 = ax.imshow(np.flipud(hist2d.T), extent=extent, aspect=ax.get_aspect(), \
                       interpolation='gaussian', norm=matplotlib.colors.LogNorm(), cmap=cmap)
@@ -280,9 +281,9 @@ def getMax(samples, weights=None, range=None, bins=50):
         
 
 # make triangle plot of marginalized posterior distribution
-def triplot(chain, color=True, weights=None, interpolate=False, smooth=True, \
+def triplot(chain, color='k', weights=None, interpolate=False, smooth=True, \
            labels=None, figsize=(11,8.5), title=None, inj=None, tex=True, \
-            incMaxPost=True, cmap='YlOrBr'):
+            incMaxPost=True, cmap='YlOrBr', holdon=False):
 
     """
 
@@ -304,8 +305,12 @@ def triplot(chain, color=True, weights=None, interpolate=False, smooth=True, \
     # get number of parameters
     ndim = chain.shape[1]
     parameters = np.linspace(0,ndim-1,ndim)
-
-    f, axarr = plt.subplots(nrows=len(parameters), ncols=len(parameters),figsize=figsize)
+    
+    if holdon:
+        f = plt.gcf()
+        fig, axarr = plt.subplots(nrows=len(parameters), ncols=len(parameters),figsize=figsize)
+    else:
+        f, axarr = plt.subplots(nrows=len(parameters), ncols=len(parameters),figsize=figsize)
 
     for i in range(len(parameters)):
         # for j in len(parameters[np.where(i <= parameters)]:
@@ -333,7 +338,7 @@ def triplot(chain, color=True, weights=None, interpolate=False, smooth=True, \
                     # Make a 1D plot
                     makesubplot1d(axarr[ii][ii], chain[:,parameters[ii]], \
                                   weights=weights, interpolate=interpolate, \
-                                  smooth=smooth)
+                                  smooth=smooth, color=color)
                     axarr[ii][jj].set_ylim(ymin=0)
                     if incMaxPost:
                         mx = getMax(chain[:,parameters[ii]], weights=weights)
