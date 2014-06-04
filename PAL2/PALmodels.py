@@ -589,7 +589,7 @@ class PTAmodels(object):
                             pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
                             pwidth += [tmperrs[jj]]
                             pstart += [tmpest[jj]]
-                        print parid, pmin[-1], pmax[-1], pwidth[-1], pstart[-1]
+                        #print parid, pmin[-1], pmax[-1], pwidth[-1], pstart[-1]
 
                 if nonLinear:
                     stype = 'nonlineartimingmodel'
@@ -3487,7 +3487,7 @@ class PTAmodels(object):
             # prior on ECC, EDOT and T0
             if sig['stype'] == 'lineartimingmodel' or sig['stype'] == 'nonlineartimingmodel':
                 
-                ecc, edot, t0 = 0, 0, 0
+                ecc, edot, t0, sini, a1, m2, pb = 0, 0, 0, 0, 0, 0, 0
                 pindex = 0
                 for jj in range(sig['ntotpars']):
                     if sig['bvary'][jj]:
@@ -3498,6 +3498,14 @@ class PTAmodels(object):
                             t0 = sparameters[pindex]
                         elif sig['parid'][jj] == 'EDOT':
                             edot = sparameters[pindex]
+                        elif sig['parid'][jj] == 'SINI':
+                            sini = sparameters[pindex]
+                        elif sig['parid'][jj] == 'A1':
+                            a1 = sparameters[pindex]
+                        elif sig['parid'][jj] == 'PB':
+                            pb = sparameters[pindex]
+                        elif sig['parid'][jj] == 'M2':
+                            m2 = sparameters[pindex]
 
                         pindex += 1
 
@@ -3508,6 +3516,19 @@ class PTAmodels(object):
 
                     if np.any(check > 1) or np.any(check<0):
                         prior += -np.inf
+
+                # flat in cosi prior
+                if sini:
+                    prior += np.log(sini/np.sqrt(1-sini**2))
+
+                # prior on pulsar mass [0,3]
+                #if sini and pb and m2 and a1:
+                #    Pb = pb*86400
+                #    X = a1*299.79e6/3e8
+                #    M2 = m2*4.9e-6
+                #    mp = ((sini*(Pb/2/np.pi)**(2./3)*M2/X)**(3./2) - M2)/4.9e-6
+                #    if mp <= 0 or mp >= 3:
+                #        prior += -np.inf
 
 
             # CW parameters
