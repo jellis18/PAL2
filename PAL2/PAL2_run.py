@@ -157,8 +157,6 @@ separateJitterEquadByFreq = args.separateJitterEquad == 'frequencies'
 
 if args.incJitter or args.incJitterEquad or args.incJitterEpoch:
     likfunc = 'mark2'
-elif args.average:
-    likfunc = 'mark3'
 else:
     likfunc = 'mark1'
 
@@ -250,8 +248,6 @@ fout.close()
 if args.sampler == 'mcmc':
     if args.incJitter or args.incJitterEquad or args.incJitterEpoch:
         loglike = model.mark2LogLikelihood
-    elif args.average:
-        loglike = model.mark3LogLikelihood
     else:
         loglike = model.mark1LogLikelihood
 
@@ -355,23 +351,6 @@ elif args.sampler == 'multinest':
             for ii in range(ndim):
                 cube[ii] = model.pmin[ii] + cube[ii] * (model.pmax[ii]-model.pmin[ii])
     
-    # mark3 loglike
-    elif args.average:
-
-        ndim = len(p0)
-
-        def myloglike(cube, ndim, nparams):
-
-            acube = np.zeros(ndim)
-            for ii in range(ndim):
-                acube[ii] = cube[ii]
-
-            return model.mark3LogLikelihood(acube)
-
-        def myprior(cube, ndim, nparams):
-
-            for ii in range(ndim):
-                cube[ii] = model.pmin[ii] + cube[ii] * (model.pmax[ii] - model.pmin[ii])
     
     # mark1 loglike
     else:
@@ -398,7 +377,7 @@ elif args.sampler == 'multinest':
     # run MultiNest
     pymultinest.run(myloglike, myprior, n_params, resume = False, \
                     verbose = True, sampling_efficiency = 0.3, \
-                    outputfiles_basename =  args.outDir+'/'+args.pname+'-', \
+                    outputfiles_basename =  args.outDir+'/mn'+'-', \
                     n_iter_before_update=5, n_live_points=nlive, \
                     const_efficiency_mode=False, \
                     n_clustering_params=n_params)

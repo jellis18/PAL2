@@ -255,8 +255,8 @@ class PTSampler(object):
 
         # if resuming, just start with first point in chain
         if self.resume and self.resumeLength > 0:
-            p0, lnlike0, lnprob0  = self.resumechain[0,3:], \
-                    self.resumechain[0,1], self.resumechain[0,0]
+            p0, lnlike0, lnprob0  = self.resumechain[0,:], \
+                    self.resumechain[0,-3], self.resumechain[0,-4]
         else:
             # compute prior
             lp = self.logp(p0)
@@ -398,11 +398,11 @@ class PTSampler(object):
 
         # if resuming, just use previous chain points
         if self.resume and self.resumeLength > 0 and iter < self.resumeLength:
-            p0, lnlike0, lnprob0 = self.resumechain[iter,3:], \
-                    self.resumechain[iter,1], self.resumechain[iter,0]
+            p0, lnlike0, lnprob0 = self.resumechain[iter,:], \
+                    self.resumechain[iter,-3], self.resumechain[iter,-4]
 
             # update acceptance counter
-            self.naccepted = iter*self.resumechain[iter,2]
+            self.naccepted = iter*self.resumechain[iter,-2]
             accepted = 1
         else:
             y, qxy = self._jump(p0, iter)
