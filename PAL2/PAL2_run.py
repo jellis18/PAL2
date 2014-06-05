@@ -219,6 +219,12 @@ if args.noVaryEfac:
             sig['bvary'][0] = False
             sig['pstart'][0] = 1
 
+# check for single efacs
+for p in model.psr:
+    numEfacs = model.getNumberOfSignalsFromDict(fullmodel['signals'], \
+                stype='efac', corr='single')
+    memsave = numEfacs > 1
+
 # initialize model
 if args.fromFile:
     write = True
