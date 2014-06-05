@@ -297,17 +297,21 @@ class DataFile(object):
         self.writeData(psrGroup, 'designmatrix', desmat[t2pulsar.deleted==0, :], overwrite=overwrite)
 
         # get pulsar distance and uncertainty (need pulsarDistances.txt file for this)
-        fin = open('pulsarDistances.txt', 'r')
-        lines = fin.readlines()
-        found = 0
-        for line in lines:
-            vals = line.split()
-            if t2pulsar.name in vals[0]:
-                pdist, pdistErr = vals[1], vals[2]
-                found = True
-        if not(found):
-            print 'WARNING: Could not find pulsar distance for PSR {0}. \
-                    Setting value to 1 with 20% uncertainty'.format(t2pulsar.name)
+        try: 
+            fin = open('pulsarDistances.txt', 'r')
+            lines = fin.readlines()
+            found = 0
+            for line in lines:
+                vals = line.split()
+                if t2pulsar.name in vals[0]:
+                    pdist, pdistErr = vals[1], vals[2]
+                    found = True
+            if not(found):
+                print 'WARNING: Could not find pulsar distance for PSR {0}. \
+                        Setting value to 1 with 20% uncertainty'.format(t2pulsar.name)
+                pdist, pdistErr = 1.0, 0.2
+        except IOError:
+            print 'WARNING: cannot find pulsarDistances.txt file!, setting all pulsar distances to 1'    
             pdist, pdistErr = 1.0, 0.2
 
         # write to file

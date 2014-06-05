@@ -535,7 +535,10 @@ class PTAmodels(object):
                             pmin += [-1.0]
                             pmax += [1.0]
                             pwidth += [tmperrs[jj]]
-                            pstart += [tmpest[jj]]
+                            if tmpest[jj] < -1 or tmpest[jj] > 1:
+                                pstart += [0.99]
+                            else:
+                                pstart += [tmpest[jj]]
                         elif parid == 'ECC':
                             pmin += [0.0]
                             pmax += [1.0]
