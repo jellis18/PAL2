@@ -220,10 +220,11 @@ if args.noVaryEfac:
             sig['pstart'][0] = 1
 
 # check for single efacs
-for p in model.psr:
-    numEfacs = model.getNumberOfSignalsFromDict(fullmodel['signals'], \
-                stype='efac', corr='single')
-    memsave = numEfacs > 1
+if args.incCW or args.incTimingModel:
+    for p in model.psr:
+        numEfacs = model.getNumberOfSignalsFromDict(fullmodel['signals'], \
+                    stype='efac', corr='single')
+        memsave = np.any(numEfacs > 1)
 
 # initialize model
 if args.fromFile:
