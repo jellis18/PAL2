@@ -310,6 +310,9 @@ class DataFile(object):
                 print 'WARNING: Could not find pulsar distance for PSR {0}. \
                         Setting value to 1 with 20% uncertainty'.format(t2pulsar.name)
                 pdist, pdistErr = 1.0, 0.2
+
+            # close file
+            fin.close()
         except IOError:
             print 'WARNING: cannot find pulsarDistances.txt file!, setting all pulsar distances to 1'    
             pdist, pdistErr = 1.0, 0.2
@@ -318,8 +321,6 @@ class DataFile(object):
         self.writeData(psrGroup, 'pdist', pdist, overwrite=overwrite)
         self.writeData(psrGroup, 'pdistErr', pdistErr, overwrite=overwrite)
         
-        # close file
-        fin.close()
 
         # Now obtain and write the timing model parameters
         tmpname = ['Offset'] + list(t2pulsar.pars)
