@@ -6,7 +6,6 @@ import scipy.ndimage.filters as filter
 import healpy as hp
 from bayestar import plot
 import matplotlib.mlab as ml
-import statsmodels.api as sm
 from matplotlib.ticker import FormatStrFormatter, LinearLocator, NullFormatter, NullLocator
 import matplotlib.ticker
 import matplotlib.colors
