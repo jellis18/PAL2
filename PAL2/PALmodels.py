@@ -1299,10 +1299,10 @@ class PTAmodels(object):
         #Tmax = 1/1.33950638e-09
         self.Tmax = Tmax
 
-        print 'WARNING: Using seperate Tmax for each pulsar'
+        #print 'WARNING: Using seperate Tmax for each pulsar'
         for p in self.psr:
-            p.Tmax = p.toas.max() - p.toas.min()
-            #p.Tmax = self.Tmax
+            #p.Tmax = p.toas.max() - p.toas.min()
+            p.Tmax = self.Tmax
 
         # If the compressionComplement is defined, overwrite the default
         if evalCompressionComplement != 'None':
@@ -1848,7 +1848,8 @@ class PTAmodels(object):
                     gamma = sparameters[1]
                     
                     freqpy = self.psr[psrind].Ffreqs
-                    f1yr = 1/3.16e7
+                    #f1yr = 1/3.16e7
+                    f1yr = 1/self.psr[psrind].Tmax 
                     pcdoubled = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
                                          freqpy**(-gamma)/sig['Tmax'])
 
