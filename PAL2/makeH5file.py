@@ -29,6 +29,7 @@ except OSError:
 parFiles = glob.glob(args.pardir + '/*.par')
 timFiles = glob.glob(args.timdir + '/*.tim')
 
+
 df = PALdatafile.DataFile(args.h5file)
 for t,p in zip(timFiles, parFiles):
     df.addTempoPulsar(p, t, iterations=3, sigma=1000)

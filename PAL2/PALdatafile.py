@@ -241,7 +241,10 @@ class DataFile(object):
         os.chdir(dirname)
 
         # Load pulsar data from the libstempo library
-        t2pulsar = t2.tempopulsar(relparfile, reltimfile)
+        try:
+            t2pulsar = t2.tempopulsar(parfile, timfile, maxobs=20000)
+        except TypeError:
+            t2pulsar = t2.tempopulsar(parfile, timfile)
 
         # Load the entire par-file into memory, so that we can save it in the
         # HDF5 file
@@ -540,8 +543,12 @@ class DataFile(object):
         psr.period = 1/np.array(self.getData(psrname, 'tmp_valpost'))[perind]
 
         # pulsar distance and uncertainty
-        psr.pdist = np.double(self.getData(psrname, 'pdist'))
-        psr.pdistErr = np.double(self.getData(psrname, 'pdistErr'))
+        try:
+            psr.pdist = np.double(self.getData(psrname, 'pdist'))
+            psr.pdistErr = np.double(self.getData(psrname, 'pdistErr'))
+        except IOError:
+            psr.dist = 1
+            psr.distErr = 0.1
 
         # Obtain residuals, TOAs, etc.
         psr.toas = np.array(self.getData(psrname, 'TOAs'))

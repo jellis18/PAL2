@@ -156,7 +156,11 @@ class Pulsar(object):
         timfile.close()
 
         # Create the libstempo object
-        self.t2psr = t2.tempopulsar(parfilename, timfilename)
+        try:
+            self.t2psr = t2.tempopulsar(parfilename, timfilename, maxobs=20000)
+        except TypeError:
+            self.t2psr = t2.tempopulsar(parfilename, timfilename)
+
 
         # Create the BATS?
         # tempresiduals = self.t2psr.residuals(updatebats=True, formresiduals=False)
@@ -879,17 +883,19 @@ class Pulsar(object):
 
             w = 1.0 / self.toaerrs**2
             Sigi = np.dot(self.Mmat.T, (w * self.Mmat.T).T)
-            try:
-                cf = sl.cho_factor(Sigi)
-                Sigma = sl.cho_solve(cf, np.eye(Sigi.shape[0]))
-            except np.linalg.LinAlgError:
-                U, s, Vh = sl.svd(Sigi)
-                if not np.all(s > 0):
-                    raise ValueError("Sigi singular according to SVD")
-                Sigma = np.dot(Vh.T, np.dot(np.diag(1.0/s), U.T))
+            #try:
+            #    cf = sl.cho_factor(Sigi)
+            #    Sigma = sl.cho_solve(cf, np.eye(Sigi.shape[0]))
+            #except np.linalg.LinAlgError:
+            U, s, Vh = sl.svd(Sigi)
+            if not np.all(s > 0):
+                raise ValueError("Sigi singular according to SVD")
+            Sigma = np.dot(Vh.T, np.dot(np.diag(1.0/s), U.T))
             
             # set fisher matrix
             self.fisher = Sigma
+            self.fisherU = U
+            self.fisherS = s
 
         else:
             Mmat = self.Mmat
@@ -1039,7 +1045,6 @@ class Pulsar(object):
         except IOError:
             print 'Assuming compression is None!'
             file_compression = 'None'
-        print file_compression, compression
         if file_compression != compression:
             raise ValueError('ERROR: compression argument does not match one in hdf5 file! Must re-compute everything :(')
 

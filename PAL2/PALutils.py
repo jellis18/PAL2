@@ -247,9 +247,9 @@ def createResidualsFast(psr, gwtheta, gwphi, mc, dist, fgw, phase0, psi, inc, pd
 
     
         # get values from pulsar object
-        toas = p.toas
+        toas = p.toas.copy()
         if pdist is None and pphase is None:
-            pd = p.pdist
+            pd = p.pdist.copy()
         elif pdist is None and pphase is not None:
             pd = pphase[ct]/(2*np.pi*fgw*(1-cosMu)) / 1.0267e11
         else:
@@ -1082,7 +1082,7 @@ def computeNormalizedCovarianceMatrix(cov):
     return cnorm 
 
 
-def createfourierdesignmatrix(t, nmodes, freq=False, Tspan=None):
+def createfourierdesignmatrix(t, nmodes, freq=False, Tspan=None, logf=False):
     """
     Construct fourier design matrix from eq 11 of Lentati et al, 2013
 
@@ -1090,6 +1090,7 @@ def createfourierdesignmatrix(t, nmodes, freq=False, Tspan=None):
     @param nmodes: number of fourier coefficients to use
     @param freq: option to output frequencies
     @param Tspan: option to some other Tspan
+    @param logf: use log frequency spacing
 
     @return: F: fourier design matrix
     @return: f: Sampling frequencies (if freq=True)
@@ -1106,6 +1107,8 @@ def createfourierdesignmatrix(t, nmodes, freq=False, Tspan=None):
 
     # define sampling frequencies
     f = np.linspace(1/T, nmodes/T, nmodes)
+    if logf:
+        f = np.logspace(np.log10(1/T), np.log10(nmodes/T), nmodes)
     Ffreqs = np.zeros(2*nmodes)
     Ffreqs[0::2] = f
     Ffreqs[1::2] = f

@@ -92,6 +92,15 @@ parser.add_argument('--incTimingModel', dest='incTimingModel', action='store_tru
 parser.add_argument('--tmmodel', dest='tmmodel', action='store', type=str, \
                     default='linear', \
                     help='linear or non-linear timing model [linear, nonlinear]')
+parser.add_argument('--fullmodel', dest='fullmodel', action='store_true', \
+                    default=False, \
+                    help='Use full timing model, no marginalization')
+
+parser.add_argument('--incNonGaussian', dest='incNonGaussian', action='store_true', \
+                    default=False, \
+                    help='Use non-gaussian likelihood function')
+parser.add_argument('--nnongauss', dest='nnongauss', action='store', type=int, default=3,
+                   help='number of non-guassian components (default=3)')
 
 parser.add_argument('--incCW', dest='incCW', action='store_true', \
                     default=False, help='Include CW signal in run')
@@ -157,6 +166,10 @@ separateJitterEquadByFreq = args.separateJitterEquad == 'frequencies'
 
 if args.incJitter or args.incJitterEquad or args.incJitterEpoch:
     likfunc = 'mark2'
+elif args.incTimingModel and args.fullmodel and not args.incNonGaussian:
+    likfunc = 'mark4'
+elif args.incTimingModel and args.fullmodel and args.incNonGaussian:
+    likfunc='mark5'
 else:
     likfunc = 'mark1'
 
@@ -172,7 +185,8 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     separateJitterEquadByFreq=separateJitterEquadByFreq, \
                     incEquad=args.incEquad, incJitter=args.incJitter, \
                     incTimingModel=args.incTimingModel, nonLinear=args.tmmodel=='nonlinear', \
-                    incNonGaussian=False, \
+                    fulltimingmodel=args.fullmodel, incNonGaussian=args.incNonGaussian, \
+                    nnongaussian=args.nnongauss, \
                     incCW=args.incCW, incPulsarDistance=args.incPdist, \
                     incJitterEquad=args.incJitterEquad, \
                     incJitterEpoch=args.incJitterEpoch, nepoch=nepoch, \
@@ -223,7 +237,7 @@ if args.noVaryEfac:
 if args.incCW or args.incTimingModel:
     for p in model.psr:
         numEfacs = model.getNumberOfSignalsFromDict(fullmodel['signals'], \
-                    stype='efac', corr='single')
+                stype='efac', corr='single')
         memsave = np.any(numEfacs > 1)
 
 # initialize model
@@ -255,6 +269,10 @@ fout.close()
 if args.sampler == 'mcmc':
     if args.incJitter or args.incJitterEquad or args.incJitterEpoch:
         loglike = model.mark2LogLikelihood
+    elif args.incTimingModel and args.fullmodel and not args.incNonGaussian:
+        loglike = model.mark4LogLikelihood
+    elif args.incTimingModel and args.fullmodel and args.incNonGaussian:
+        loglike = model.mark5LogLikelihood
     else:
         loglike = model.mark1LogLikelihood
 
