@@ -125,6 +125,7 @@ class PTAmodels(object):
     def makeModelDict(self,  nfreqs=20, ndmfreqs=None, \
             incRedNoise=False, noiseModel='powerlaw', fc=None, \
             incDM=False, dmModel='powerlaw', \
+            incScattering=False, scatteringModel='powerlaw', \
             incGWB=False, gwbModel='powerlaw', \
             incBWM=False, \
             incCW=False, incPulsarDistance=False, \
@@ -413,6 +414,40 @@ class PTAmodels(object):
 
                 newsignal = OrderedDict({
                     "stype":DMModel,
+                    "corr":"single",
+                    "pulsarind":ii,
+                    "flagname":"pulsarname",
+                    "flagvalue":p.name,
+                    "bvary":bvary,
+                    "pmin":pmin,
+                    "pmax":pmax,
+                    "pwidth":pwidth,
+                    "pstart":pstart,
+                    "prior":prior
+                    })
+                signals.append(newsignal)
+            
+            if incScattering:
+                if scatteringModel=='spectrum':
+                    #nfreqs = ndmfreqs
+                    bvary = [True]*ndmfreqs
+                    pmin = [-14.0]*ndmfreqs
+                    pmax = [-3.0]*ndmfreqs
+                    pstart = [-7.0]*ndmfreqs
+                    pwidth = [0.1]*ndmfreqs
+                    prior = [DMSpectrumPrior]*nfreqs
+                    ScatteringModel = 'scatspectrum'
+                elif scatteringModel=='powerlaw':
+                    bvary = [True, True, False]
+                    pmin = [-14.0, 1.02, 1.0e-11]
+                    pmax = [-6.5, 6.98, 3.0e-9]
+                    pstart = [-13.0, 2.01, 1.0e-10]
+                    pwidth = [0.1, 0.1, 5.0e-11]
+                    prior = [DMAmpPrior, DMSiPrior, 'log']
+                    ScatteringModel = 'scatpowerlaw'
+
+                newsignal = OrderedDict({
+                    "stype":ScatteringModel,
                     "corr":"single",
                     "pulsarind":ii,
                     "flagname":"pulsarname",
