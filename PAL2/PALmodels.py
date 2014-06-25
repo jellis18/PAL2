@@ -375,6 +375,7 @@ class PTAmodels(object):
                     pmax = [-14.0, 12.0, 2.0]
                     pstart = [-22.0, 2.0, -1.0]
                     pwidth = [-0.2, 0.1, 0.1]
+                    prior = [redAmpPrior, redSiPrior, 'uniform']
 
                 newsignal = OrderedDict({
                     "stype":noiseModel,
@@ -1839,6 +1840,23 @@ class PTAmodels(object):
 
                     # define rho
                     rho = np.array([sparameters, sparameters]).T.flatten()
+
+            # spectral Model
+            if sig['stype'] == 'spectralModel':
+
+                # pulsar independent 
+                if sig['corr'] == 'single':
+                    PAL_spy = 3.16e7
+                    Amp = 10**sparameters[0]
+                    alpha = sparameters[1]
+                    fc = 10**sparameters[2] / PAL_spy
+                    freqpy = self.psr[psrind].Ffreqs
+
+                    pcdoubled = np.log10((Amp * PAL_spy**3 / sig['Tmax']) * \
+                            ((1 + (freqpy/fc)**2)**(-0.5*alpha)))
+                    
+                    # fill in kappa
+                    self.psr[psrind].kappa = pcdoubled
                 
 
             # powerlaw spectrum
@@ -1987,8 +2005,8 @@ class PTAmodels(object):
 
             # convert to array and flatten
             self.Phi = np.array(sigdiag).flatten()
-            #np.fill_diagonal(self.Phiinv, 1/self.Phi)
-            self.Phiinv = np.diag(1/self.Phi)
+            np.fill_diagonal(self.Phiinv, 1/self.Phi)
+            #self.Phiinv = np.diag(1/self.Phi)
             self.logdetPhi = np.sum(np.log(self.Phi))
 
 
@@ -2648,11 +2666,13 @@ class PTAmodels(object):
                 except np.linalg.LinAlgError:
                     raise ValueError("ERROR: Sigma singular according to SVD")
 
-                loglike += -0.5 * (self.logdetPhi + logdet_Sigma) + 0.5 * (np.dot(dd, expval2))
+                loglike += -0.5 * logdet_Sigma + 0.5 * (np.dot(dd, expval2))
 
                 # increment frequency counter
                 nfref += nf
-
+        
+        if not incCorrelations:
+            loglike += -0.5 * self.logdetPhi
 
         # compute the red noise, DMV and GWB terms in the log likelihood
         if incCorrelations: 

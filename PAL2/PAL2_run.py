@@ -300,11 +300,14 @@ if args.sampler == 'mcmc':
     # get initial parameters for MCMC
     inRange = False
     pstart = False
+    fixpstart=False
+    if args.incTimingModel:
+        fixpstart=True
     if MPIrank == 0:
         pstart = True
     startSpectrumMin = False
     while not(inRange):
-        p0 = model.initParameters(startEfacAtOne=True, fixpstart=True)
+        p0 = model.initParameters(startEfacAtOne=True, fixpstart=fixpstart)
         #for ct, nm in enumerate(par_out):
         #    print nm, p0[ct]
         startSpectrumMin = True
