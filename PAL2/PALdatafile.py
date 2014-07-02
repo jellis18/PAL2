@@ -359,10 +359,10 @@ class DataFile(object):
             pulsarname = map(str, [t2pulsar.name] * nobs)
             
             #TODO: fix this to deal on a TOA by TOA basis
-            #if "tobs" in flagGroup:
-            #    tobs = map(float, flagGroup['tobs'])
-            #else:
-            #    print 'No tobs flag for PSR {0}, using 20 mins'.format(t2pulsar.name)
+            if "tobs" in flagGroup:
+                tobs = map(float, flagGroup['tobs'])
+            else:
+                print 'No tobs flag for PSR {0}, using 20 mins'.format(t2pulsar.name)
             tobs = 1200.0*np.ones(nobs)
 
             self.writeData(flagGroup, "tobs_all", tobs, overwrite=overwrite)
@@ -543,12 +543,12 @@ class DataFile(object):
         psr.period = 1/np.array(self.getData(psrname, 'tmp_valpost'))[perind]
 
         # pulsar distance and uncertainty
-        try:
-            psr.pdist = np.double(self.getData(psrname, 'pdist'))
-            psr.pdistErr = np.double(self.getData(psrname, 'pdistErr'))
-        except IOError:
-            psr.dist = 1
-            psr.distErr = 0.1
+        #try:
+        #    psr.pdist = np.double(self.getData(psrname, 'pdist'))
+        #    psr.pdistErr = np.double(self.getData(psrname, 'pdistErr'))
+        #except IOError:
+        psr.pdist = 1.0
+        psr.pdistErr = 0.1
 
         # Obtain residuals, TOAs, etc.
         psr.toas = np.array(self.getData(psrname, 'TOAs'))
