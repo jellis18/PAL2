@@ -9,10 +9,6 @@ import PALpsr
 import glob
 import time, os
 
-try:
-    from mpi4py import MPI
-except ImportError:
-    import nompi4py as MPI
 
 import argparse
 
@@ -129,6 +125,10 @@ args = parser.parse_args()
 
 # MPI initialization
 if args.sampler == 'mcmc':
+    try:
+        from mpi4py import MPI
+    except ImportError:
+        import nompi4py as MPI
     comm = MPI.COMM_WORLD
     MPIrank = comm.Get_rank()
     MPIsize = comm.Get_size()
