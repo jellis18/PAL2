@@ -365,7 +365,7 @@ class PTAmodels(object):
                     prior = [redSpectrumPrior]*nfreqs
                 elif noiseModel=='powerlaw':
                     bvary = [True, True, False]
-                    pmin = [-20.0, 0.02, 1.0e-11]
+                    pmin = [-20.0, 1.02, 1.0e-11]
                     pmax = [-11.0, 6.98, 3.0e-9]
                     pstart = [-14.0, 2.01, 1.0e-10]
                     pwidth = [0.1, 0.1, 5.0e-11]
