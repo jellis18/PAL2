@@ -424,6 +424,6 @@ elif args.sampler == 'multinest':
                     outputfiles_basename =  args.outDir+'/mn'+'-', \
                     n_iter_before_update=5, n_live_points=nlive, \
                     const_efficiency_mode=False, \
-                    n_clustering_params=n_params)
+                    n_clustering_params=n_params, init_MPI=False)
 
 
