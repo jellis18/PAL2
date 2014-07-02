@@ -41,6 +41,8 @@ parser.add_argument('--fixRedSi', dest='fixRedSi', action='store_true', default=
                     help='Fix red noise spectral index to 4.33')
 parser.add_argument('--redAmpPrior', dest='redAmpPrior', action='store', type=str, \
                     default='log', help='prior on red noise Amplitude [uniform, log]')
+parser.add_argument('--logfrequencies', dest='logfrequencies', action='store_true', \
+                    default=False, help='Use log sampling in frequencies.')
 
 parser.add_argument('--incDM', dest='incDM', action='store_true',default=False,
                    help='include DM variations')
@@ -176,7 +178,7 @@ else:
 #likfunc= 'mark5'
 print likfunc
 
-fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
+fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, logf=args.logfrequencies, \
                     incDM=args.incDM, dmModel=args.dmModel, \
                     separateEfacs=separateEfacs, separateEfacsByFreq=separateEfacsByFreq, \
                     separateEquads=separateEquads, separateEquadsByFreq=separateEquadsByFreq, \
@@ -344,6 +346,7 @@ if args.sampler == 'mcmc':
         sampler.addProposalToCycle(model.massDistanceJump, 5)
         if args.incPdist:
             sampler.addAuxilaryJump(model.pulsarPhaseFix)
+            sampler.addProposalToCycle(model.pulsarDistanceJump, 5)
 
     # always include draws from efac
     if not args.noVaryEfac:
@@ -362,7 +365,7 @@ elif args.sampler == 'multinest':
     p0 = model.initParameters(startEfacAtOne=True, fixpstart=False)
 
     # mark2 loglike
-    if args.incJitter:
+    if args.incJitter or args.incJitterEquad:
 
         ndim = len(p0)
 
@@ -372,7 +375,12 @@ elif args.sampler == 'multinest':
             for ii in range(ndim):
                 acube[ii] = cube[ii]
 
-            return model.mark2LogLikelihood(acube)
+            # check prior
+            if model.mark3LogPrior(acube) != -np.inf:
+                return model.mark2LogLikelihood(acube)
+            else:
+                print 'WARNING: Prior returns -np.inf!!'
+                return -np.inf
 
         def myprior(cube, ndim, nparams):
 
@@ -390,6 +398,13 @@ elif args.sampler == 'multinest':
             acube = np.zeros(ndim)
             for ii in range(ndim):
                 acube[ii] = cube[ii]
+            
+            # check prior
+            if model.mark3LogPrior(acube) != -np.inf:
+                return model.mark1LogLikelihood(acube)
+            else:
+                print 'WARNING: Prior returns -np.inf!!'
+                return -np.inf
 
             return model.mark1LogLikelihood(acube)
 

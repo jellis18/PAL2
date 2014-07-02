@@ -123,7 +123,7 @@ class PTAmodels(object):
     TODO: make more functionality for single puslars later
     """
     def makeModelDict(self,  nfreqs=20, ndmfreqs=None, \
-            incRedNoise=False, noiseModel='powerlaw', fc=None, \
+            incRedNoise=False, noiseModel='powerlaw', fc=None, logf=False,\
             incDM=False, dmModel='powerlaw', \
             incScattering=False, scatteringModel='powerlaw', \
             incGWB=False, gwbModel='powerlaw', \
@@ -763,6 +763,7 @@ class PTAmodels(object):
             "numNoiseFreqs":[nfreqs for ii in range(len(self.psr))],
             "numDMFreqs":[ndmfreqs for ii in range(len(self.psr))],
             "compression":compression,
+            "logfrequencies":logf,
             "targetAmp":targetAmp,
             "orderFrequencyLines":orderFrequencyLines,
             "evalCompressionComplement":evalCompressionComplement,
@@ -948,15 +949,24 @@ class PTAmodels(object):
         
         # eq 5 from cordes and shannon measurement model paper
         Wims = 0.1 * self.psr[signal['pulsarind']].period*1e3
-        N6 = self.psr[signal['pulsarind']].avetobs/self.psr[signal['pulsarind']].period/1e6
         mI = 1
-        sigmaJ = 0.28e-6 * Wims * 1/np.sqrt(N6) * np.sqrt((1+mI**2)/2) 
-        signal['Jvec'] = sigmaJ**2
+        if self.likfunc == 'mark2':
+            N6 = self.psr[signal['pulsarind']].avetobs/self.psr[signal['pulsarind']].period/1e6
+            sigmaJ = 0.28e-6 * Wims * 1/np.sqrt(N6) * np.sqrt((1+mI**2)/2) 
+            signal['Jvec'] = sigmaJ**2
+        else:
+            N6 = self.psr[signal['pulsarind']].tobsflags/self.psr[signal['pulsarind']].period/1e6
+            sigmaJ = 0.28e-6 * Wims * 1/np.sqrt(N6) * np.sqrt((1+mI**2)/2) 
+            signal['Nvec'] = sigmaJ**2
 
         if signal['flagname'] != 'pulsarname':
             # This jitter only applies to some average TOAs, not all of 'm
-            ind = np.array(self.psr[signal['pulsarind']].aveflags) != signal['flagvalue']
-            signal['Jvec'][ind] = 0.0
+            if self.likfunc == 'mark2':
+                ind = np.array(self.psr[signal['pulsarind']].aveflags) != signal['flagvalue']
+                signal['Jvec'][ind] = 0.0
+            else:
+                ind = np.array(self.psr[signal['pulsarind']].flags) != signal['flagvalue']
+                signal['Nvec'][ind] = 0.0
 
         self.ptasignals.append(signal.copy())
     
@@ -1315,6 +1325,7 @@ class PTAmodels(object):
         likfunc = fullmodel['likfunc']
         signals = fullmodel['signals']
         targetAmp = fullmodel['targetAmp']
+        logf = fullmodel['logfrequencies']
 
         if len(self.psr) < 1:
             raise IOError, "No pulsars loaded"
@@ -1338,11 +1349,12 @@ class PTAmodels(object):
         Tmax = Tfinish - Tstart
         #Tmax = 1/1.33950638e-09
         self.Tmax = Tmax
+        self.Tref = Tstart
 
-        #print 'WARNING: Using seperate Tmax for each pulsar'
+        print 'WARNING: Using seperate Tmax for each pulsar'
         for p in self.psr:
-            #p.Tmax = p.toas.max() - p.toas.min()
-            p.Tmax = self.Tmax
+            p.Tmax = p.toas.max() - p.toas.min()
+            #p.Tmax = self.Tmax
 
         # If the compressionComplement is defined, overwrite the default
         if evalCompressionComplement != 'None':
@@ -1364,13 +1376,12 @@ class PTAmodels(object):
         # separateEfacs boolean array (for two-component noise analysis)
         numEfacs = self.getNumberOfSignalsFromDict(signals, \
                 stype='efac', corr='single')
-        separateEfacs = numEfacs > 1
-        
-        # Find out how many jitter signals there are, and translate that to a
-        # separateEfacs boolean array 
+        numEquads = self.getNumberOfSignalsFromDict(signals, \
+                stype='equad', corr='single')
         numJitter = self.getNumberOfSignalsFromDict(signals, \
                 stype='jitter', corr='single')
-        separateJitter = numJitter > 1
+        separateEfacs = np.logical_or(numEfacs > 1, numEquads > 1)
+        
 
         # Modify design matrices, and create pulsar Auxiliary quantities
         for pindex, p in enumerate(self.psr):
@@ -1419,7 +1430,8 @@ class PTAmodels(object):
                                 nSingleFreqs=numSingleFreqs[pindex], \
                                 nSingleDMFreqs=numSingleDMFreqs[pindex], \
                                 likfunc=likfunc, compression=compression, \
-                                write=write, tmpars=tmpars, memsave=memsave)
+                                write=write, tmpars=tmpars, memsave=memsave, 
+                                logf=logf)
 
         # Initialise the ptasignal objects
         self.ptasignals = []
@@ -1798,8 +1810,11 @@ class PTAmodels(object):
                 # if not use reference value
                 else:
                     pequadsqr = sig['pstart'][0]**2
-
-                self.psr[psrind].Qamp += sig['Jvec'] * pequadsqr
+                
+                if self.likfunc == 'mark2':
+                    self.psr[psrind].Qamp += sig['Jvec'] * pequadsqr
+                else:
+                    self.psr[psrind].Nvec += sig['Nvec'] * pequadsqr
             
             # jitter equad signal
             elif sig['stype'] == 'jitter_equad':
@@ -2257,7 +2272,7 @@ class PTAmodels(object):
                             sparameters[1], 10**sparameters[2], 10**sparameters[3], \
                             10**sparameters[4], sparameters[5], sparameters[6], \
                             sparameters[7], pdist=pdist, psrTerm=incPterm, 
-                            phase_approx=True, evolve=False)
+                            phase_approx=True, evolve=False, tref=self.Tref)
 
                 
                 # loop over all pulsars and subtract off CW signal
@@ -3874,6 +3889,40 @@ class PTAmodels(object):
         
         return q, qxy
 
+    # pulsar distance jump
+    def pulsarDistanceJump(self, parameters, iter, beta):
+
+        q = parameters.copy()
+        qxy = 0
+
+        # get pulsar distances
+        L0 = []
+        signum = self.getSignalNumbersFromDict(self.ptasignals, \
+            stype='pulsardistance', corr='single')
+
+        # check to make sure we have all distances
+        if len(signum) != self.npsr:
+            raise ValueError('ERROR: Number of pulsar distances != number of pulsars!')
+
+
+        # get distances
+        pdist_inds, pdisterr = [], []
+        for signum0 in signum:
+            sig0 = self.ptasignals[signum0]
+            pdist_inds.append(sig0['parindex'])
+            L0.append(q[sig0['parindex']])
+            pdisterr.append(self.psr[sig0['pulsarind']].pdistErr)
+
+        # make indices array
+        pdist_inds = np.array(pdist_inds)
+        L0 = np.array(L0) 
+        pdisterr = np.array(pdisterr)
+
+        L_new = np.random.multivariate_normal(L0, np.diag(pdisterr**2))
+        q[pdist_inds] = L_new
+        
+        return q, qxy
+
     # pulsar mode jump
     def pulsarPhaseFix(self, prepar, postpar, iter, beta):
 
@@ -3915,8 +3964,8 @@ class PTAmodels(object):
                 theta1, phi1, mc1, omega1 = par1[0], par1[1], 10**par1[2], 10**par1[4]*np.pi
                 
         # get angular separations
-        cosMu0 = np.array([p.cosMu(theta0, phi0) for p in self.psr])
-        cosMu1 = np.array([p.cosMu(theta1, phi1) for p in self.psr])
+        cosMu0 = np.array([p.cosMu(theta0, phi0) for p in self.psr]).flatten()
+        cosMu1 = np.array([p.cosMu(theta1, phi1) for p in self.psr]).flatten()
 
         # get in correct units
         L0 *= 1.0267e11
@@ -3951,6 +4000,14 @@ class PTAmodels(object):
 
         L_new  = (L1 + deltaL) / 1.0267e11
         post[pdist_inds] = L_new
+        #L1 = L_new * 1.0267e11
+        #omegap1 = omega1 * (1+256/5*mc1**(5/3)*omega1**(8/3)*L1*(1-cosMu1))**(-3/8)
+
+        ## pulsar phase
+        #phase1 = 1/32/mc1**(5/3) * (omega1**(-5/3) - omegap1**(-5/3))
+
+        #print np.mod(phase0, 2*np.pi), np.mod(phase1, 2*np.pi)
+
 
         return post, 0
 
