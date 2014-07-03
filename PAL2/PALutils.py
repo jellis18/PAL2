@@ -186,7 +186,7 @@ def createResiduals(psr, gwtheta, gwphi, mc, dist, fgw, phase0, psi, inc, pdist=
     return res
 
 def createResidualsFast(psr, gwtheta, gwphi, mc, dist, fgw, phase0, psi, inc, pdist=None, \
-                        pphase=None, psrTerm=True, evolve=True, phase_approx=False):
+                        pphase=None, psrTerm=True, evolve=True, phase_approx=False, tref=0):
     """
     Function to create GW incuced residuals from a SMBMB as 
     defined in Ellis et. al 2012,2013. Trys to be smart about it
@@ -247,7 +247,7 @@ def createResidualsFast(psr, gwtheta, gwphi, mc, dist, fgw, phase0, psi, inc, pd
 
     
         # get values from pulsar object
-        toas = p.toas.copy()
+        toas = p.toas.copy() - tref
         if pdist is None and pphase is None:
             pd = p.pdist.copy()
         elif pdist is None and pphase is not None:
@@ -1109,6 +1109,7 @@ def createfourierdesignmatrix(t, nmodes, freq=False, Tspan=None, logf=False):
     f = np.linspace(1/T, nmodes/T, nmodes)
     if logf:
         f = np.logspace(np.log10(1/T), np.log10(nmodes/T), nmodes)
+        #f = np.logspace(np.log10(1/2/T), np.log10(nmodes/T), nmodes)
     Ffreqs = np.zeros(2*nmodes)
     Ffreqs[0::2] = f
     Ffreqs[1::2] = f
