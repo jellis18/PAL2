@@ -475,7 +475,7 @@ class PTAmodels(object):
                         "pmax":[-5.0, -9.0],
                         "pwidth":[-0.1, -0.1],
                         "pstart":[-7.0, -10.0],
-                        "prior":'log'
+                        "prior":['log', 'log']
                         })
                     signals.append(newsignal)
 
@@ -493,7 +493,7 @@ class PTAmodels(object):
                         "pmax":[-5.0, -9.0],
                         "pwidth":[-0.1, -0.1],
                         "pstart":[-7.0, -10.0],
-                        "prior":'log'
+                        "prior":['log', 'log']
                         })
                     signals.append(newsignal)
 
