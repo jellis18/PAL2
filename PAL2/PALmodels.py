@@ -1627,6 +1627,7 @@ class PTAmodels(object):
         self.npobs = np.zeros(self.npsr, dtype=np.int)
         self.npgs = np.zeros(self.npsr, dtype=np.int)
         self.npgos = np.zeros(self.npsr, dtype=np.int)
+        self.ntmpars = 0
         
         for ii, p in enumerate(self.psr):
 
@@ -1634,6 +1635,7 @@ class PTAmodels(object):
             self.npf[ii] = len(p.Ffreqs)
             self.npfdm[ii] = len(p.Fdmfreqs)
             self.npftot[ii] = self.npf[ii] + self.npfdm[ii]
+            self.ntmpars += len(p.ptmdescription)
 
             # noise vectors
             p.Nvec = np.zeros(len(p.toas))
@@ -1644,8 +1646,14 @@ class PTAmodels(object):
         self.ngwf = np.max(self.npf)
         self.gwfreqs = self.psr[np.argmax(self.npf)].Ffreqs
         nftot = self.ngwf + np.max(self.npfdm)
-        self.Phiinv = np.zeros((nftot*self.npsr, nftot*self.npsr))
-        self.Phi = np.zeros((nftot*self.npsr, nftot*self.npsr))
+        if self.likfunc == 'mark6':
+            self.Phiinv = np.zeros((nftot*self.npsr+self.ntmpars, \
+                                    nftot*self.npsr+self.ntmpars))
+            self.Phi = np.zeros((nftot*self.npsr+self.ntmpars, \
+                                 nftot*self.npsr+self.ntmpars))
+        else:
+            self.Phiinv = np.zeros((nftot*self.npsr, nftot*self.npsr))
+            self.Phi = np.zeros((nftot*self.npsr, nftot*self.npsr))
 
         #for ii in range(self.npsr):
         #    if not self.likfunc in ['mark2']:
@@ -1852,7 +1860,8 @@ class PTAmodels(object):
     TODO: this code only works if all pulsars have the same number of frequencies
     want to make this more flexible
     """
-    def constructPhiMatrix(self, parameters, constructPhi=False, incCorrelations=True):
+    def constructPhiMatrix(self, parameters, constructPhi=False, \
+                           incCorrelations=True, incTM=False):
 
         
         # Loop over all signals and determine rho (GW signals) and kappa (red + DM signals)
@@ -2009,12 +2018,16 @@ class PTAmodels(object):
                     p.kappa_tot = np.ones(p.kappa.shape) * -40
 
                 # append to signal diagonal
+                if incTM:
+                    p.kappa_tot = np.concatenate((np.ones(len(p.ptmdescription))*40, \
+                                                 p.kappa_tot))
+
                 sigdiag.append(10**p.kappa_tot)
 
             # convert to array and flatten
             self.Phi = np.array(sigdiag).flatten()
             np.fill_diagonal(self.Phiinv, 1/self.Phi)
-            self.logdetPhi = np.sum(np.log(self.Phi))
+            self.logdetPhi = np.sum(np.log(self.Phi[-self.npftot[ii]:]))
 
         # Do not include correlations but include GWB in red noise
         if rho is not None and not(incCorrelations):
@@ -2049,6 +2062,11 @@ class PTAmodels(object):
                     self.gwamp = np.concatenate((10**rho, np.zeros(ndmfreq)))
                 else:
                     self.gwamp = 10**rho
+                
+                # append to signal diagonal
+                if incTM:
+                    p.kappa_tot = np.concatenate((np.ones(len(p.ptmdescription))*40, \
+                                                 p.kappa_tot))
 
                 # append to signal diagonal
                 sigdiag.append(10**p.kappa_tot+self.gwamp)
@@ -2056,7 +2074,7 @@ class PTAmodels(object):
             # convert to array and flatten
             self.Phi = np.array(sigdiag).flatten()
             np.fill_diagonal(self.Phiinv, 1/self.Phi)
-            #self.Phiinv = np.diag(1/self.Phi)
+            self.logdetPhi = np.sum(np.log(self.Phi[-self.npftot[ii]:]))
             self.logdetPhi = np.sum(np.log(self.Phi))
 
 
@@ -3419,6 +3437,109 @@ class PTAmodels(object):
         loglike += 2*np.sum(np.log(np.abs(hval)))
 
         return loglike
+
+    """
+    mark 6 log likelihood. Note that this is not the same as mark6 in piccard
+
+    EFAC + EQUAD + Red noise + DMV + GWs
+
+    No jitter or frequency lines
+
+    Uses Woodbury lemma and "T" matrix formalism
+
+    """
+
+    def mark6LogLikelihood(self, parameters, incCorrelations=True):
+
+        loglike = 0
+
+        # set pulsar white noise parameters
+        self.setPsrNoise(parameters, incJitter=False)
+
+        # set red noise, DM and GW parameters
+        self.constructPhiMatrix(parameters, incCorrelations=incCorrelations, incTM=True)
+
+        # set deterministic sources
+        if self.haveDetSources:
+            self.updateDetSources(parameters)
+
+        
+        # compute the white noise terms in the log likelihood
+        TNT = []
+        nfref = 0
+        for ct, p in enumerate(self.psr):
+
+            # check for nans or infs
+            if np.any(np.isnan(p.detresiduals)) or np.any(np.isinf(p.detresiduals)):
+                return -np.inf
+                        
+                
+            # equivalent to T^T N^{-1} \delta t
+            if ct == 0:
+                d = np.dot(p.Tmat.T, p.detresiduals/p.Nvec)
+            else:
+                d = np.append(d, np.dot(p.Tmat.T, p.detresiduals/p.Nvec))
+
+            # compute T^T N^{-1} T
+            right = ((1/p.Nvec) * p.Tmat.T).T
+            TNT.append(np.dot(p.Tmat.T, right))
+
+            # log determinant of G^TNG
+            logdet_N = np.sum(np.log(p.Nvec))
+
+            # triple product in likelihood function
+            rNr = np.sum(p.detresiduals**2/p.Nvec)
+            
+            # first component of likelihood function
+            loglike += -0.5 * (logdet_N + rNr)
+            
+            # calculate red noise piece
+            if not incCorrelations:
+
+                # compute sigma
+                logdet_Sigma = 0
+                nf = self.npftot[ct] + len(p.ptmdescription)
+                Sigma = TNT[ct] + self.Phiinv[nfref:(nfref+nf), nfref:(nfref+nf)]
+                dd = d[nfref:(nfref+nf)]
+
+                # cholesky decomp for maximum likelihood fourier components
+                try:
+                    cf = sl.cho_factor(Sigma)
+                    expval2 = sl.cho_solve(cf, dd)
+                    logdet_Sigma += np.sum(2*np.log(np.diag(cf[0])))
+                except np.linalg.LinAlgError:
+                    raise ValueError("ERROR: Sigma singular according to SVD")
+
+                loglike += -0.5 * logdet_Sigma + 0.5 * (np.dot(dd, expval2))
+
+                # increment frequency counter
+                nfref += nf
+        
+        if not incCorrelations:
+            loglike += -0.5 * self.logdetPhi
+
+        # compute the red noise, DMV and GWB terms in the log likelihood
+        if incCorrelations: 
+            # compute sigma
+            Sigma = sl.block_diag(*TNT) + self.Phiinv
+
+            # cholesky decomp for second term in exponential
+            try:
+                cf = sl.cho_factor(Sigma)
+                expval2 = sl.cho_solve(cf, d)
+                logdet_Sigma = np.sum(2*np.log(np.diag(cf[0])))
+            except np.linalg.LinAlgError:
+                U, s, Vh = sl.svd(Sigma)
+                if not np.all(s > 0):
+                    raise ValueError("ERROR: Sigma singular according to SVD")
+                logdet_Sigma = np.sum(np.log(s))
+                expval2 = np.dot(Vh.T, np.dot(np.diag(1.0/s), np.dot(U.T, d)))
+
+
+            loglike += -0.5 * (self.logdetPhi + logdet_Sigma) + 0.5 * (np.dot(d, expval2)) 
+
+        return loglike
+
 
 
     

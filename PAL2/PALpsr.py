@@ -852,6 +852,7 @@ class Pulsar(object):
             if useAverage:
                 self.FtotAv = self.FAvmat
 
+
         # Write these quantities to disk
         if write != 'no':
             h5df.addData(self.name, 'Fmat', self.Fmat)
@@ -907,6 +908,10 @@ class Pulsar(object):
         U, s, Vh = sl.svd(Mmat)
         self.Gmat = U[:, Mmat.shape[1]:].copy()
         self.Gcmat = U[:, :Mmat.shape[1]].copy()
+
+        # T matrix
+        if likfunc == 'mark6':
+            self.Tmat = np.concatenate((self.Mmat, self.Ftot), axis=1)
 
         # Construct the compression matrix
         self.constructCompressionMatrix(compression, nfmodes=2*nf,
