@@ -44,6 +44,9 @@ parser.add_argument('--redAmpPrior', dest='redAmpPrior', action='store', type=st
                     default='log', help='prior on red noise Amplitude [uniform, log]')
 parser.add_argument('--logfrequencies', dest='logfrequencies', action='store_true', \
                     default=False, help='Use log sampling in frequencies.')
+parser.add_argument('--incSingleRed', dest='incSingleRed', action='store_true',default=False,
+                   help='include single frequency red noise')
+
 
 parser.add_argument('--incDM', dest='incDM', action='store_true',default=False,
                    help='include DM variations')
@@ -53,6 +56,8 @@ parser.add_argument('--ndmf', dest='ndmfreqs', action='store', type=int, default
                    help='number of DM noise frequencies to use (default=10)')
 parser.add_argument('--DMAmpPrior', dest='DMAmpPrior', action='store', type=str, \
                     default='log', help='prior on DM Amplitude [uniform, log]')
+parser.add_argument('--incSingleDM', dest='incSingleDM', action='store_true',default=False,
+                   help='include single frequency DM')
 
 parser.add_argument('--incGWB', dest='incGWB', action='store_true',default=False,
                    help='include GWB')
@@ -195,6 +200,8 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, logf
                     incJitterEpoch=args.incJitterEpoch, nepoch=nepoch, \
                     redAmpPrior=args.redAmpPrior, GWAmpPrior=args.GWBAmpPrior, \
                     redSpectrumPrior=args.redAmpPrior, GWspectrumPrior=args.GWBAmpPrior, \
+                    incSingleFreqNoise=args.incSingleRed, numSingleFreqLines=1, \
+                    incSingleFreqDMNoise=args.incSingleDM, numSingleFreqDMLines=1, \
                     DMAmpPrior=args.DMAmpPrior, \
                     incGWB=incGWB, nfreqs=args.nfreqs, ndmfreqs=args.ndmfreqs, \
                     gwbModel=args.gwbModel, \
@@ -237,7 +244,7 @@ if args.noVaryEfac:
             sig['pstart'][0] = 1
 
 # check for single efacs
-if args.incCW or args.incTimingModel:
+if args.incCW or args.incTimingModel or args.incSingleRed or args.incSingleDM:
     for p in model.psr:
         numEfacs = model.getNumberOfSignalsFromDict(fullmodel['signals'], \
                 stype='efac', corr='single')

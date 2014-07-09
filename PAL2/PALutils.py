@@ -1127,6 +1127,28 @@ def createfourierdesignmatrix(t, nmodes, freq=False, Tspan=None, logf=False):
     else:
         return F
 
+def singlefourierdesignmatrix(t, freqs):
+    """
+    Construct fourier design matrix from eq 11 of Lentati et al, 2013
+    for a given set of frequencies
+
+    @param t: vector of time series in seconds
+    @param freqs: Frequencies at which to evaluate fourier components
+
+    @return: F: fourier design matrix
+
+    """
+
+    N = len(t)
+    F = np.zeros((N, 2*len(freqs)))
+
+
+    for ii in range(len(freqs)):
+        F[:,2*ii] = np.cos(2*np.pi*freqs[ii]*t)
+        F[:,2*ii+1] = np.sin(2*np.pi*freqs[ii]*t)
+
+    return F
+
 def createGWB(psr, Amp, gam, DM=False, noCorr=False, seed=None, turnover=False, f0=1e-9, \
               beta=1, power=1, interpolate=True):
     """

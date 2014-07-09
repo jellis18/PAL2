@@ -765,6 +765,14 @@ class Pulsar(object):
         if ndmfreqs is not None and ndmfreqs != 0:
             ndmf = ndmfreqs
 
+        # allocate single frequency matrices
+        self.nSingleFreqs = nsf
+        self.nSingleDMFreqs = nsdmf
+        if nsf > 0:
+            self.SFfreqs = np.zeros(nsf)
+        if nsdmf > 0:
+            self.DMSFfreqs = np.zeros(nsdmf)
+
         # Write these numbers to the HDF5 file
         if write != 'no':
             # Check whether the frequencies already exist in the HDF5-file. If
@@ -1070,6 +1078,14 @@ class Pulsar(object):
             nf = nfreqs
         if ndmfreqs is not None and ndmfreqs != 0:
             ndmf = ndmfreqs
+        
+        # allocate single frequency matrices
+        self.nSingleFreqs = nsf
+        self.nSingleDMFreqs = nsdmf
+        if nsf > 0:
+            self.SFfreqs = np.zeros(nsf)
+        if nsdmf > 0:
+            self.DMSFfreqs = np.zeros(nsdmf)
 
         modelFrequencies = h5df.getData(self.name, 'PAL_modelFrequencies')
 

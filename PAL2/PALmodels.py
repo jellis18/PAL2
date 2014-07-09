@@ -75,6 +75,7 @@ class PTAmodels(object):
         self.orderFrequencyLines = False
         self.haveStochSources = False
         self.haveDetSources = False
+        self.haveFrequencyLines = False
         self.skipUpdateToggle = False
     
 
@@ -870,14 +871,13 @@ class PTAmodels(object):
             self.addSignalTimingModel(signal, linear=False)
             self.haveDetSources = True
         
-        #TODO: not implemented correctly yet
         elif signal['stype'] == 'frequencyline':
             # Single free-floating frequency line
             psrSingleFreqs = self.getNumberOfSignals(stype='frequencyline', \
                     corr='single')
             signal['npsrfreqindex'] = psrSingleFreqs[signal['pulsarind']]
             self.addSignalFrequencyLine(signal)
-            self.haveStochSources = True
+            self.haveFrequencyLines = True
 
         elif signal['stype'] == 'dmfrequencyline':
             # Single free-floating frequency line
@@ -885,7 +885,7 @@ class PTAmodels(object):
                     corr='single')
             signal['npsrfreqindex'] = psrSingleFreqs[signal['pulsarind']]
             self.addSignalFrequencyLine(signal)
-            self.haveStochSources = True
+            self.haveFrequencyLines = True
 
         else:
             # Some other unknown signal
@@ -1532,6 +1532,10 @@ class PTAmodels(object):
                     flagname = 'frequencyline'
                     flagvalue = ['Line-Freq', 'Line-Ampl'][jj]
                 
+                elif sig['stype'] == 'dmfrequencyline':
+                    flagname = 'dmfrequencyline'
+                    flagvalue = ['DM-Line-Freq', 'DM-Line-Ampl'][jj]
+                
                 elif sig['stype'] == 'lineartimingmodel' or \
                         sig['stype'] == 'nonlineartimingmodel':
                     flagname = sig['stype']
@@ -1633,7 +1637,8 @@ class PTAmodels(object):
             # number of red and DM frequencies
             self.npf[ii] = len(p.Ffreqs)
             self.npfdm[ii] = len(p.Fdmfreqs)
-            self.npftot[ii] = self.npf[ii] + self.npfdm[ii]
+            self.npftot[ii] = self.npf[ii] + self.npfdm[ii] + \
+                    p.nSingleFreqs*2 + p.nSingleDMFreqs*2
 
             # noise vectors
             p.Nvec = np.zeros(len(p.toas))
@@ -1643,7 +1648,8 @@ class PTAmodels(object):
         # number of GW frequencies
         self.ngwf = np.max(self.npf)
         self.gwfreqs = self.psr[np.argmax(self.npf)].Ffreqs
-        nftot = self.ngwf + np.max(self.npfdm)
+        #nftot = self.ngwf + np.max(self.npfdm)
+        nftot = np.max(self.npftot)
         self.Phiinv = np.zeros((nftot*self.npsr, nftot*self.npsr))
         self.Phi = np.zeros((nftot*self.npsr, nftot*self.npsr))
 
@@ -1842,6 +1848,87 @@ class PTAmodels(object):
                 sparameters[sig['bvary']] = parameters[parind:parind+npars]
 
                 self.psr[psrind].Qamp += 10**(2*sparameters)
+
+
+    """
+    Update fourier design matrices to include free floating spectral lines.
+
+    """
+
+    def updateSpectralLines(self, parameters):
+        
+        # get frequencies
+        addedSingle, addedDMSingle = False, False
+        for ss, sig in enumerate(self.ptasignals):
+            # short hand
+            psrind = sig['pulsarind']
+            parind = sig['parindex']
+            npars = sig['npars']
+            
+            # parameters for this signal
+            sparameters = sig['pstart'].copy()
+
+            # which ones are varying
+            sparameters[sig['bvary']] = parameters[parind:parind+npars]
+            
+            if sig['stype'] == 'frequencyline':
+                findex = sig['npsrfreqindex']
+                self.psr[psrind].SFfreqs[findex] = 10**sparameters[0]
+                addedSingle = True
+
+            if sig['stype'] == 'dmfrequencyline':
+                findex = sig['npsrfreqindex']
+                self.psr[psrind].DMSFfreqs[findex] = 10**sparameters[0]
+                addedDMSingle = True
+
+        # loop over all pulsars and re-construct F matrices and needed auxiliaries
+        for ct, p in enumerate(self.psr):
+
+            # if using average likelihood
+            if self.likfunc == 'mark2': 
+                Ftemp = p.UtF.copy()
+
+                # added frequency independent line
+                if addedSingle:
+                    SFmat = PALutils.singlefourierdesignmatrix(p.avetoas, p.SFfreqs)
+                    Ftemp = np.append(Ftemp, SFmat, axis=1)
+
+                # added DM line
+                if addedDMSingle:
+                    SdmFmat = PALutils.singlefourierdesignmatrix(p.avetoas, p.SDMFfreqs)
+                    Dmat = 4.15e3 / (p.avefreqs**2)
+                    SDMFmat = (Dmat * SdmFmat.T).T
+                    Ftemp = np.append(Ftemp, SDMFmat, axis=1)
+
+                # final product
+                p.UtFF = Ftemp
+
+            else:
+                Ftemp = p.Ftot.copy()
+
+                # added frequency independent line
+                if addedSingle:
+                    SFmat = PALutils.singlefourierdesignmatrix(p.toas, p.SFfreqs)
+                    Ftemp = np.append(Ftemp, SFmat, axis=1)
+                # added DM line
+                if addedDMSingle:
+                    SdmFmat = PALutils.singlefourierdesignmatrix(p.toas, p.SDMFfreqs)
+                    Dmat = 4.15e3 / (p.freqs**2)
+                    SDMFmat = (Dmat * SdmFmat.T).T
+                    Ftemp = np.append(Ftemp, SDMFmat, axis=1)
+
+                # two component noise stuff
+                if p.twoComponentNoise:
+                    GtF = np.dot(p.Hmat.T, Ftemp)
+                    p.AGFF = np.dot(p.Amat.T, GtF)
+                else:
+                    p.FFtot = Ftemp
+
+
+
+
+
+
                 
 
 
@@ -1977,6 +2064,24 @@ class PTAmodels(object):
                     # fill in kappa
                     self.psr[psrind].kappadm = pcdoubled
 
+            # frequency line
+            if sig['stype'] == 'frequencyline':
+                    
+                # doubled amplitudes 
+                pcdoubled = np.array([sparameters[1], sparameters[1]]).T.flatten()
+
+                # fill in kappa
+                self.psr[psrind].kappasingle = pcdoubled
+
+            # dm frequency line
+            if sig['stype'] == 'dmfrequencyline':
+                    
+                # doubled amplitudes 
+                pcdoubled = np.array([sparameters[1], sparameters[1]]).T.flatten()
+
+                # fill in kappa
+                self.psr[psrind].kappadmsingle = pcdoubled
+
 
         # now that we have obtained rho and kappa, we can construct Phiinv
         sigdiag = []
@@ -2007,6 +2112,12 @@ class PTAmodels(object):
                 # neither
                 else:
                     p.kappa_tot = np.ones(p.kappa.shape) * -40
+
+                if p.nSingleFreqs > 0:
+                    p.kappa_tot = np.concatenate((p.kappa_tot, p.kappasingle))
+                
+                if p.nSingleDMFreqs > 0:
+                    p.kappa_tot = np.concatenate((p.kappa_tot, p.kappadmsingle))
 
                 # append to signal diagonal
                 sigdiag.append(10**p.kappa_tot)
@@ -2040,6 +2151,12 @@ class PTAmodels(object):
                 # neither
                 else:
                     p.kappa_tot = np.ones(p.kappa.shape) * -40
+                
+                if p.nSingleFreqs > 0:
+                    p.kappa_tot = np.concatenate((p.kappa_tot, p.kappasingle))
+                
+                if p.nSingleDMFreqs > 0:
+                    p.kappa_tot = np.concatenate((p.kappa_tot, p.kappadmsingle))
 
                 # get number of DM freqs (not included in GW spectrum)
                 ndmfreq = np.sum(p.kappadm != 0)
@@ -2628,6 +2745,9 @@ class PTAmodels(object):
         # set pulsar white noise parameters
         self.setPsrNoise(parameters, incJitter=False)
 
+        # frequency lines
+        self.updateSpectralLines(parameters)
+
         # set red noise, DM and GW parameters
         self.constructPhiMatrix(parameters, incCorrelations=incCorrelations)
 
@@ -2649,13 +2769,13 @@ class PTAmodels(object):
                 
                 # equivalent to F^TG(G^TNG)^{-1}G^T\delta t in two component basis
                 if ct == 0:
-                    d = np.dot(p.AGF.T, p.AGr/p.Nwvec)
+                    d = np.dot(p.AGFF.T, p.AGr/p.Nwvec)
                 else:
-                    d = np.append(d, np.dot(p.AGF.T, p.AGr/p.Nwvec))
+                    d = np.append(d, np.dot(p.AGFF.T, p.AGr/p.Nwvec))
 
                 # compute F^TG(G^TNG)^{-1}G^TF
-                right = ((1/p.Nwvec) * p.AGF.T).T
-                FGGNGGF.append(np.dot(p.AGF.T, right))
+                right = ((1/p.Nwvec) * p.AGFF.T).T
+                FGGNGGF.append(np.dot(p.AGFF.T, right))
 
                 # log determinant of G^TNG
                 logdet_N = np.sum(np.log(p.Nwvec))
@@ -2669,9 +2789,9 @@ class PTAmodels(object):
                 Nir = p.detresiduals / p.Nvec
                 NiGc = ((1.0/p.Nvec) * p.Hcmat.T).T
                 GcNiGc = np.dot(p.Hcmat.T, NiGc)
-                NiF = ((1.0/p.Nvec) * p.Ftot.T).T
+                NiF = ((1.0/p.Nvec) * p.FFtot.T).T
                 GcNir = np.dot(NiGc.T, p.detresiduals)
-                GcNiF = np.dot(NiGc.T, p.Ftot)
+                GcNiF = np.dot(NiGc.T, p.FFtot)
 
                 try:
                     cf = sl.cho_factor(GcNiGc)
@@ -2685,15 +2805,15 @@ class PTAmodels(object):
                 
                 #F^TG(G^TNG)^{-1}G^T\delta t 
                 if ct == 0:
-                    d = np.dot(p.Ftot.T, Nir - NiGcNiGcr)
+                    d = np.dot(p.FFtot.T, Nir - NiGcNiGcr)
                 else:
-                    d = np.append(d, np.dot(p.Ftot.T, Nir - NiGcNiGcr))
+                    d = np.append(d, np.dot(p.FFtot.T, Nir - NiGcNiGcr))
 
                 # triple product in likelihood function
                 rGGNGGr = np.dot(p.detresiduals, Nir) - np.dot(GcNir, GcNiGcr)
 
                 # compute F^TG(G^TNG)^{-1}G^TF
-                FGGNGGF.append(np.dot(NiF.T, p.Ftot) - np.dot(GcNiF.T, GcNiGcF))
+                FGGNGGF.append(np.dot(NiF.T, p.FFtot) - np.dot(GcNiF.T, GcNiGcF))
 
                 
             # first component of likelihood function
@@ -2828,7 +2948,7 @@ class PTAmodels(object):
         #TODO: make this more general
         if self.npsr == 1:
             Phi0 = np.diag(1/np.diag(self.Phiinv))
-            UPhiU = np.dot(self.psr[0].UtF, np.dot(Phi0, self.psr[0].UtF.T))
+            UPhiU = np.dot(self.psr[0].UtFF, np.dot(Phi0, self.psr[0].UtFF.T))
             Phi = UPhiU + np.diag(self.psr[0].Qamp) 
             
             try:
@@ -2894,6 +3014,9 @@ class PTAmodels(object):
 
         # set pulsar white noise parameters
         self.setPsrNoise(parameters, incJitter=False)
+        
+        # frequency lines
+        self.updateSpectralLines(parameters)
 
         # set red noise, DM and GW parameters
         self.constructPhiMatrix(parameters, incCorrelations=incCorrelations)
@@ -2970,8 +3093,8 @@ class PTAmodels(object):
                 else:
                     Jinv = np.append(Jinv, 1/p.Qamp)
 
-                FJ.append(p.UtF.T * 1/p.Qamp)
-                FJF.append(np.dot(FJ[ct], p.UtF))
+                FJ.append(p.UtFF.T * 1/p.Qamp)
+                FJF.append(np.dot(FJ[ct], p.UtFF))
 
 
         # if only using one pulsar
@@ -2980,7 +3103,7 @@ class PTAmodels(object):
             tmp = []
             for ct, p in enumerate(self.psr):
                 Phi0 = np.diag(10**p.kappa_tot+self.gwamp)
-                UPhiU = np.dot(p.UtF, np.dot(Phi0, p.UtF.T))
+                UPhiU = np.dot(p.UtFF, np.dot(Phi0, p.UtFF.T))
                 Phi = UPhiU + np.diag(p.Qamp) 
 
             
