@@ -490,8 +490,8 @@ class PTAmodels(object):
                         "flagname":"pulsarname",
                         "flagvalue":p.name,
                         "bvary":[True, True],
-                        "pmin":[-9.0, -18.0],
-                        "pmax":[-5.0, -9.0],
+                        "pmin":[-9.0, -14.0],
+                        "pmax":[-5.0, -3.0],
                         "pwidth":[-0.1, -0.1],
                         "pstart":[-7.0, -10.0],
                         "prior":['log', 'log']
@@ -1895,7 +1895,7 @@ class PTAmodels(object):
 
                 # added DM line
                 if addedDMSingle:
-                    SdmFmat = PALutils.singlefourierdesignmatrix(p.avetoas, p.SDMFfreqs)
+                    SdmFmat = PALutils.singlefourierdesignmatrix(p.avetoas, p.DMSFfreqs)
                     Dmat = 4.15e3 / (p.avefreqs**2)
                     SDMFmat = (Dmat * SdmFmat.T).T
                     Ftemp = np.append(Ftemp, SDMFmat, axis=1)
@@ -1912,7 +1912,7 @@ class PTAmodels(object):
                     Ftemp = np.append(Ftemp, SFmat, axis=1)
                 # added DM line
                 if addedDMSingle:
-                    SdmFmat = PALutils.singlefourierdesignmatrix(p.toas, p.SDMFfreqs)
+                    SdmFmat = PALutils.singlefourierdesignmatrix(p.toas, p.DMFSfreqs)
                     Dmat = 4.15e3 / (p.freqs**2)
                     SDMFmat = (Dmat * SdmFmat.T).T
                     Ftemp = np.append(Ftemp, SDMFmat, axis=1)
