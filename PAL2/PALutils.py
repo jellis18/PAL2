@@ -564,6 +564,56 @@ def exploderMatrix_slow(toas, freqs=None, dt=1200, flags=None):
     else:
         return avetoas, U
 
+def exploderMatrix_global(toas, dt=1209600, Tmin, Tmax):
+    """
+    Compute exploder matrix for daily averaging
+
+    @param toas: array of toas
+    @param dt: time offset (seconds)
+
+    @return: exploder matrix and daily averaged toas
+
+    """
+
+
+    processed = np.array([0]*len(toas), dtype=np.bool)  # No toas processed yet
+    U = np.zeros((len(toas), 0))
+    avetoas = np.empty(0)
+    avefreqs = np.empty(0)
+    aveflags = []
+
+    while not np.all(processed):
+        npindex = np.where(processed == False)[0]
+        ind = npindex[0]
+        satmin = toas[ind] - dt
+        satmax = toas[ind] + dt
+
+        dailyind = np.where(np.logical_and(toas > satmin, toas < satmax))[0]
+
+        newcol = np.zeros((len(toas)))
+        newcol[dailyind] = 1.0
+
+        U = np.append(U, np.array([newcol]).T, axis=1)
+        avetoas = np.append(avetoas, np.mean(toas[dailyind]))
+        
+        if freqs is not None:
+            avefreqs = np.append(avefreqs, np.mean(freqs[dailyind]))
+        
+        # TODO: what if we have different backends overlapping
+        if flags is not None:
+            aveflags.append(flags[dailyind][0])
+
+        processed[dailyind] = True
+    
+    if freqs is not None and flags is not None:
+        return avetoas, avefreqs, aveflags, U
+    elif freqs is not None and flags is None:
+        return avetoas, avefreqs, U
+    elif freqs is None and flags is not None:
+        return avetoas, aveflags, U
+    else:
+        return avetoas, U
+
 def dailyAveMatrix(toas, err, dt=1200, flags=None):
     """
     Compute matrix for daily averaging

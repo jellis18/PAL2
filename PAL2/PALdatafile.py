@@ -515,6 +515,17 @@ class DataFile(object):
     def readPulsar(self, psr, psrname):
         psr.name = psrname
 
+        # Obtain residuals, TOAs, etc. SORTED
+        psr.toas = np.array(self.getData(psrname, 'TOAs'))
+        ind = np.argsort(psr.toas)
+        psr.toas = psr.toas[ind]
+        psr.toaerrs = np.array(self.getData(psrname, 'toaErr'))[ind]
+        psr.prefitresiduals = np.array(self.getData(psrname, 'prefitRes'))[ind]
+        psr.residuals = np.array(self.getData(psrname, 'postfitRes'))[ind]
+        psr.detresiduals = np.array(self.getData(psrname, 'prefitRes'))[ind]
+        psr.freqs = np.array(self.getData(psrname, 'freq'))[ind]
+        psr.Mmat = np.array(self.getData(psrname, 'designmatrix'))[ind,:]
+
         # Read the content of the par/tim files in a string
         psr.parfile_content = str(self.getData(psrname, 'parfile', required=False))
         psr.timfile_content = str(self.getData(psrname, 'timfile', required=False))
@@ -523,12 +534,12 @@ class DataFile(object):
         psr.ptmdescription = map(str, self.getData(psrname, 'tmp_name'))
         psr.ptmpars = np.array(self.getData(psrname, 'tmp_valpre'))
         psr.ptmparerrs = np.array(self.getData(psrname, 'tmp_errpre'))
-        psr.flags = map(str, self.getData(psrname, 'efacequad', 'Flags'))
-        psr.tobsflags = map(float, self.getData(psrname, 'tobs_all', 'Flags'))
+        psr.flags = map(str, self.getData(psrname, 'efacequad', 'Flags'))[ind]
+        psr.tobsflags = map(float, self.getData(psrname, 'tobs_all', 'Flags'))[ind]
 
         # add this for frequency dependent terms
         #TODO: should eventually change psr.flags to a dictionary
-        psr.fflags = map(str, self.getData(psrname, 'efacequad_freq', 'Flags'))
+        psr.fflags = map(str, self.getData(psrname, 'efacequad_freq', 'Flags'))[ind]
 
         # Read the position of the pulsar
         rajind = np.flatnonzero(np.array(psr.ptmdescription) == 'RAJ')
@@ -550,15 +561,6 @@ class DataFile(object):
         psr.pdist = 1.0
         psr.pdistErr = 0.1
 
-        # Obtain residuals, TOAs, etc.
-        psr.toas = np.array(self.getData(psrname, 'TOAs'))
-        psr.toaerrs = np.array(self.getData(psrname, 'toaErr'))
-        psr.prefitresiduals = np.array(self.getData(psrname, 'prefitRes'))
-        psr.residuals = np.array(self.getData(psrname, 'postfitRes'))
-        psr.detresiduals = np.array(self.getData(psrname, 'prefitRes'))
-        psr.freqs = np.array(self.getData(psrname, 'freq'))
-        psr.Mmat = np.array(self.getData(psrname, 'designmatrix'))
-        
         # get number of epochs (i.e 10 s window)
         (avetoas, Umat) = PALutils.exploderMatrix(psr.toas, dt=10)
         psr.nepoch = len(avetoas)
