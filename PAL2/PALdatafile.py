@@ -534,12 +534,15 @@ class DataFile(object):
         psr.ptmdescription = map(str, self.getData(psrname, 'tmp_name'))
         psr.ptmpars = np.array(self.getData(psrname, 'tmp_valpre'))
         psr.ptmparerrs = np.array(self.getData(psrname, 'tmp_errpre'))
-        psr.flags = map(str, self.getData(psrname, 'efacequad', 'Flags'))[ind]
-        psr.tobsflags = map(float, self.getData(psrname, 'tobs_all', 'Flags'))[ind]
+        psr.flags = map(str, self.getData(psrname, 'efacequad', 'Flags'))
+        psr.flags = [psr.flags[ii] for ii in ind]
+        psr.tobsflags = map(float, self.getData(psrname, 'tobs_all', 'Flags'))
+        psr.tobsflags = [psr.tobsflags[ii] for ii in ind]
 
         # add this for frequency dependent terms
         #TODO: should eventually change psr.flags to a dictionary
-        psr.fflags = map(str, self.getData(psrname, 'efacequad_freq', 'Flags'))[ind]
+        psr.fflags = map(str, self.getData(psrname, 'efacequad_freq', 'Flags'))
+        psr.fflags = [psr.fflags[ii] for ii in ind]
 
         # Read the position of the pulsar
         rajind = np.flatnonzero(np.array(psr.ptmdescription) == 'RAJ')
@@ -558,8 +561,8 @@ class DataFile(object):
         #    psr.pdist = np.double(self.getData(psrname, 'pdist'))
         #    psr.pdistErr = np.double(self.getData(psrname, 'pdistErr'))
         #except IOError:
-        psr.pdist = 1.0
-        psr.pdistErr = 0.1
+        psr.pdist = np.float(1.0)
+        psr.pdistErr = np.float(0.1)
 
         # get number of epochs (i.e 10 s window)
         (avetoas, Umat) = PALutils.exploderMatrix(psr.toas, dt=10)

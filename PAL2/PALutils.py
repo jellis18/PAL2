@@ -321,6 +321,62 @@ def createResidualsFast(psr, gwtheta, gwphi, mc, dist, fgw, phase0, psi, inc, pd
     return res
 
 
+def constructSineGaussian(t, tb, f0, A, q, phase):
+    """
+    Construct a sine gaussian waveform
+
+    @param t: sample times (seconds)
+    @param tb: center time of gaussian packet (seconds)
+    @param f0: frequency of sinusoidal envelope (Hz)
+    @param A: Amplitude of sine gaussian (seconds)
+    @param q: Standard deviation of gaussian (unitless)
+    @param phase: phase of sinusoid (radian)
+
+    @return: vector timeseries (seconds)
+    """
+    sg = A * np.cos(2*np.pi*f0*t+phase) * np.exp(-(2*np.pi*f0*(t-tb))**2/2/q**2)
+    
+    return sg
+
+def createSGresiduals(psr, gwtheta, gwphi, tb, f0, Aplus, Across, q, phase):
+    """
+    Create sine gaussian GW burst
+
+    """    
+    
+    # define variable for later use
+    cosgwtheta, cosgwphi = np.cos(gwtheta), np.cos(gwphi)
+    singwtheta, singwphi = np.sin(gwtheta), np.sin(gwphi)
+    sin2psi, cos2psi = np.sin(2*psi), np.cos(2*psi)
+    incfac1, incfac2 = -0.5*(3+np.cos(2*inc)), 2*np.cos(inc)
+
+    # unit vectors to GW source
+    m = np.array([-singwphi, cosgwphi, 0.0])
+    n = np.array([-cosgwtheta*cosgwphi, -cosgwtheta*singwphi, singwtheta])
+    omhat = np.array([-singwtheta*cosgwphi, -singwtheta*singwphi, -cosgwtheta])
+
+  
+    res = []
+    for ct, p in enumerate(psr):
+
+        # use definition from Sesana et al 2010 and Ellis et al 2012
+        phat = np.array([np.sin(p.theta)*np.cos(p.phi), np.sin(p.theta)*np.sin(p.phi),\
+                np.cos(p.theta)])
+
+        fplus = 0.5 * (np.dot(m, phat)**2 - np.dot(n, phat)**2) / (1+np.dot(omhat, phat))
+        fcross = (np.dot(m, phat)*np.dot(n, phat)) / (1 + np.dot(omhat, phat))
+
+        hplus = constructSineGaussian(t, tb, f0, Aplus, q, phase) 
+        hcross = constructSineGaussian(t, tb, f0, Across, q, phase+np.pi/2) 
+
+        res.append(fplus*hplus + fcross*hcross)
+        
+
+    return res
+
+
+
+
 
 def computeLuminosityDistance(z):
     """
@@ -564,55 +620,39 @@ def exploderMatrix_slow(toas, freqs=None, dt=1200, flags=None):
     else:
         return avetoas, U
 
-def exploderMatrix_global(toas, dt=1209600, Tmin, Tmax):
+def exploderMatrix_global(toas, nsamps, Tmin, Tmax):
     """
-    Compute exploder matrix for daily averaging
+    Compute exploder matrix for use with ummodelled signals.
+    
+    NOTE: toas must be sorted.
 
     @param toas: array of toas
-    @param dt: time offset (seconds)
+    @param nsamps: number of time bins
+    @param Tmin: Minimum time
+    @param Tmax: maximum time
 
-    @return: exploder matrix and daily averaged toas
+    @return: exploder matrix and sample times
 
     """
 
+    # sample times
+    samp_times = np.linspace(Tmin, Tmax, nsamps, endpoint=True)
+    dt = 0.5 * (Tmax - Tmin) / nsamps
 
-    processed = np.array([0]*len(toas), dtype=np.bool)  # No toas processed yet
-    U = np.zeros((len(toas), 0))
-    avetoas = np.empty(0)
-    avefreqs = np.empty(0)
-    aveflags = []
+    # initialize U
+    U = np.zeros((len(toas), nsamps))
 
-    while not np.all(processed):
-        npindex = np.where(processed == False)[0]
-        ind = npindex[0]
-        satmin = toas[ind] - dt
-        satmax = toas[ind] + dt
+    # loop over sample time bins
+    for ii in range(nsamps):
+        satmin = samp_times[ii] - dt
+        satmax = samp_times[ii] + dt
 
         dailyind = np.where(np.logical_and(toas > satmin, toas < satmax))[0]
-
-        newcol = np.zeros((len(toas)))
-        newcol[dailyind] = 1.0
-
-        U = np.append(U, np.array([newcol]).T, axis=1)
-        avetoas = np.append(avetoas, np.mean(toas[dailyind]))
+        U[dailyind, ii] = 1
         
-        if freqs is not None:
-            avefreqs = np.append(avefreqs, np.mean(freqs[dailyind]))
-        
-        # TODO: what if we have different backends overlapping
-        if flags is not None:
-            aveflags.append(flags[dailyind][0])
-
-        processed[dailyind] = True
     
-    if freqs is not None and flags is not None:
-        return avetoas, avefreqs, aveflags, U
-    elif freqs is not None and flags is None:
-        return avetoas, avefreqs, U
-    elif freqs is None and flags is not None:
-        return avetoas, aveflags, U
-    else:
-        return avetoas, U
+    return U, samp_times
+
 
 def dailyAveMatrix(toas, err, dt=1200, flags=None):
     """

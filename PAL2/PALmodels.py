@@ -9,7 +9,9 @@ import json
 import tempfile
 import scipy.linalg as sl
 import scipy.special as ss
+from scipy.interpolate import interp1d
 from numpy.polynomial.hermite import hermval
+import matplotlib.pyplot as plt
 
 import PALutils
 import PALdatafile
@@ -129,6 +131,7 @@ class PTAmodels(object):
             incScattering=False, scatteringModel='powerlaw', \
             incGWB=False, gwbModel='powerlaw', \
             incBWM=False, \
+            incBurst=False, nBurstSamps=40, burstModel='interpolate', \
             incCW=False, incPulsarDistance=False, \
             varyEfac=True, separateEfacs=False, separateEfacsByFreq=False, \
             incEquad=False,separateEquads=False, separateEquadsByFreq=False, \
@@ -368,7 +371,7 @@ class PTAmodels(object):
                     bvary = [True, True, False]
                     pmin = [-20.0, 1.02, 1.0e-11]
                     pmax = [-11.0, 6.98, 3.0e-9]
-                    pstart = [-14.0, 2.01, 1.0e-10]
+                    pstart = [-18.0, 2.01, 1.0e-10]
                     pwidth = [0.1, 0.1, 5.0e-11]
                     prior = [redAmpPrior, redSiPrior, 'log']
                 elif noiseModel=='spectralModel':
@@ -724,6 +727,41 @@ class PTAmodels(object):
                 "prior":prior
                 })
             signals.append(newsignal)
+        
+        
+        if incBurst:
+            if burstModel=='interpolate':
+                bvary = [True]*nBurstSamps*2
+                bvary.extend([True, True])
+                pmin = [-5e-6]*nBurstSamps*2
+                pmin.extend([0, 0])
+                pmax = [5e-6]*nBurstSamps*2
+                pmax.extend([np.pi, 2*np.pi])
+                pstart = [1e-7]*nBurstSamps*2
+                pstart.extend([np.pi/4, np.pi/4])
+                pwidth = [1e-8]*nBurstSamps*2
+                pwidth.extend([0.1, 0.1])
+                prior = ['uniform']*nBurstSamps*2
+                prior.extend(['cos', 'uniform'])
+            elif burstModel=='piecewise':
+                raise ValueError('Not Yet Implemented')
+            elif busrtModel=='fourier':
+                raise ValueError('Not Yet Implemented')
+            elif burstModel=='wavelet':
+                raise ValueError('Not Yet Implemented')
+
+            newsignal = OrderedDict({
+                "stype":burstModel,
+                "corr":"gr",
+                "pulsarind":-1,
+                "bvary":bvary,
+                "pmin":pmin,
+                "pmax":pmax,
+                "pwidth":pwidth,
+                "pstart":pstart,
+                "prior":prior
+                })
+            signals.append(newsignal)
 
  
         if incGWB:
@@ -857,6 +895,14 @@ class PTAmodels(object):
 
         elif signal['stype'] == 'cw':
             # a continuous GW signal
+            self.ptasignals.append(signal)
+            self.haveDetSources = True
+        
+        elif signal['stype'] in ['interpolate']:
+            # a burst GW signal
+            nsamps = int(0.5 * (signal['ntotpars'] - 2))
+            self.burstSampTimes = np.linspace(self.Tstart-86400, self.Tfinish+86400, \
+                                    nsamps, endpoint=True)
             self.ptasignals.append(signal)
             self.haveDetSources = True
         
@@ -1218,7 +1264,6 @@ class PTAmodels(object):
 
 
 
-    # TODO: add CW signal
 
     """
     Re-calculate the number of varying parameters per signal, and the number of
@@ -1347,9 +1392,10 @@ class PTAmodels(object):
             Tstart = np.min([np.min(p.toas), Tstart])
             Tfinish = np.max([np.max(p.toas), Tfinish])
         Tmax = Tfinish - Tstart
-        #Tmax = 1/1.33950638e-09
         self.Tmax = Tmax
         self.Tref = Tstart
+        self.Tstart = Tstart
+        self.Tfinish = Tfinish
 
         print 'WARNING: Using seperate Tmax for each pulsar'
         for p in self.psr:
@@ -1491,6 +1537,20 @@ class PTAmodels(object):
                 elif sig['stype'] == 'pulsardistance':
                     flagname = sig['flagname']
                     flagvalue = 'pdist_'+sig['flagvalue'] 
+                
+                elif sig['stype'] == 'interpolate':
+                    nAmps = int(0.5*(sig['npars']-2))
+                    flagname = 'burstInterp'
+                    if jj < nAmps:
+                        flagvalue = 'hplus_'+str('%e'%self.burstSampTimes[jj])
+                    elif jj > nAmps and jj < 2*nAmps:
+                        ind = jj - nAmps
+                        flagvalue = 'hcross_'+str('%e'%self.burstSampTimes[ind])
+                    elif jj == 2*nAmps:
+                        flagvalue = 'burst_theta'
+                    elif jj == 2*nAmps+1:
+                        flagvalue = 'burst_phi'
+
 
                 elif sig['stype'] == 'spectrum':
                     flagname = 'frequency'
@@ -1919,8 +1979,11 @@ class PTAmodels(object):
 
                 # two component noise stuff
                 if p.twoComponentNoise:
-                    GtF = np.dot(p.Hmat.T, Ftemp)
-                    p.AGFF = np.dot(p.Amat.T, GtF)
+                    if addedSingle or addedDMSingle:
+                        GtF = np.dot(p.Hmat.T, Ftemp)
+                        p.AGFF = np.dot(p.Amat.T, GtF)
+                    else:
+                        p.AGFF = p.AGF
                 else:
                     p.FFtot = Ftemp
 
@@ -2356,7 +2419,7 @@ class PTAmodels(object):
 
         
             # continuous wave signal
-            elif sig['stype'] == 'cw':
+            if sig['stype'] == 'cw':
 
                 # get pulsar distances  
                 nsigs = self.getNumberOfSignalsFromDict(self.ptasignals, \
@@ -2395,6 +2458,31 @@ class PTAmodels(object):
                 # loop over all pulsars and subtract off CW signal
                 for ct, p in enumerate(self.psr):
                     p.detresiduals -= cwsig[ct]
+
+            # unmodeled burst (interpolation method)
+            if sig['stype'] == 'interpolate':
+
+                # get trial burst amplitudes
+                gwtheta, gwphi = sparameters[-2:]
+                nAmps = int((sig['ntotpars'] - 2) / 2)
+                hplusAmps = sparameters[:nAmps]
+                hcrossAmps = sparameters[nAmps:-2]
+
+                # form interpolation function
+                hplusInterp = interp1d(self.burstSampTimes, hplusAmps, kind='cubic')
+                hcrossInterp = interp1d(self.burstSampTimes, hcrossAmps, kind='cubic')
+                
+                # loop over all pulsars and subtract burst
+                for ct, p in enumerate(self.psr):
+                    # now compute fplus and fcross
+                    fplus, fcross, cosMu = PALutils.createAntennaPatternFuncs(p, \
+                                                                    gwtheta, gwphi)
+                    
+                    # interpolate onto pulsar time stamps
+                    hplus = hplusInterp(p.toas)
+                    hcross = hcrossInterp(p.toas)
+
+                    p.detresiduals -= (fplus*hplus + fcross*hcross)
 
 
         # If necessary, transform these residuals to two-component basis
@@ -2745,15 +2833,15 @@ class PTAmodels(object):
         # set pulsar white noise parameters
         self.setPsrNoise(parameters, incJitter=False)
 
-        # frequency lines
-        self.updateSpectralLines(parameters)
-
         # set red noise, DM and GW parameters
         self.constructPhiMatrix(parameters, incCorrelations=incCorrelations)
 
         # set deterministic sources
         if self.haveDetSources:
             self.updateDetSources(parameters)
+        
+        # frequency lines
+        self.updateSpectralLines(parameters)
 
         
         # compute the white noise terms in the log likelihood
@@ -3015,15 +3103,15 @@ class PTAmodels(object):
         # set pulsar white noise parameters
         self.setPsrNoise(parameters, incJitter=False)
         
-        # frequency lines
-        self.updateSpectralLines(parameters)
-
         # set red noise, DM and GW parameters
         self.constructPhiMatrix(parameters, incCorrelations=incCorrelations)
 
         # set deterministic sources
         if self.haveDetSources:
             self.updateDetSources(parameters)
+        
+        # frequency lines
+        self.updateSpectralLines(parameters)
 
         
         # compute the white noise terms in the log likelihood

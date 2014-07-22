@@ -115,6 +115,14 @@ parser.add_argument('--incCW', dest='incCW', action='store_true', \
 parser.add_argument('--incPdist', dest='incPdist', action='store_true', \
                     default=False, help='Include pulsar distances for CW signal in run')
 
+parser.add_argument('--incBurst', dest='incBurst', action='store_true', \
+                    default=False, help='Include Burst signal in run')
+parser.add_argument('--burstModel', dest='burstModel', action='store', type=str, \
+                    default='interpolate', \
+                    help='which kind of busrt model [interpolate]')
+parser.add_argument('--nBurstAmps', dest='nBurstAmps', type=int, action='store', \
+                    default=40, help='Number of burst amplitudes, for interpolate and piecewise')
+
 parser.add_argument('--niter', dest='niter', action='store', type=int, default=1000000,
                    help='number MCMC iterations (default=1000000)')
 parser.add_argument('--compression', dest='compression', action='store', type=str, \
@@ -195,6 +203,8 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, logf
                     incTimingModel=args.incTimingModel, nonLinear=args.tmmodel=='nonlinear', \
                     fulltimingmodel=args.fullmodel, incNonGaussian=args.incNonGaussian, \
                     nnongaussian=args.nnongauss, \
+                    incBurst=args.incBurst, burstModel=args.burstModel, \
+                    nBurstSamps=args.nBurstAmps, \
                     incCW=args.incCW, incPulsarDistance=args.incPdist, \
                     incJitterEquad=args.incJitterEquad, \
                     incJitterEpoch=args.incJitterEpoch, nepoch=nepoch, \
@@ -244,7 +254,7 @@ if args.noVaryEfac:
             sig['pstart'][0] = 1
 
 # check for single efacs
-if args.incCW or args.incTimingModel or args.incSingleRed or args.incSingleDM:
+if args.incCW or args.incTimingModel or args.incSingleRed or args.incSingleDM or args.incBurst:
     for p in model.psr:
         numEfacs = model.getNumberOfSignalsFromDict(fullmodel['signals'], \
                 stype='efac', corr='single')
