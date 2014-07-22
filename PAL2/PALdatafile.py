@@ -18,6 +18,7 @@ import h5py as h5
 import os, sys
 import tempfile
 import PALutils
+import ephem
 
 try:    # If without libstempo, can still read hdf5 files
     import libstempo
@@ -547,8 +548,31 @@ class DataFile(object):
         # Read the position of the pulsar
         rajind = np.flatnonzero(np.array(psr.ptmdescription) == 'RAJ')
         decjind = np.flatnonzero(np.array(psr.ptmdescription) == 'DECJ')
-        psr.raj = np.array(self.getData(psrname, 'tmp_valpost'))[rajind]
-        psr.decj = np.array(self.getData(psrname, 'tmp_valpost'))[decjind]
+
+        # look for ecliptic coordinates
+        if len(rajind) == 0 and len(decjind) == 0:
+            print 'Could not fine RAJ or DECJ. Looking for ecliptic coords...'
+            elongind = np.flatnonzero(np.array(psr.ptmdescription) == 'ELONG')
+            elatind = np.flatnonzero(np.array(psr.ptmdescription) == 'ELAT')
+            elong = np.array(self.getData(psrname, 'tmp_valpost'))[elongind]
+            elat = np.array(self.getData(psrname, 'tmp_valpost'))[elatind]
+
+            # convert via pyephem
+            ec = ephem.Ecliptic(elong, elat)
+            
+            # check for B name
+            if 'B' in psr.name:
+                epoch = '1950'
+            else:
+                epoch = '2000'
+            eq = ephem.Equatorial(ec, epoch=epoch)
+            psr.raj = np.float(eq.ra)
+            psr.decj = np.float(eq.dec)
+
+        else:
+            psr.raj = np.array(self.getData(psrname, 'tmp_valpost'))[rajind]
+            psr.decj = np.array(self.getData(psrname, 'tmp_valpost'))[decjind]
+
         psr.theta = np.pi/2 - psr.decj
         psr.phi = psr.raj
         
