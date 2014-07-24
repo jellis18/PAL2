@@ -739,6 +739,8 @@ class Pulsar(object):
         # get Tmax
         self.Tmax = Tmax
 
+        self.Vmat, tmp = PALutils.exploderMatrix_global(self.toas, 20, 53000*86400, 53000*86400 + 5*3.16e7)
+
         # construct average quantities
         useAverage = likfunc == 'mark2'
 

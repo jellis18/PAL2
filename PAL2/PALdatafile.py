@@ -559,13 +559,7 @@ class DataFile(object):
 
             # convert via pyephem
             ec = ephem.Ecliptic(elong, elat)
-            
-            # check for B name
-            if 'B' in psr.name:
-                epoch = '1950'
-            else:
-                epoch = '2000'
-            eq = ephem.Equatorial(ec, epoch=epoch)
+            eq = ephem.Equatorial(ec)
             psr.raj = np.float(eq.ra)
             psr.decj = np.float(eq.dec)
 

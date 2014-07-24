@@ -514,6 +514,19 @@ def createDesignmatrix(toas, freqs, RADEC=False, PX=False, DMX=False):
     return designmatrix
 
 
+def constructAntennaPatternProjectionMatrix(psr, gwtheta, gwphi):
+    """
+    Construct the antenna pattern projection matrix W.
+
+    W h_sample_times = h_toas
+
+    @param psr: Pulsar class
+    @param gwtheta: GW polar angle
+    @param gwphi: GW azimuthal angle
+
+    """
+
+
 def createTimeLags(toa1, toa2, round=True):
     """
     Create matrix of time lags tm = |t_i - t_j|
@@ -637,7 +650,7 @@ def exploderMatrix_global(toas, nsamps, Tmin, Tmax):
 
     # sample times
     samp_times = np.linspace(Tmin, Tmax, nsamps, endpoint=True)
-    dt = 0.5 * (Tmax - Tmin) / nsamps
+    dt = 0.5*(samp_times[1] - samp_times[0])
 
     # initialize U
     U = np.zeros((len(toas), nsamps))

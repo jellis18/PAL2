@@ -1543,7 +1543,7 @@ class PTAmodels(object):
                     flagname = 'burstInterp'
                     if jj < nAmps:
                         flagvalue = 'hplus_'+str('%e'%self.burstSampTimes[jj])
-                    elif jj > nAmps and jj < 2*nAmps:
+                    elif jj >= nAmps and jj < 2*nAmps:
                         ind = jj - nAmps
                         flagvalue = 'hcross_'+str('%e'%self.burstSampTimes[ind])
                     elif jj == 2*nAmps:
@@ -2482,7 +2482,15 @@ class PTAmodels(object):
                     hplus = hplusInterp(p.toas)
                     hcross = hcrossInterp(p.toas)
 
+                    #hplus = np.dot(p.Vmat, hplusAmps)
+                    #hcross = np.dot(p.Vmat, hcrossAmps)
+
                     p.detresiduals -= (fplus*hplus + fcross*hcross)
+                    
+                   # if np.random.rand() > 1-1e-4:
+                   #     plt.errorbar(p.toas, p.residuals, p.toaerrs, fmt='.')
+                   #     plt.plot(p.toas, fplus*hplus + fcross*hcross, lw=2)
+                   #     plt.show()
 
 
         # If necessary, transform these residuals to two-component basis
@@ -3832,6 +3840,17 @@ class PTAmodels(object):
                             prior += np.log(np.abs(np.sin(sparameters[pindex])))
 
                         pindex += 1
+
+            # hyper-priors on unmodeled burst
+            if sig['stype'] == 'interpolate':
+                  # get trial burst amplitudes
+                nAmps = int((sig['ntotpars'] - 2) / 2)
+                hplusAmps = sparameters[:nAmps]
+                hcrossAmps = sparameters[nAmps:-2]
+                
+                sigma_plus, sigma_cross = 1e-6, 1e-6
+                prior += -0.5 * (np.log(2*np.pi*sigma_plus**2) + np.sum((hplusAmps)**2/sigma_plus**2))
+                prior += -0.5 * (np.log(2*np.pi*sigma_cross**2) + np.sum((hcrossAmps)**2/sigma_cross**2))
 
             # pulsar distance prior
             if sig['stype'] == 'pulsardistance':
