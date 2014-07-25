@@ -727,6 +727,7 @@ class Pulsar(object):
 
     """
     def createPulsarAuxiliaries(self, h5df, Tmax, nfreqs, ndmfreqs, \
+            Tstart, Tstop, nBurstAmps=0, burstBasis='bin', \
             twoComponent=False, nSingleFreqs=0, nSingleDMFreqs=0, \
             compression='None', likfunc='mark1', write='no', \
             tmpars=None, memsave=True, logf=False):
@@ -738,8 +739,6 @@ class Pulsar(object):
 
         # get Tmax
         self.Tmax = Tmax
-
-        self.Vmat, tmp = PALutils.exploderMatrix_global(self.toas, 20, 53000*86400, 53000*86400 + 5*3.16e7)
 
         # construct average quantities
         useAverage = likfunc == 'mark2'
@@ -758,6 +757,18 @@ class Pulsar(object):
 
         # construct std dev of data for use in priors
         self.sig_data = self.residuals.std()
+
+        # set up burst auxiliaries
+        if nBurstAmps != 0:
+            if burstBasis == 'bin':
+                self.Vmat, tmp = PALutils.exploderMatrix_global(self.toas, \
+                                                nBurstAmps, Tstart, Tstop)
+                if useAverage:
+                    self.Vmat, tmp = PALutils.exploderMatrix_global(self.avetoas, \
+                                                        nBurstAmps, Tstart, Tstop)
+            
+            self.kappaburst = np.zeros(2*nBurstAmps)
+
 
         # Before writing anything to file, we need to know right away how many
         # fixed and floating frequencies this model contains.

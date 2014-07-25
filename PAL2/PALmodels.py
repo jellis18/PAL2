@@ -131,7 +131,7 @@ class PTAmodels(object):
             incScattering=False, scatteringModel='powerlaw', \
             incGWB=False, gwbModel='powerlaw', \
             incBWM=False, \
-            incBurst=False, nBurstSamps=40, burstModel='interpolate', \
+            incBurst=False, nBurstAmps=0, burstModel='burst_bin', \
             incCW=False, incPulsarDistance=False, \
             varyEfac=True, separateEfacs=False, separateEfacsByFreq=False, \
             incEquad=False,separateEquads=False, separateEquadsByFreq=False, \
@@ -158,6 +158,10 @@ class PTAmodels(object):
             likfunc='mark1'):
         
         signals = []
+
+        # check to make sure nBurstAmps = 0 if not including burst
+        if not incBurst:
+            nBurstAmps = 0
 
         # start loop over pulsars 
         for ii, p in enumerate(self.psr):
@@ -730,26 +734,15 @@ class PTAmodels(object):
         
         
         if incBurst:
-            if burstModel=='interpolate':
-                bvary = [True]*nBurstSamps*2
-                bvary.extend([True, True])
-                pmin = [-5e-6]*nBurstSamps*2
-                pmin.extend([0, 0])
-                pmax = [5e-6]*nBurstSamps*2
-                pmax.extend([np.pi, 2*np.pi])
-                pstart = [1e-7]*nBurstSamps*2
-                pstart.extend([np.pi/4, np.pi/4])
-                pwidth = [1e-8]*nBurstSamps*2
-                pwidth.extend([0.1, 0.1])
-                prior = ['uniform']*nBurstSamps*2
-                prior.extend(['cos', 'uniform'])
-            elif burstModel=='piecewise':
-                raise ValueError('Not Yet Implemented')
-            elif busrtModel=='fourier':
-                raise ValueError('Not Yet Implemented')
-            elif burstModel=='wavelet':
-                raise ValueError('Not Yet Implemented')
-
+            if burstModel in ['burst_bin', 'burst_interpolate']:
+                bvary = [True] * 4
+                pmin = [0, 0, -8, -8]
+                pmax = [np.pi, 2*np.pi, -6, -6]
+                pstart = [np.pi/4, np.pi/4, -7, -7]
+                pwidth = [0.1] * 4
+                prior = ['cos', 'uniform', 'log', 'log']
+                parids = ['burst_theta', 'burst_phi', 'burst_sigma_plus', 'burst_sigma_cross']
+            
             newsignal = OrderedDict({
                 "stype":burstModel,
                 "corr":"gr",
@@ -759,6 +752,7 @@ class PTAmodels(object):
                 "pmax":pmax,
                 "pwidth":pwidth,
                 "pstart":pstart,
+                "parid":parids,
                 "prior":prior
                 })
             signals.append(newsignal)
@@ -804,6 +798,7 @@ class PTAmodels(object):
             "compression":compression,
             "logfrequencies":logf,
             "targetAmp":targetAmp,
+            "nBurstAmps":nBurstAmps,
             "orderFrequencyLines":orderFrequencyLines,
             "evalCompressionComplement":evalCompressionComplement,
             "likfunc":likfunc,
@@ -898,13 +893,12 @@ class PTAmodels(object):
             self.ptasignals.append(signal)
             self.haveDetSources = True
         
-        elif signal['stype'] in ['interpolate']:
+        elif signal['stype'] in ['burst_interpolate', 'burst_bin']:
             # a burst GW signal
-            nsamps = int(0.5 * (signal['ntotpars'] - 2))
             self.burstSampTimes = np.linspace(self.Tstart-86400, self.Tfinish+86400, \
-                                    nsamps, endpoint=True)
+                                    self.nBurstAmps, endpoint=True)
             self.ptasignals.append(signal)
-            self.haveDetSources = True
+            #self.haveDetSources = True
         
         elif signal['stype'] == 'lineartimingmodel':
             # A Tempo2 linear timing model, except for (DM)QSD parameters
@@ -1371,6 +1365,7 @@ class PTAmodels(object):
         signals = fullmodel['signals']
         targetAmp = fullmodel['targetAmp']
         logf = fullmodel['logfrequencies']
+        self.nBurstAmps = fullmodel['nBurstAmps']
 
         if len(self.psr) < 1:
             raise IOError, "No pulsars loaded"
@@ -1472,7 +1467,9 @@ class PTAmodels(object):
                     print str(err)
                     print "Creating Auxiliaries for {0}".format(p.name)
                 p.createPulsarAuxiliaries(self.h5df, p.Tmax, numNoiseFreqs[pindex], \
-                        numDMFreqs[pindex], ~separateEfacs[pindex], \
+                        numDMFreqs[pindex], self.Tstart, self.Tfinish, \
+                                nBurstAmps=self.nBurstAmps, \
+                                twoComponent=~separateEfacs[pindex], \
                                 nSingleFreqs=numSingleFreqs[pindex], \
                                 nSingleDMFreqs=numSingleDMFreqs[pindex], \
                                 likfunc=likfunc, compression=compression, \
@@ -1538,19 +1535,6 @@ class PTAmodels(object):
                     flagname = sig['flagname']
                     flagvalue = 'pdist_'+sig['flagvalue'] 
                 
-                elif sig['stype'] == 'interpolate':
-                    nAmps = int(0.5*(sig['npars']-2))
-                    flagname = 'burstInterp'
-                    if jj < nAmps:
-                        flagvalue = 'hplus_'+str('%e'%self.burstSampTimes[jj])
-                    elif jj >= nAmps and jj < 2*nAmps:
-                        ind = jj - nAmps
-                        flagvalue = 'hcross_'+str('%e'%self.burstSampTimes[ind])
-                    elif jj == 2*nAmps:
-                        flagvalue = 'burst_theta'
-                    elif jj == 2*nAmps+1:
-                        flagvalue = 'burst_phi'
-
 
                 elif sig['stype'] == 'spectrum':
                     flagname = 'frequency'
@@ -1566,6 +1550,10 @@ class PTAmodels(object):
 
                 elif sig['stype'] == 'cw':
                     flagname = 'cw'
+                    flagvalue = sig['parid'][jj]
+                
+                elif sig['stype'] in ['burst_interpolate', 'burst_bin']:
+                    flagname = 'unmodeled_burst'
                     flagvalue = sig['parid'][jj]
 
                 elif sig['stype'] == 'powerlaw':
@@ -1698,7 +1686,8 @@ class PTAmodels(object):
             self.npf[ii] = len(p.Ffreqs)
             self.npfdm[ii] = len(p.Fdmfreqs)
             self.npftot[ii] = self.npf[ii] + self.npfdm[ii] + \
-                    p.nSingleFreqs*2 + p.nSingleDMFreqs*2
+                    p.nSingleFreqs*2 + p.nSingleDMFreqs*2  + \
+                    2*self.nBurstAmps
 
             # noise vectors
             p.Nvec = np.zeros(len(p.toas))
@@ -1918,7 +1907,7 @@ class PTAmodels(object):
     def updateSpectralLines(self, parameters):
         
         # get frequencies
-        addedSingle, addedDMSingle = False, False
+        addedSingle, addedDMSingle, addedBurst = False, False, False
         for ss, sig in enumerate(self.ptasignals):
             # short hand
             psrind = sig['pulsarind']
@@ -1941,6 +1930,10 @@ class PTAmodels(object):
                 self.psr[psrind].DMSFfreqs[findex] = 10**sparameters[0]
                 addedDMSingle = True
 
+            if sig['stype'] in ['burst_interpolate', 'burst_bin']:
+                gwtheta, gwphi = sparameters[:2]
+                addedBurst = True
+
         # loop over all pulsars and re-construct F matrices and needed auxiliaries
         for ct, p in enumerate(self.psr):
 
@@ -1960,6 +1953,10 @@ class PTAmodels(object):
                     SDMFmat = (Dmat * SdmFmat.T).T
                     Ftemp = np.append(Ftemp, SDMFmat, axis=1)
 
+                if addedBurst:
+                    Wmat = PALutils.constructAntennaPatternProjectionMatrix(p, gwtheta, gwphi)
+                    Ftemp = np.append(Ftemp, Wmat, axis=1)
+
                 # final product
                 p.UtFF = Ftemp
 
@@ -1976,23 +1973,20 @@ class PTAmodels(object):
                     Dmat = 4.15e3 / (p.freqs**2)
                     SDMFmat = (Dmat * SdmFmat.T).T
                     Ftemp = np.append(Ftemp, SDMFmat, axis=1)
+                
+                if addedBurst:
+                    Wmat = PALutils.constructAntennaPatternProjectionMatrix(p, gwtheta, gwphi)
+                    Ftemp = np.append(Ftemp, Wmat, axis=1)
 
                 # two component noise stuff
                 if p.twoComponentNoise:
-                    if addedSingle or addedDMSingle:
+                    if addedSingle or addedDMSingle or addedBurst:
                         GtF = np.dot(p.Hmat.T, Ftemp)
                         p.AGFF = np.dot(p.Amat.T, GtF)
                     else:
                         p.AGFF = p.AGF
                 else:
                     p.FFtot = Ftemp
-
-
-
-
-
-
-                
 
 
 
@@ -2007,6 +2001,7 @@ class PTAmodels(object):
         
         # Loop over all signals and determine rho (GW signals) and kappa (red + DM signals)
         rho = None
+        burstPriors = None
         for ss, sig in enumerate(self.ptasignals):
 
             # short hand
@@ -2145,6 +2140,20 @@ class PTAmodels(object):
                 # fill in kappa
                 self.psr[psrind].kappadmsingle = pcdoubled
 
+            # unmodeled burst hyper-parameter
+            if sig['stype'] in ['burst_interpolate', 'burst_bin']:
+
+                # burst hyper-parameters
+                sigma_plus, sigma_cross = 2*sparameters[2:4]
+                tmp1 = np.ones(self.nBurstAmps)*sigma_plus
+                tmp2 = np.ones(self.nBurstAmps)*sigma_cross
+                pcdoubled = np.array([tmp1, tmp2]).flatten()
+
+                # fill in kappa
+                #self.psr[psrind].kappaburst = pcdoubled
+                burstPriors = pcdoubled
+                
+
 
         # now that we have obtained rho and kappa, we can construct Phiinv
         sigdiag = []
@@ -2181,6 +2190,9 @@ class PTAmodels(object):
                 
                 if p.nSingleDMFreqs > 0:
                     p.kappa_tot = np.concatenate((p.kappa_tot, p.kappadmsingle))
+
+                if self.nBurstAmps > 0:
+                    p.kappa_tot = np.concatenate((p.kappa_tot, burstPriors))
 
                 # append to signal diagonal
                 sigdiag.append(10**p.kappa_tot)
@@ -2220,6 +2232,9 @@ class PTAmodels(object):
                 
                 if p.nSingleDMFreqs > 0:
                     p.kappa_tot = np.concatenate((p.kappa_tot, p.kappadmsingle))
+                
+                if self.nBurstAmps > 0:
+                    p.kappa_tot = np.concatenate((p.kappa_tot, p.kappaburst))
 
                 # get number of DM freqs (not included in GW spectrum)
                 ndmfreq = np.sum(p.kappadm != 0)
@@ -2460,37 +2475,37 @@ class PTAmodels(object):
                     p.detresiduals -= cwsig[ct]
 
             # unmodeled burst (interpolation method)
-            if sig['stype'] == 'interpolate':
+            #if sig['stype'] == 'interpolate':
 
-                # get trial burst amplitudes
-                gwtheta, gwphi = sparameters[-2:]
-                nAmps = int((sig['ntotpars'] - 2) / 2)
-                hplusAmps = sparameters[:nAmps]
-                hcrossAmps = sparameters[nAmps:-2]
+            #    # get trial burst amplitudes
+            #    gwtheta, gwphi = sparameters[-2:]
+            #    nAmps = int((sig['ntotpars'] - 2) / 2)
+            #    hplusAmps = sparameters[:nAmps]
+            #    hcrossAmps = sparameters[nAmps:-2]
 
-                # form interpolation function
-                hplusInterp = interp1d(self.burstSampTimes, hplusAmps, kind='cubic')
-                hcrossInterp = interp1d(self.burstSampTimes, hcrossAmps, kind='cubic')
-                
-                # loop over all pulsars and subtract burst
-                for ct, p in enumerate(self.psr):
-                    # now compute fplus and fcross
-                    fplus, fcross, cosMu = PALutils.createAntennaPatternFuncs(p, \
-                                                                    gwtheta, gwphi)
-                    
-                    # interpolate onto pulsar time stamps
-                    hplus = hplusInterp(p.toas)
-                    hcross = hcrossInterp(p.toas)
+            #    # form interpolation function
+            #    hplusInterp = interp1d(self.burstSampTimes, hplusAmps, kind='cubic')
+            #    hcrossInterp = interp1d(self.burstSampTimes, hcrossAmps, kind='cubic')
+            #    
+            #    # loop over all pulsars and subtract burst
+            #    for ct, p in enumerate(self.psr):
+            #        # now compute fplus and fcross
+            #        fplus, fcross, cosMu = PALutils.createAntennaPatternFuncs(p, \
+            #                                                        gwtheta, gwphi)
+            #        
+            #        # interpolate onto pulsar time stamps
+            #        hplus = hplusInterp(p.toas)
+            #        hcross = hcrossInterp(p.toas)
 
-                    #hplus = np.dot(p.Vmat, hplusAmps)
-                    #hcross = np.dot(p.Vmat, hcrossAmps)
+            #        #hplus = np.dot(p.Vmat, hplusAmps)
+            #        #hcross = np.dot(p.Vmat, hcrossAmps)
 
-                    p.detresiduals -= (fplus*hplus + fcross*hcross)
-                    
-                   # if np.random.rand() > 1-1e-4:
-                   #     plt.errorbar(p.toas, p.residuals, p.toaerrs, fmt='.')
-                   #     plt.plot(p.toas, fplus*hplus + fcross*hcross, lw=2)
-                   #     plt.show()
+            #        p.detresiduals -= (fplus*hplus + fcross*hcross)
+            #        
+            #       # if np.random.rand() > 1-1e-4:
+            #       #     plt.errorbar(p.toas, p.residuals, p.toaerrs, fmt='.')
+            #       #     plt.plot(p.toas, fplus*hplus + fcross*hcross, lw=2)
+            #       #     plt.show()
 
 
         # If necessary, transform these residuals to two-component basis
@@ -2930,7 +2945,9 @@ class PTAmodels(object):
                     expval2 = sl.cho_solve(cf, dd)
                     logdet_Sigma += np.sum(2*np.log(np.diag(cf[0])))
                 except np.linalg.LinAlgError:
-                    raise ValueError("ERROR: Sigma singular according to SVD")
+                    print "ERROR: Sigma singular according to SVD"
+                    return -np.inf
+                    #raise ValueError("ERROR: Sigma singular according to SVD")
 
                 loglike += -0.5 * logdet_Sigma + 0.5 * (np.dot(dd, expval2))
 
@@ -2953,7 +2970,9 @@ class PTAmodels(object):
             except np.linalg.LinAlgError:
                 U, s, Vh = sl.svd(Sigma)
                 if not np.all(s > 0):
-                    raise ValueError("ERROR: Sigma singular according to SVD")
+                    print "ERROR: Sigma singular according to SVD"
+                    return -np.inf
+                    #raise ValueError("ERROR: Sigma singular according to SVD")
                 logdet_Sigma = np.sum(np.log(s))
                 expval2 = np.dot(Vh.T, np.dot(np.diag(1.0/s), np.dot(U.T, d)))
 
@@ -3842,15 +3861,10 @@ class PTAmodels(object):
                         pindex += 1
 
             # hyper-priors on unmodeled burst
-            if sig['stype'] == 'interpolate':
-                  # get trial burst amplitudes
-                nAmps = int((sig['ntotpars'] - 2) / 2)
-                hplusAmps = sparameters[:nAmps]
-                hcrossAmps = sparameters[nAmps:-2]
+            if sig['stype'] in ['burst_interpolate', 'burst_bin']:
                 
-                sigma_plus, sigma_cross = 1e-6, 1e-6
-                prior += -0.5 * (np.log(2*np.pi*sigma_plus**2) + np.sum((hplusAmps)**2/sigma_plus**2))
-                prior += -0.5 * (np.log(2*np.pi*sigma_cross**2) + np.sum((hcrossAmps)**2/sigma_cross**2))
+                if sig['prior'][0] == 'cos':
+                    prior += np.log(np.abs(np.sin(sparameters[0])))
 
             # pulsar distance prior
             if sig['stype'] == 'pulsardistance':

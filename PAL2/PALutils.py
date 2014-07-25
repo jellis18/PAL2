@@ -526,6 +526,11 @@ def constructAntennaPatternProjectionMatrix(psr, gwtheta, gwphi):
 
     """
 
+    fplus, fcross, cosMu = createAntennaPatternFuncs(psr, gwtheta, gwphi)
+    Wmat = np.concatenate((fplus*psr.Vmat, fcross*psr.Vmat), axis=1)
+
+    return Wmat
+
 
 def createTimeLags(toa1, toa2, round=True):
     """

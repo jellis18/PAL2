@@ -478,7 +478,7 @@ def plotSkyMap(raSample, decSample, nside=64, contours=None, colorbar=True, \
             region = np.zeros(skymap.shape)
             ind = np.min(ml.find(np.cumsum(sky) >= 0.01*percent))
             region[indices[0:ind]] = 1.0
-            cs = plot.contour(lambda lon, lat: region[hp.ang2pix(nside, 0.5*np.pi - lat, lon)], \
+            cs = plot.contour(lambda lon, lat: region[hp.ang2pix(nside, 0.5*np.pi-lat, lon)], \
                           colors='k', linewidths=1.0, levels=[0.5])
             #plt.clabel(cs, [0.5], fmt={0.5: '$\mathbf{%d\%%}$' % percent}, fontsize=8, inline=True)
 

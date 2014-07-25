@@ -118,8 +118,8 @@ parser.add_argument('--incPdist', dest='incPdist', action='store_true', \
 parser.add_argument('--incBurst', dest='incBurst', action='store_true', \
                     default=False, help='Include Burst signal in run')
 parser.add_argument('--burstModel', dest='burstModel', action='store', type=str, \
-                    default='interpolate', \
-                    help='which kind of busrt model [interpolate]')
+                    default='bin', \
+                    help='which kind of busrt model [interpolate, bin]')
 parser.add_argument('--nBurstAmps', dest='nBurstAmps', type=int, action='store', \
                     default=40, help='Number of burst amplitudes, for interpolate and piecewise')
 
@@ -203,8 +203,8 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, logf
                     incTimingModel=args.incTimingModel, nonLinear=args.tmmodel=='nonlinear', \
                     fulltimingmodel=args.fullmodel, incNonGaussian=args.incNonGaussian, \
                     nnongaussian=args.nnongauss, \
-                    incBurst=args.incBurst, burstModel=args.burstModel, \
-                    nBurstSamps=args.nBurstAmps, \
+                    incBurst=args.incBurst, burstModel='burst_'+args.burstModel, \
+                    nBurstAmps=args.nBurstAmps, \
                     incCW=args.incCW, incPulsarDistance=args.incPdist, \
                     incJitterEquad=args.incJitterEquad, \
                     incJitterEpoch=args.incJitterEpoch, nepoch=nepoch, \
@@ -331,7 +331,7 @@ if args.sampler == 'mcmc':
         #for ct, nm in enumerate(par_out):
         #    print nm, p0[ct]
         startSpectrumMin = True
-        if logprior(p0) != -np.inf and loglike(p0) != -np.inf:
+        if logprior(p0) != -np.inf and loglike(p0, incCorrelations=False) != -np.inf:
             inRange = True
 
     cov = model.initJumpCovariance()
@@ -373,7 +373,7 @@ if args.sampler == 'mcmc':
     # run MCMC
     print 'Starting Sampling'
     sampler.sample(p0, args.niter, covUpdate=1000, AMweight=15, SCAMweight=30, DEweight=20, \
-                   neff=args.neff, KDEweight=0)
+                   neff=args.neff, KDEweight=50)
 
 
 elif args.sampler == 'multinest':
