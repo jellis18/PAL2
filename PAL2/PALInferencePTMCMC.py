@@ -51,7 +51,7 @@ class PTSampler(object):
 
     """
 
-    def __init__(self, ndim, logl, logp, cov, loglargs=[], loglkwargs={}, \
+    def __init__(self, ndim, logl, logp, cov, gradfun=None, loglargs=[], loglkwargs={}, \
                  logpargs=[], logpkwargs={}, comm=MPI.COMM_WORLD, \
                  outDir='./chains', verbose=True, resume=False):
 
@@ -67,6 +67,9 @@ class PTSampler(object):
         self.verbose = verbose
         self.resume = resume
 
+        # optional gradient argument
+        self.gradient = gradfun
+
         # setup output file
         if not os.path.exists(self.outDir):
             try:
@@ -79,6 +82,7 @@ class PTSampler(object):
         self.U, self.S, v = np.linalg.svd(self.cov)
         self.M2 = np.zeros((self.ndim, self.ndim))
         self.mu = np.zeros(self.ndim)
+        self.icov = np.linalg.inv(self.cov)
 
         # initialize proposal cycle
         self.propCycle = []
@@ -89,7 +93,7 @@ class PTSampler(object):
         
     def initialize(self, Niter, ladder=None, Tmin=1, Tmax=None, Tskip=100, \
                isave=1000, covUpdate=1000, KDEupdate=10000, SCAMweight=20, \
-               AMweight=20, DEweight=20, KDEweight=30, burn=10000, \
+               AMweight=20, DEweight=20, KDEweight=30, MALAweight=0, burn=10000, \
                maxIter=None, thin=10, i0=0, neff=100000):
         """
         Initialize MCMC quantities
@@ -111,6 +115,7 @@ class PTSampler(object):
         self.AMweight = AMweight
         self.DEweight = DEweight
         self.KDEweight = KDEweight
+        self.MALAweight = MALAweight
         self.burn = burn
         self.Tskip = Tskip
         self.thin = thin
@@ -141,6 +146,10 @@ class PTSampler(object):
         
         # add AM
         self.addProposalToCycle(self.covarianceJumpProposalAM, self.AMweight)
+        
+        # add MALA
+        if self.gradient is not None:
+            self.addProposalToCycle(self.MALAJump, self.MALAweight)
         
         # randomize cycle
         self.randomizeProposalCycle()
@@ -207,7 +216,7 @@ class PTSampler(object):
 
     def sample(self, p0, Niter, ladder=None, Tmin=1, Tmax=None, Tskip=100, \
                isave=1000, covUpdate=1000, KDEupdate=1000, SCAMweight=20, \
-               AMweight=20, DEweight=20, KDEweight=30, burn=10000, \
+               AMweight=20, DEweight=20, KDEweight=30, MALAweight=0, burn=10000, \
                maxIter=None, thin=10, i0=0, neff=100000):
 
         """
@@ -248,8 +257,8 @@ class PTSampler(object):
         if i0 == 0:
             self.initialize(Niter, ladder=ladder, Tmin=Tmin, Tmax=Tmax, Tskip=Tskip, \
                isave=isave, covUpdate=covUpdate, KDEupdate=KDEupdate, SCAMweight=SCAMweight, \
-               AMweight=AMweight, DEweight=DEweight, KDEweight=KDEweight, burn=burn, \
-               maxIter=maxIter, thin=thin, i0=i0, neff=neff)
+                AMweight=AMweight, DEweight=DEweight, KDEweight=KDEweight, MALAweight=MALAweight, 
+                burn=burn, maxIter=maxIter, thin=thin, i0=i0, neff=neff)
 
         ### compute lnprob for initial point in chain ###
 
@@ -621,6 +630,7 @@ class PTSampler(object):
 
         # do svd
         self.U, self.S, v = np.linalg.svd(self.cov)
+        self.icov = np.dot(self.U, (1/self.S*self.U).T)
 
     # function to update gaussian KDE  of posterior based on current samples
     def _updateKDE(self, iter):
@@ -734,15 +744,17 @@ class PTSampler(object):
             scale *= np.sqrt(self.temp)
 
         # get parmeters in new diagonalized basis
-        y = np.dot(self.U.T, x)
+        #y = np.dot(self.U.T, x)
 
         # make correlated componentwise adaptive jump
         ind = np.unique(np.random.randint(0, self.ndim, block))
         neff = len(ind)
         cd = 2.4  / np.sqrt(2*neff) * scale 
 
-        y[ind] = y[ind] + np.random.randn(neff) * cd * np.sqrt(self.S[ind])
-        q = np.dot(self.U, y)
+        q += cd * np.dot(self.U[:,ind], np.sqrt(self.S[ind])*np.random.randn(neff))
+
+        #y[ind] = y[ind] + np.random.randn(neff) * cd * np.sqrt(self.S[ind])
+        #q = np.dot(self.U, y)
 
         return q, qxy
     
@@ -843,6 +855,103 @@ class PTSampler(object):
         
         return q, qxy
 
+    # MALA jump
+    def MALAJump(self, x, iter, beta):
+
+        """
+        Manifold Adjusted Metropolis Algorithm jump. 
+        Uses gradient information as well as parameter
+        covariance matrix from adaptive metropolis.
+
+
+        @param x: Parameter vector at current position
+        @param iter: Iteration of sampler
+        @param beta: Inverse temperature of chain
+
+        @return: q: New position in parameter space
+        @return: qxy: Forward-Backward jump probability
+
+        """
+
+        # get old parameters
+        q = x.copy()
+        qxy = 0
+
+        # get gradient information
+        gradx = self.gradient(x)
+
+        ind = np.unique(np.random.randint(0, self.ndim, 1))
+        eval = self.S[ind]
+        evec = self.U[:,ind].flatten()
+
+        #q += 0.5 * evec*eval * np.dot(evec, gradx) + np.random.randn()*evec*np.sqrt(eval)
+        delta = np.random.randn(self.ndim)
+        #cd = 2.4/np.sqrt(2*self.ndim)
+        cd = 0.5
+        q += np.dot(self.U, np.sqrt(self.S)*delta)*cd + \
+                np.dot(self.cov, gradx) * cd**2/2
+
+        gradq = self.gradient(q)
+        mq =  q + 0.5 * np.dot(self.cov, gradq)*cd**2
+        mx =  x + 0.5 * np.dot(self.cov, gradx)*cd**2
+
+        qxy = 0.5 * (np.dot(mx-q, np.dot(self.icov/cd**2, mx-q)) \
+                - np.dot(mq-x, np.dot(self.icov/cd**2, mq-x)))
+
+        return q, qxy
+
+
+    # hamiltonian monte-carlo jump
+    def HMCJump(self, x, iter, beta):
+        """
+        Slightly modified HMC trajectory.
+
+        @param x: Parameter vector at current position
+        @param iter: Iteration of sampler
+        @param beta: Inverse temperature of chain
+
+        @return: q: New position in parameter space
+        @return: qxy: Forward-Backward jump probability
+
+        """
+
+        q0 = x.copy()
+        qxy = 0
+
+        # stepsize
+        eps = 0.4
+
+        # scale parameters
+        s = np.sqrt(np.diag(self.cov))
+
+        H12 = np.dot(self.U, (np.sqrt(self.S)*self.U).T)
+
+        # number of steps to use
+        n = int(np.random.uniform(20, 100))
+
+        # draw momentum variables
+        p = np.random.randn(self.ndim)
+        p0 = p.copy()
+
+        # begin leapfrog
+        grad0 = self.gradient(q0)
+        for ii in range(n):
+            
+            p12 = p + eps/2 * np.dot(H12, grad0)
+            q = q0 + eps*np.dot(H12, p12)
+            q0 = q.copy()
+
+            grad0 = self.gradient(q)
+            p = p12 + eps/2 * np.dot(H12, grad0)
+
+            # reject if threshold is reached (what should this be?)
+
+        qxy = np.sum(p0**2/2) - np.sum(p**2/2)
+
+        return q, qxy
+
+
+
 
     # add jump proposal distribution functions
     def addProposalToCycle(self, func, weight):
@@ -859,8 +968,7 @@ class PTSampler(object):
 
         # check for 0 weight
         if weight == 0:
-            print 'ERROR: Can not have 0 weight in proposal cycle!'
-            sys.exit()
+            return
 
         # add proposal to cycle
         for ii in range(length, length + weight):
