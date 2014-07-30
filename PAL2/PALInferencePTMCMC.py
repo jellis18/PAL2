@@ -880,14 +880,14 @@ class PTSampler(object):
         # get gradient information
         gradx = self.gradient(x)
 
-        ind = np.unique(np.random.randint(0, self.ndim, 1))
-        eval = self.S[ind]
-        evec = self.U[:,ind].flatten()
+        #ind = np.unique(np.random.randint(0, self.ndim, 1))
+        #eval = self.S[ind]
+        #evec = self.U[:,ind].flatten()
 
         #q += 0.5 * evec*eval * np.dot(evec, gradx) + np.random.randn()*evec*np.sqrt(eval)
         delta = np.random.randn(self.ndim)
-        #cd = 2.4/np.sqrt(2*self.ndim)
-        cd = 0.5
+        cd = 2.4/np.sqrt(2*self.ndim)
+        #cd = 0.5
         q += np.dot(self.U, np.sqrt(self.S)*delta)*cd + \
                 np.dot(self.cov, gradx) * cd**2/2
 

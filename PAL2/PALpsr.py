@@ -894,8 +894,9 @@ class Pulsar(object):
         # Next we'll need the G-matrices, and the compression matrices.
         if tmpars is not None:
             # list of parameters to delete from design matrix
-            if likfunc == 'mark4' or likfunc == 'mark5':
+            if likfunc == 'mark4' or likfunc == 'mark5' or likfunc == 'mark6':
                 print 'Including all timing model parameters Numerically'
+                self.twoComponentNoise = False
                 Mmat = self.Mmat
             else:
                 tmparkeep = self.getNewTimingModelParameterList(keep=True, tmpars=tmpars)

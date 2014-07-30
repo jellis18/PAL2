@@ -91,6 +91,9 @@ parser.add_argument('--separateJitterEquad', dest='separateJitterEquad', action=
                     type=str, default='None', \
                     help='separate Jitter Equad [None, backend, frequencies]')
 
+parser.add_argument('--noMarg', dest='noMarg', action='store_true',default=False,
+                   help='No analytic marginalization')
+
 
 parser.add_argument('--incJitterEpoch', dest='incJitterEpoch', action='store_true',\
                     default=False, help='include Jitter by epoch')
@@ -180,6 +183,16 @@ separateJitterByFreq = args.separateJitter == 'frequencies'
 separateJitterEquad = args.separateJitterEquad == 'backend'
 separateJitterEquadByFreq = args.separateJitterEquad == 'frequencies'
 
+# no marginalization setting
+incRedFourierMode, incDMFourierMode, incGWFourierMode = False, False, False
+if args.noMarg:
+    if args.incRed:
+        incRedFourierMode = True
+    if args.incGWB:
+        incGWFourierMode = True
+    if args.incDM:
+        incDMFourierMode = True
+
 if args.incJitter or args.incJitterEquad or args.incJitterEpoch:
     likfunc = 'mark2'
 elif args.incTimingModel and args.fullmodel and not args.incNonGaussian:
@@ -188,6 +201,9 @@ elif args.incTimingModel and args.fullmodel and args.incNonGaussian:
     likfunc='mark5'
 else:
     likfunc = 'mark1'
+
+if args.noMarg:
+    likfunc = 'mark6'
 
 #likfunc= 'mark5'
 print likfunc
@@ -198,6 +214,8 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, logf
                     separateEquads=separateEquads, separateEquadsByFreq=separateEquadsByFreq, \
                     separateJitter=separateJitter, separateJitterByFreq=separateJitterByFreq, \
                     separateJitterEquad=separateJitterEquad, \
+                    incRedFourierMode=incRedFourierMode, incDMFourierMode=incDMFourierMode, \
+                    incGWFourierMode=incGWFourierMode, \
                     separateJitterEquadByFreq=separateJitterEquadByFreq, \
                     incEquad=args.incEquad, incJitter=args.incJitter, \
                     incTimingModel=args.incTimingModel, nonLinear=args.tmmodel=='nonlinear', \
@@ -295,6 +313,9 @@ if args.sampler == 'mcmc':
         loglike = model.mark5LogLikelihood
     else:
         loglike = model.mark1LogLikelihood
+    
+    if args.noMarg:
+        loglike = model.mark6LogLikelihood
 
     #loglike = model.mark5LogLikelihood
 
@@ -339,7 +360,8 @@ if args.sampler == 'mcmc':
     # define MCMC sampler
     sampler = PALInferencePTMCMC.PTSampler(len(p0), loglike, logprior, cov, comm=comm, \
                                            outDir=args.outDir, loglkwargs=loglkwargs, \
-                                           resume=args.resume)
+                                           resume=args.resume, \
+                                           gradfun=model.constructGradients)
 
     # add jump proposals
     if incGWB:
@@ -370,10 +392,13 @@ if args.sampler == 'mcmc':
     if not args.noVaryEfac:
         sampler.addProposalToCycle(model.drawFromEfacPrior, 2)
 
+
+    #sampler.addProposalToCycle(sampler.HMCJump, 50)
+
     # run MCMC
     print 'Starting Sampling'
     sampler.sample(p0, args.niter, covUpdate=1000, AMweight=15, SCAMweight=30, DEweight=20, \
-                   neff=args.neff, KDEweight=50)
+                   neff=args.neff, KDEweight=0, MALAweight=50)
 
 
 elif args.sampler == 'multinest':
