@@ -908,7 +908,17 @@ class Pulsar(object):
             self.Mmat, newptmpars, newptmdescription = self.delFromDesignMatrix(tmpardel)
 
             w = 1.0 / self.toaerrs**2
-            Sigi = np.dot(self.Mmat.T, (w * self.Mmat.T).T)
+
+            # change variance of some parameters to 1
+            Mmat_temp = self.Mmat.copy()
+            for ct, par in enumerate(newptmdescription):
+                if par in ['Offset', 'F0', 'F1']:
+                    ind = np.flatnonzero(np.array(self.ptmdescription) == par)
+                    print par, self.ptmdescription[ind]
+                    Mmat_temp[:,ct] *= self.ptmparerrs[ind]
+                    print par, self.ptmparerrs[ind]
+
+            Sigi = np.dot(Mmat_temp.T, (w * Mmat_temp.T).T)
             #try:
             #    cf = sl.cho_factor(Sigi)
             #    Sigma = sl.cho_solve(cf, np.eye(Sigi.shape[0]))

@@ -604,10 +604,10 @@ class PTAmodels(object):
                     Sigma = np.dot(Vh.T, np.dot(np.diag(1.0/s), U.T))
                 
                 tmperrs = np.sqrt(np.diag(Sigma))
-                tmpest = p.ptmpars
+                #tmpest = p.ptmpars
                 p.ptmparerrs = tmperrs
                 #tmperrs = p.ptmparerrs
-                #tmpest2 = np.dot(Sigma, np.dot(p.Mmat.T, w*p.detresiduals))
+                tmpest = np.dot(Sigma, np.dot(p.Mmat.T, w*p.detresiduals)) + p.ptmpars
 
                 # Figure out which parameters we'll keep in the design matrix
                 jumps = []
@@ -689,19 +689,19 @@ class PTAmodels(object):
                         elif parid == 'Offset':
                             pmin += [-500]
                             pmax += [500]
-                            pwidth += [0.1]
+                            pwidth += [1]
                             pstart += [0]
 
                         elif parid == 'F0':
                             pmin += [-500]
                             pmax += [500]
-                            pwidth += [0.1]
+                            pwidth += [1]
                             pstart += [0]
                         
                         elif parid == 'F1':
                             pmin += [-500]
                             pmax += [500]
-                            pwidth += [0.1]
+                            pwidth += [1]
                             pstart += [0]
 
                         else:
@@ -709,7 +709,7 @@ class PTAmodels(object):
                             pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
                             pwidth += [tmperrs[jj]]
                             pstart += [tmpest[jj]]
-                        #print parid, pmin[-1], pmax[-1], pwidth[-1], pstart[-1]
+                        #print parid, tmpest[jj], tmpest2[jj]
 
                 if nonLinear:
                     stype = 'nonlineartimingmodel'
@@ -4877,7 +4877,7 @@ class PTAmodels(object):
         
         # get parmeters in new diagonalized basis
         y = np.dot(self.psr[0].fisherU.T, x)
-        
+
         # get scale of jump
         alpha = np.random.rand()
         scale = 1
@@ -4890,8 +4890,7 @@ class PTAmodels(object):
         sd = 2.4  / np.sqrt(2*neff) * scale
 
         y[ind] = y[ind] + np.random.randn(neff) * sd * np.sqrt(1/self.psr[0].fisherS[ind])
-        q[sig['parindex']:(sig['parindex']+sig['ntotpars'])] = \
-                np.dot(self.psr[0].fisherU, y)
+        q[sig['parindex']:(sig['parindex']+sig['ntotpars'])] = np.dot(self.psr[0].fisherU, y)
 
         return q, qxy
 

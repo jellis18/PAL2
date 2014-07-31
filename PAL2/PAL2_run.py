@@ -398,7 +398,7 @@ if args.sampler == 'mcmc':
     # run MCMC
     print 'Starting Sampling'
     sampler.sample(p0, args.niter, covUpdate=1000, AMweight=15, SCAMweight=30, DEweight=20, \
-                   neff=args.neff, KDEweight=0, MALAweight=50)
+                   neff=args.neff, KDEweight=0, MALAweight=0)
 
 
 elif args.sampler == 'multinest':
