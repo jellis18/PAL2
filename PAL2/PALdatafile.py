@@ -360,10 +360,10 @@ class DataFile(object):
             pulsarname = map(str, [t2pulsar.name] * nobs)
             
             #TODO: fix this to deal on a TOA by TOA basis
-            if "tobs" in flagGroup:
-                tobs = map(float, flagGroup['tobs'])
-            else:
-                print 'No tobs flag for PSR {0}, using 20 mins'.format(t2pulsar.name)
+            #if "tobs" in flagGroup:
+            #    tobs = map(float, flagGroup['tobs'])
+            #else:
+            #    print 'No tobs flag for PSR {0}, using 20 mins'.format(t2pulsar.name)
             tobs = 1200.0*np.ones(nobs)
 
             self.writeData(flagGroup, "tobs_all", tobs, overwrite=overwrite)
@@ -406,6 +406,9 @@ class DataFile(object):
                 
                 elif 'f' in flagGroup and flagGroup['f'][ii] != '':
                     efacequad_freq.append('-'.join((pulsarname, flagGroup['f'][ii])))
+                
+                elif 'i' in flagGroup and flagGroup['i'][ii] != '':
+                    efacequad_freq.append('-'.join((pulsarname, flagGroup['i'][ii])))
                 
                 elif 'fe' in flagGroup and 'be' in flagGroup and \
                         flagGroup['fe'][ii] != '' and flagGroup['be'] != '':
@@ -516,9 +519,12 @@ class DataFile(object):
     def readPulsar(self, psr, psrname):
         psr.name = psrname
 
-        # Obtain residuals, TOAs, etc. SORTED
+        # Obtain residuals, TOAs, etc. 
         psr.toas = np.array(self.getData(psrname, 'TOAs'))
-        ind = np.argsort(psr.toas)
+        """ SHOULD NOT DO SORTING HERE!! """
+
+        #ind = np.argsort(psr.toas)
+        ind = np.arange(len(psr.toas))
         psr.toas = psr.toas[ind]
         psr.toaerrs = np.array(self.getData(psrname, 'toaErr'))[ind]
         psr.prefitresiduals = np.array(self.getData(psrname, 'prefitRes'))[ind]
@@ -560,8 +566,8 @@ class DataFile(object):
             # convert via pyephem
             ec = ephem.Ecliptic(elong, elat)
             eq = ephem.Equatorial(ec)
-            psr.raj = np.float(eq.ra)
-            psr.decj = np.float(eq.dec)
+            psr.raj = np.array([eq.ra])
+            psr.decj = np.array([eq.dec])
 
         else:
             psr.raj = np.array(self.getData(psrname, 'tmp_valpost'))[rajind]

@@ -285,6 +285,7 @@ else:
     write = 'no'
 model.initModel(fullmodel, memsave=memsave, fromFile=args.fromFile, verbose=True, write=write)
 
+
 pardes = model.getModelParameterList()
 par_names = [p['id'] for p in pardes if p['index'] != -1]
 par_out = []
@@ -371,8 +372,12 @@ if args.sampler == 'mcmc':
             sampler.addProposalToCycle(model.drawFromGWBSpectrumPrior, 10)
     if args.incRed and args.redModel=='powerlaw':
         sampler.addProposalToCycle(model.drawFromRedNoisePrior, 10)
+    if args.incDM and args.dmModel=='powerlaw':
+        sampler.addProposalToCycle(model.drawFromDMPrior, 10)
     if args.incRed and args.redModel=='spectrum':
         sampler.addProposalToCycle(model.drawFromRedNoiseSpectrumPrior, 10)
+    if args.incDM and args.dmModel=='spectrum':
+        sampler.addProposalToCycle(model.drawFromDMSpectrumPrior, 10)
     if args.incEquad:
         sampler.addProposalToCycle(model.drawFromEquadPrior, 10)
     if args.incJitterEquad:
@@ -394,6 +399,7 @@ if args.sampler == 'mcmc':
 
 
     #sampler.addProposalToCycle(sampler.HMCJump, 50)
+    #p0 = np.loadtxt('ml.txt')
 
     # run MCMC
     print 'Starting Sampling'

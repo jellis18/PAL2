@@ -914,9 +914,7 @@ class Pulsar(object):
             for ct, par in enumerate(newptmdescription):
                 if par in ['Offset', 'F0', 'F1']:
                     ind = np.flatnonzero(np.array(self.ptmdescription) == par)
-                    print par, self.ptmdescription[ind]
                     Mmat_temp[:,ct] *= self.ptmparerrs[ind]
-                    print par, self.ptmparerrs[ind]
 
             Sigi = np.dot(Mmat_temp.T, (w * Mmat_temp.T).T)
             #try:

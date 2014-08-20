@@ -626,7 +626,8 @@ class PTAmodels(object):
                             tmpars=[])
                 else:
                     newptmdescription = p.getNewTimingModelParameterList(keep=True, \
-                        tmpars=['Offset', 'F0', 'F1', 'DM', 'DM1', 'DM2'] + jumps + dmx + fds)
+                        tmpars=['Offset', 'F0', 'F1', 'RAJ', 'DECJ', 'LAMBDA', 'BETA', \
+                                'DM', 'DM1', 'DM2'] + jumps + dmx + fds)
 
 
                 # Select the numerical parameters. These are the ones not
@@ -1709,7 +1710,7 @@ class PTAmodels(object):
                     sig['pwidth'][sig['bvary']]):
                     if startEfacAtOne and sig['stype'] == 'efac':
                         p0.append(1)
-                    elif fixpstart and sig['stype'] == 'lineartimingmodel':
+                    elif fixpstart:
                             p0.append(np.double(pstart))
                     else:
                         p0.append(min + np.random.rand() * (max-min))
@@ -2719,6 +2720,7 @@ class PTAmodels(object):
 
                 # residuals = M * pars
                 psr.detresiduals -= np.dot(Mmat, np.array(offset))
+                
 
             elif sig['stype'] == 'nonlineartimingmodel':
                 # The t2psr libstempo object has to be set. Assume it is.
@@ -2744,6 +2746,12 @@ class PTAmodels(object):
                 # Generate the new residuals
                 psr.detresiduals = np.array(psr.t2psr.residuals(updatebats=True), 
                                             dtype=np.double) + offset
+
+                #aa = np.random.rand()
+                #if aa < 1e-3:
+                #    plt.errorbar(psr.toas, psr.detresiduals, psr.toaerrs, fmt='.')
+                #    plt.errorbar(psr.toas, psr.residuals, psr.toaerrs, fmt='.')
+                #    plt.show()
             
             # fourier modes
             if sig['stype'] in ['redfouriermode', 'gwfouriermode']:
@@ -4321,6 +4329,64 @@ class PTAmodels(object):
 
         
         return q, qxy
+
+    # DM noise draws
+    def drawFromDMPrior(self, parameters, iter, beta):
+        
+        # post-jump parameters
+        q = parameters.copy()
+
+        # transition probability
+        qxy = 0
+
+        # find number of signals
+        nsigs = np.sum(self.getNumberOfSignalsFromDict(self.ptasignals, stype='dmpowerlaw', \
+                                                       corr='single'))
+        signum = self.getSignalNumbersFromDict(self.ptasignals, stype='dmpowerlaw', \
+                                               corr='single')
+
+        # which parameters to jump
+        ind = np.unique(np.random.randint(0, nsigs, nsigs))
+        ind = np.unique(np.random.randint(0, nsigs, 1))
+
+        # draw params from prior
+        for ii in ind:
+
+            # get signal
+            sig = self.ptasignals[signum[ii]]
+            parind = sig['parindex']
+            npars = sig['npars']
+
+            # jump in amplitude if varying
+            if sig['bvary'][0]:
+
+                # log prior
+                if sig['prior'][0] == 'log':
+                    q[parind] = np.random.uniform(self.pmin[parind], self.pmax[parind])
+                    qxy += 0
+
+                elif sig['prior'][0] == 'uniform':
+                    q[parind] = np.log10(np.random.uniform(10**self.pmin[parind], \
+                                                           10**self.pmax[parind]))
+                    qxy += np.log(10**parameters[parind]/10**q[parind])
+                    
+                else:
+                    print 'Prior type not recognized for parameter'
+                    q[parind] = parameters[parind]
+        
+            # jump in spectral index if varying
+            if sig['bvary'][1]:
+
+                if sig['prior'][1] == 'uniform':
+                    q[parind+1] = np.random.uniform(self.pmin[parind+1], self.pmax[parind+1])
+                    qxy += 0
+
+                else:
+                    q[parind+1] = parameters[parind+1]
+
+        
+        return q, qxy
+
     
     # red noise sepctrum draws
     def drawFromRedNoiseSpectrumPrior(self, parameters, iter, beta):
@@ -4375,6 +4441,61 @@ class PTAmodels(object):
                         q[parind+jj] = parameters[parind+jj]
 
         return q, qxy
+
+    # DM sepctrum draws
+    def drawFromDMSpectrumPrior(self, parameters, iter, beta):
+        
+        # post-jump parameters
+        q = parameters.copy()
+
+        # transition probability
+        qxy = 0
+
+        # find number of signals
+        nsigs = np.sum(self.getNumberOfSignalsFromDict(self.ptasignals, stype='dmspectrum', \
+                                                       corr='single'))
+        signum = self.getSignalNumbersFromDict(self.ptasignals, stype='dmspectrum', \
+                                               corr='single')
+
+        # which parameters to jump
+        ind = np.unique(np.random.randint(0, nsigs, nsigs))
+        ind = np.unique(np.random.randint(0, nsigs, 1))
+
+        # draw params from prior
+        for ii in ind:
+
+            # get signal
+            sig = self.ptasignals[signum[ii]]
+            parind = sig['parindex']
+            npars = sig['npars']            
+
+            # jump in amplitude if varying
+            for jj in range(npars):
+                if sig['bvary'][jj]:
+
+
+                    # log prior
+                    if sig['prior'][jj] == 'log':
+                        q[parind+jj] = np.random.uniform(self.pmin[parind+jj], \
+                                                         self.pmax[parind+jj])
+                        qxy += 0
+
+                    elif sig['prior'][jj] == 'uniform':
+                        q[parind+jj] = np.log10(np.random.uniform(10**self.pmin[parind+jj], \
+                                                               10**self.pmax[parind+jj]))
+                        qxy += np.log(10**parameters[parind+jj]/10**q[parind+jj])
+                    
+                    elif sig['prior'][jj] == 'sqrt':
+                        q[parind+jj] = np.log10(np.random.uniform(10**(self.pmin[parind+jj]/2), \
+                                            10**(self.pmax[parind+jj]/2))**2)
+                        qxy += np.log(10**(parameters[parind+jj]/2)/10**(q[parind+jj]/2))
+                        
+                    else:
+                        print 'Prior type not recognized for parameter'
+                        q[parind+jj] = parameters[parind+jj]
+
+        return q, qxy
+
 
         # red noise sepctrum draws
     def drawFromGWBSpectrumPrior(self, parameters, iter, beta):
