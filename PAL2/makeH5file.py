@@ -32,5 +32,5 @@ timFiles = glob.glob(args.timdir + '/*.tim')
 
 df = PALdatafile.DataFile(args.h5file)
 for t,p in zip(timFiles, parFiles):
-    df.addTempoPulsar(p, t, iterations=3, sigma=1000)
+    df.addTempoPulsar(p, t, iterations=3, sigma=10000)
 
