@@ -569,6 +569,10 @@ def exploderMatrix(times, freqs=None, dt=10, flags=None):
     
     avetoas = np.array([np.mean(times[l]) for l in bucket_ind],'d')
     if flags is not None:
+        for l in bucket_ind:
+            if np.any(flags[l[0]] != flags[l]):
+                print flags[l[0]], flags[l]
+                print 'Warning: multiple TOA flags per epoch'
         aveflags = np.array([flags[l[0]] for l in bucket_ind])
     if freqs is not None:
         avefreqs = np.array([np.mean(freqs[l]) for l in bucket_ind],'d')
@@ -625,6 +629,8 @@ def exploderMatrix_slow(toas, freqs=None, dt=1200, flags=None):
         
         # TODO: what if we have different backends overlapping
         if flags is not None:
+            if np.any(flags[dailyind] != flags[dailyind][0]):
+                print 'Warning: multiple TOA flags per epoch'
             aveflags.append(flags[dailyind][0])
 
         processed[dailyind] = True

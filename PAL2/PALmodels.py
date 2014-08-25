@@ -549,7 +549,7 @@ class PTAmodels(object):
                         "flagvalue":p.name,
                         "bvary":[True, True],
                         "pmin":[-9.0, -18.0],
-                        "pmax":[-5.0, -9.0],
+                        "pmax":[-6.0, -9.0],
                         "pwidth":[-0.1, -0.1],
                         "pstart":[-7.0, -10.0],
                         "prior":['log', 'log']
@@ -2124,7 +2124,7 @@ class PTAmodels(object):
                     Ftemp = np.append(Ftemp, SFmat, axis=1)
                 # added DM line
                 if addedDMSingle:
-                    SdmFmat = PALutils.singlefourierdesignmatrix(p.toas, p.DMFSfreqs)
+                    SdmFmat = PALutils.singlefourierdesignmatrix(p.toas, p.DMSFfreqs)
                     Dmat = 4.15e3 / (p.freqs**2)
                     SDMFmat = (Dmat * SdmFmat.T).T
                     Ftemp = np.append(Ftemp, SDMFmat, axis=1)
@@ -3235,7 +3235,7 @@ class PTAmodels(object):
             
             else:   
 
-                # G(G^TNG)^{-1}G^T = N^{-1} - N^{-1}G_c(G_c^TN^{-1}G_c)^{-1}N^{-1}
+                # G(G^TNG)^{-1}G^T = N^{-1} - N^{-1}G_c(G_c^TN^{-1}G_c)^{-1}G_c^TN^{-1}
                 Nir = p.detresiduals / p.Nvec
                 NiGc = ((1.0/p.Nvec) * p.Hcmat.T).T
                 GcNiGc = np.dot(p.Hcmat.T, NiGc)
