@@ -937,9 +937,21 @@ class Pulsar(object):
                 h5df.addData(self.name, 'Homat', self.Homat)
                 h5df.addData(self.name, 'Hocmat', self.Hocmat)
 
+
             # write Hcmat if compression is none
             if compression == None or compression == 'None':
                 h5df.addData(self.name, 'Hcmat', self.Hcmat)
+            
+            if tmpars is not None:
+                h5df.addData(self.name, 'Mmat', self.Mmat)
+                h5df.addData(self.name, 'fisher', self.fisher)
+                h5df.addData(self.name, 'fisherU', self.fisherU)
+                h5df.addData(self.name, 'fisherS', self.fisherS)
+
+            if likfunc == 'mark6':
+                h5df.addData(self.name, 'Tmat', self.Tmat)
+                h5df.addData(self.name, 'avetoas', self.avetoas)
+                h5df.addData(self.name, 'aveflags', self.aveflags)
 
         # basic quantities
         self.Gr = np.dot(self.Hmat.T, self.residuals)
@@ -1200,6 +1212,17 @@ class Pulsar(object):
             self.Homat = h5df.getData(self.name, 'Homat')
             self.Hocmat = h5df.getData(self.name, 'Hocmat')
         
+        if tmpars is not None:
+            self.Mmat = h5df.getData(self.name, 'Mmat')
+            self.fisher = h5df.getData(self.name, 'fisher')
+            self.fisherU = h5df.getData(self.name, 'fisherU')
+            self.fisherS = h5df.getData(self.name, 'fisherS')
+
+        if likfunc == 'mark6':
+            self.Tmat = h5df.getData(self.name, 'Tmat')
+            self.avetoas = h5df.getData(self.name, 'avetoas')
+            self.aveflags = h5df.getData(self.name, 'aveflags')
+
 
         # basic quantities
         self.Gr = h5df.getData(self.name, 'Gr')

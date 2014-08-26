@@ -1381,7 +1381,6 @@ class PTAmodels(object):
         numJitter = self.getNumberOfSignalsFromDict(signals, \
                 stype='jitter_equad', corr='single')
         incJitter = np.array(numJitter) > 0
-        print numJitter, incJitter
         separateEfacs = np.logical_or(numEfacs > 1, numEquads > 1)
         
 
@@ -1418,7 +1417,7 @@ class PTAmodels(object):
                                 nSingleFreqs=numSingleFreqs[pindex], \
                                 nSingleDMFreqs=numSingleDMFreqs[pindex], \
                                 likfunc=likfunc, compression=compression, \
-                                memsave=memsave)
+                                memsave=memsave, tmpars=tmpars)
             except (StandardError, ValueError, KeyError, IOError, RuntimeError) as err:
                 # Create the Auxiliaries ourselves
 
