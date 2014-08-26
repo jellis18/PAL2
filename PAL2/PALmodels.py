@@ -368,7 +368,7 @@ class PTAmodels(object):
                     bvary = [True, True, False]
                     pmin = [-20.0, 1.02, 1.0e-11]
                     pmax = [-11.0, 6.98, 3.0e-9]
-                    pstart = [-14.0, 2.01, 1.0e-10]
+                    pstart = [-19.0, 2.01, 1.0e-10]
                     pwidth = [0.1, 0.1, 5.0e-11]
                     prior = [redAmpPrior, redSiPrior, 'log']
                 elif noiseModel=='spectralModel':
@@ -550,7 +550,8 @@ class PTAmodels(object):
                             tmpars=[])
                 else:
                     newptmdescription = p.getNewTimingModelParameterList(keep=True, \
-                        tmpars=['Offset', 'F0', 'F1', 'DM', 'DM1', 'DM2'] + jumps + dmx + fds)
+                        tmpars=['Offset', 'F0', 'F1', 'RAJ', 'DECJ', 'LAMBDA', \
+                                'BETA' ,'DM', 'DM1', 'DM2'] + jumps + dmx + fds)
 
 
                 # Select the numerical parameters. These are the ones not
@@ -2132,7 +2133,7 @@ class PTAmodels(object):
 
                 # append to signal diagonal
                 if incTM:
-                    p.kappa_tot = np.concatenate((np.ones(len(p.ptmdescription))*80, \
+                    p.kappa_tot = np.concatenate((np.ones(p.Mmat.shape[1])*80, \
                                                  p.kappa_tot))
                     if incJitter:
                         p.kappa_tot = np.concatenate((p.kappa_tot, np.log10(p.Qamp)))
@@ -2187,7 +2188,7 @@ class PTAmodels(object):
                 
                 # append to signal diagonal
                 if incTM:
-                    p.kappa_tot = np.concatenate((np.ones(len(p.ptmdescription))*80, \
+                    p.kappa_tot = np.concatenate((np.ones(p.Mmat.shape[1])*80, \
                                                  p.kappa_tot))
                     if incJitter:
                         p.kappa_tot = np.concatenate((p.kappa_tot, np.log10(p.Qamp)))
@@ -3629,7 +3630,6 @@ class PTAmodels(object):
 
                 # compute sigma
                 logdet_Sigma = 0
-                #nf = self.npftot[ct] + len(p.ptmdescription) + len(p.avetoas)
                 nf = p.Tmat.shape[1]
                 Sigma = TNT[ct] + self.Phiinv[nfref:(nfref+nf), nfref:(nfref+nf)]
                 dd = d[nfref:(nfref+nf)]
@@ -3640,6 +3640,7 @@ class PTAmodels(object):
                     expval2 = sl.cho_solve(cf, dd)
                     logdet_Sigma += np.sum(2*np.log(np.diag(cf[0])))
                 except np.linalg.LinAlgError:
+                    return -np.inf
                     raise ValueError("ERROR: Sigma singular according to SVD")
 
                 loglike += -0.5 * logdet_Sigma + 0.5 * (np.dot(dd, expval2))
