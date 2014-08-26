@@ -512,6 +512,34 @@ def exploderMatrix(times, freqs=None, dt=10, flags=None):
         return avetoas, aveflags, U
     else:
         return avetoas, U
+
+def exploderMatrixNoSingles(times, flags, dt=10):
+    isort = np.argsort(times)
+    
+    bucket_ref = [[times[isort[0]], flags[isort[0]]]]
+    bucket_ind = [[isort[0]]]
+        
+    for i in isort[1:]:
+        if times[i] - bucket_ref[-1][0] < dt and flags[i] == bucket_ref[-1][1]:
+            bucket_ind[-1].append(i)
+        else:
+            bucket_ref.append([times[i], flags[i]])
+            bucket_ind.append([i])
+        
+
+    # find only epochs with more than 1 TOA
+    bucket_ind2 = [ind for ind in bucket_ind if len(ind) > 1]
+    
+    avetoas = np.array([np.mean(times[l]) for l in bucket_ind2],'d')
+    aveflags = np.array([flags[l[0]] for l in bucket_ind2])
+
+    
+    U = np.zeros((len(times),len(bucket_ind2)),'d')
+    for i,l in enumerate(bucket_ind2):
+        U[l,i] = 1
+        
+    return avetoas, aveflags, U
+
     
 
 def exploderMatrix_slow(toas, freqs=None, dt=1200, flags=None):

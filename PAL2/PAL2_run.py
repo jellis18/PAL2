@@ -128,6 +128,9 @@ parser.add_argument('--neff', dest='neff', type=int, action='store', \
 parser.add_argument('--resume', dest='resume', action='store_true', \
                     default=False, help='resume from previous run')
 
+parser.add_argument('--Tmatrix', dest='Tmatrix', action='store_true', \
+                    default=False, help='Use T matrix formalism')
+
 # parse arguments
 args = parser.parse_args()
 
@@ -180,6 +183,9 @@ elif args.incTimingModel and args.fullmodel and args.incNonGaussian:
     likfunc='mark5'
 else:
     likfunc = 'mark1'
+
+if args.Tmatrix:
+    likfunc = 'mark6'
 
 #likfunc= 'mark5'
 print likfunc
@@ -286,6 +292,9 @@ if args.sampler == 'mcmc':
     else:
         loglike = model.mark1LogLikelihood
 
+    if args.Tmatrix:
+        loglike = model.mark6LogLikelihood
+
     #loglike = model.mark5LogLikelihood
 
     # if zero log-likeihood
@@ -306,6 +315,8 @@ if args.sampler == 'mcmc':
         loglkwargs['incCorrelations'] = False
     if args.zerologlike:
         loglkwargs = {}
+    if args.incJitterEquad and args.Tmatrix:
+        loglkwargs['incJitter'] = True
     
     # get initial parameters for MCMC
     inRange = False
