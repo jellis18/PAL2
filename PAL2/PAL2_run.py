@@ -308,6 +308,8 @@ if args.sampler == 'mcmc':
         loglkwargs['incCorrelations'] = False
     if args.zerologlike:
         loglkwargs = {}
+    if args.incJitterEquad and args.Tmatrix:
+        loglkwargs['incJitter'] = True
     
     # get initial parameters for MCMC
     inRange = False

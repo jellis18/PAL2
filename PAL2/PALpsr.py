@@ -729,7 +729,7 @@ class Pulsar(object):
     def createPulsarAuxiliaries(self, h5df, Tmax, nfreqs, ndmfreqs, \
             twoComponent=False, nSingleFreqs=0, nSingleDMFreqs=0, \
             compression='None', likfunc='mark1', write='no', \
-            tmpars=None, memsave=True, logf=False):
+            tmpars=None, memsave=True, incJitter=False):
 
 
         # For creating the auxiliaries it does not really matter: we are now
@@ -801,11 +801,11 @@ class Pulsar(object):
             self.incRed = True
             (self.Fmat, self.Ffreqs) = PALutils.createfourierdesignmatrix(self.toas, \
                                                             nf, Tspan=Tmax, freq=True, \
-                                                            logf=logf)
+                                                            logf=False)
             if useAverage:
                 (self.FAvmat, tmp) = PALutils.createfourierdesignmatrix(self.avetoas, \
                                                                 nf, Tspan=Tmax, freq=True, \
-                                                                logf=logf)
+                                                                logf=False)
             self.kappa = np.zeros(2*nf)
         else:
             self.Fmat = np.zeros((len(self.toas), 0))
@@ -817,11 +817,11 @@ class Pulsar(object):
             self.incDM = True
             (self.Fdmmat, self.Fdmfreqs) = PALutils.createfourierdesignmatrix(self.toas, \
                                                             ndmf, Tspan=Tmax, freq=True, \
-                                                            logf=logf)
+                                                            logf=False)
             if useAverage:
                 (self.FdmAvmat, tmp) = PALutils.createfourierdesignmatrix(self.avetoas, \
                                                                 ndmf, Tspan=Tmax, freq=True, \
-                                                                logf=logf)
+                                                                logf=False)
                 self.DAvmat = PAL_DMk / (self.avefreqs**2)
                 self.DFAv = (self.DAvmat * self.FdmAvmat.T).T
                 
@@ -912,6 +912,10 @@ class Pulsar(object):
         # T matrix
         if likfunc == 'mark6':
             self.Tmat = np.concatenate((self.Mmat, self.Ftot), axis=1)
+            if incJitter:
+                self.avetoas, self.aveflags, U = PALutils.exploderMatrixNoSingles(self.toas, \
+                                                    np.array(self.flags), dt=10)
+                self.Tmat = np.concatenate((self.Tmat, U), axis=1)
 
         # Construct the compression matrix
         self.constructCompressionMatrix(compression, nfmodes=2*nf,
@@ -1101,7 +1105,7 @@ class Pulsar(object):
                 print 'WARNING: different number of frequencies in file! Recomputing F matrix'
                 (self.Fmat, self.Ffreqs) = PALutils.createfourierdesignmatrix(self.toas, \
                                                             nf, Tspan=Tmax, freq=True, \
-                                                            logf=logf)
+                                                            logf=False)
             if useAverage:
                 self.FAvmat = h5df.getData(self.name, 'FAvmat')
                 if len(self.Ffreqs) != 2*nf:
@@ -1109,7 +1113,7 @@ class Pulsar(object):
                     print 'WARNING: different number of frequencies in file! Recomputing F matrix'
                     (self.FAvmat, tmp) = PALutils.createfourierdesignmatrix(self.avetoas, \
                                                                 nf, Tspan=Tmax, freq=True,
-                                                                logf=logf)
+                                                                logf=False)
 
             self.kappa = np.zeros(2*nf)
         else:
@@ -1127,7 +1131,7 @@ class Pulsar(object):
                 print 'WARNING: different number of frequencies in file! Recomputing DM F matrix'
                 (self.Fdmmat, self.Fdmfreqs) = PALutils.createfourierdesignmatrix(self.toas, \
                                                         ndmf, Tspan=Tmax, freq=True, \
-                                                        logf=logf)
+                                                        logf=False)
                 Dmat = PAL_DMk / (self.freqs**2)
                 self.DF = (Dmat * self.Fdmmat.T).T
 
@@ -1138,7 +1142,7 @@ class Pulsar(object):
                     print 'WARNING: different number of frequencies in file! Recomputing DM F matrix'
                     (self.FdmAvmat, tmp) = PALutils.createfourierdesignmatrix(self.avetoas, \
                                                                 ndmf, Tspan=Tmax, freq=True, \
-                                                                logf=logf)
+                                                                logf=False)
                     self.DAvmat = PAL_DMk / (self.avefreqs**2)
                     self.DFAv = (self.DAvmat * self.FdmAvmat.T).T
                 

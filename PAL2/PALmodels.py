@@ -961,7 +961,7 @@ class PTAmodels(object):
 
         if signal['flagname'] != 'pulsarname':
             # This jitter only applies to some average TOAs, not all of 'm
-            if self.likfunc == 'mark2':
+            if self.likfunc in ['mark2', 'mark6']:
                 ind = np.array(self.psr[signal['pulsarind']].aveflags) != signal['flagvalue']
                 signal['Jvec'][ind] = 0.0
             else:
@@ -1325,7 +1325,6 @@ class PTAmodels(object):
         likfunc = fullmodel['likfunc']
         signals = fullmodel['signals']
         targetAmp = fullmodel['targetAmp']
-        logf = fullmodel['logfrequencies']
 
         if len(self.psr) < 1:
             raise IOError, "No pulsars loaded"
@@ -1379,7 +1378,9 @@ class PTAmodels(object):
         numEquads = self.getNumberOfSignalsFromDict(signals, \
                 stype='equad', corr='single')
         numJitter = self.getNumberOfSignalsFromDict(signals, \
-                stype='jitter', corr='single')
+                stype='jitter_equad', corr='single')
+        incJitter = np.array(numJitter) > 0
+        print numJitter, incJitter
         separateEfacs = np.logical_or(numEfacs > 1, numEquads > 1)
         
 
@@ -1430,8 +1431,8 @@ class PTAmodels(object):
                                 nSingleFreqs=numSingleFreqs[pindex], \
                                 nSingleDMFreqs=numSingleDMFreqs[pindex], \
                                 likfunc=likfunc, compression=compression, \
-                                write=write, tmpars=tmpars, memsave=memsave, 
-                                logf=logf)
+                                write=write, tmpars=tmpars, memsave=memsave, \
+                                         incJitter=incJitter[pindex])
 
         # Initialise the ptasignal objects
         self.ptasignals = []
@@ -1628,6 +1629,7 @@ class PTAmodels(object):
         self.npgs = np.zeros(self.npsr, dtype=np.int)
         self.npgos = np.zeros(self.npsr, dtype=np.int)
         self.ntmpars = 0
+        nphiTmat = 0
         
         for ii, p in enumerate(self.psr):
 
@@ -1636,6 +1638,10 @@ class PTAmodels(object):
             self.npfdm[ii] = len(p.Fdmfreqs)
             self.npftot[ii] = self.npf[ii] + self.npfdm[ii]
             self.ntmpars += len(p.ptmdescription)
+
+            if self.likfunc == 'mark6':
+                nphiTmat += p.Tmat.shape[1]
+
 
             # noise vectors
             p.Nvec = np.zeros(len(p.toas))
@@ -1647,10 +1653,12 @@ class PTAmodels(object):
         self.gwfreqs = self.psr[np.argmax(self.npf)].Ffreqs
         nftot = self.ngwf + np.max(self.npfdm)
         if self.likfunc == 'mark6':
-            self.Phiinv = np.zeros((nftot*self.npsr+self.ntmpars, \
-                                    nftot*self.npsr+self.ntmpars))
-            self.Phi = np.zeros((nftot*self.npsr+self.ntmpars, \
-                                 nftot*self.npsr+self.ntmpars))
+            #self.Phiinv = np.zeros((nftot*self.npsr+self.ntmpars, \
+            #                        nftot*self.npsr+self.ntmpars))
+            #self.Phi = np.zeros((nftot*self.npsr+self.ntmpars, \
+            #                     nftot*self.npsr+self.ntmpars))
+            self.Phiinv = np.zeros((nphiTmat, nphiTmat))
+            self.Phi = np.zeros((nphiTmat, nphiTmat))
         else:
             self.Phiinv = np.zeros((nftot*self.npsr, nftot*self.npsr))
             self.Phi = np.zeros((nftot*self.npsr, nftot*self.npsr))
@@ -1819,7 +1827,7 @@ class PTAmodels(object):
                 else:
                     pequadsqr = sig['pstart'][0]**2
                 
-                if self.likfunc == 'mark2':
+                if self.likfunc in ['mark2', 'mark6']:
                     self.psr[psrind].Qamp += sig['Jvec'] * pequadsqr
                 else:
                     self.psr[psrind].Nvec += sig['Nvec'] * pequadsqr
@@ -1861,7 +1869,7 @@ class PTAmodels(object):
     want to make this more flexible
     """
     def constructPhiMatrix(self, parameters, constructPhi=False, \
-                           incCorrelations=True, incTM=False):
+                           incCorrelations=True, incTM=False, incJitter=False):
 
         
         # Loop over all signals and determine rho (GW signals) and kappa (red + DM signals)
@@ -2019,15 +2027,18 @@ class PTAmodels(object):
 
                 # append to signal diagonal
                 if incTM:
-                    p.kappa_tot = np.concatenate((np.ones(len(p.ptmdescription))*40, \
+                    p.kappa_tot = np.concatenate((np.ones(len(p.ptmdescription))*80, \
                                                  p.kappa_tot))
+                    if incJitter:
+                        p.kappa_tot = np.concatenate((p.kappa_tot, np.log10(p.Qamp)))
 
                 sigdiag.append(10**p.kappa_tot)
 
             # convert to array and flatten
             self.Phi = np.array(sigdiag).flatten()
             np.fill_diagonal(self.Phiinv, 1/self.Phi)
-            self.logdetPhi = np.sum(np.log(self.Phi[-self.npftot[ii]:]))
+            #self.logdetPhi = np.sum(np.log(self.Phi[-self.npftot[ii]:]))
+            self.logdetPhi = np.sum(np.log(self.Phi[:]))
 
         # Do not include correlations but include GWB in red noise
         if rho is not None and not(incCorrelations):
@@ -2065,8 +2076,10 @@ class PTAmodels(object):
                 
                 # append to signal diagonal
                 if incTM:
-                    p.kappa_tot = np.concatenate((np.ones(len(p.ptmdescription))*40, \
+                    p.kappa_tot = np.concatenate((np.ones(len(p.ptmdescription))*80, \
                                                  p.kappa_tot))
+                    if incJitter:
+                        p.kappa_tot = np.concatenate((p.kappa_tot, np.log10(p.Qamp)))
 
                 # append to signal diagonal
                 sigdiag.append(10**p.kappa_tot+self.gwamp)
@@ -3449,7 +3462,7 @@ class PTAmodels(object):
 
     """
 
-    def mark6LogLikelihood(self, parameters, incCorrelations=True):
+    def mark6LogLikelihood(self, parameters, incCorrelations=True, incJitter=False):
 
         loglike = 0
 
@@ -3457,7 +3470,8 @@ class PTAmodels(object):
         self.setPsrNoise(parameters, incJitter=False)
 
         # set red noise, DM and GW parameters
-        self.constructPhiMatrix(parameters, incCorrelations=incCorrelations, incTM=True)
+        self.constructPhiMatrix(parameters, incCorrelations=incCorrelations, \
+                                incTM=True, incJitter=incJitter)
 
         # set deterministic sources
         if self.haveDetSources:
@@ -3498,7 +3512,8 @@ class PTAmodels(object):
 
                 # compute sigma
                 logdet_Sigma = 0
-                nf = self.npftot[ct] + len(p.ptmdescription)
+                #nf = self.npftot[ct] + len(p.ptmdescription) + len(p.avetoas)
+                nf = p.Tmat.shape[1]
                 Sigma = TNT[ct] + self.Phiinv[nfref:(nfref+nf), nfref:(nfref+nf)]
                 dd = d[nfref:(nfref+nf)]
 
