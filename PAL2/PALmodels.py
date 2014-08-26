@@ -215,6 +215,7 @@ class PTAmodels(object):
                     else:
                         p.flags = p.fflags
 
+
                     uflagvals = list(set(p.flags))  # Unique flags
                     for flagval in uflagvals:
                         newsignal = OrderedDict({
@@ -255,8 +256,14 @@ class PTAmodels(object):
                     # if both set, default to fflags
                     else:
                         p.flags = p.fflags
+                        
+                        #TODO: come up with better way to deal with this
+                        avetoas, aveflags, U = \
+                                PALutils.exploderMatrixNoSingles(p.toas, \
+                                                    np.array(p.flags), dt=10)
 
-                    uflagvals = list(set(p.flags))  # Unique flags
+                    #uflagvals = list(set(p.flags))  # Unique flags
+                    uflagvals = np.unique(aveflags)
                     for flagval in uflagvals:
                         newsignal = OrderedDict({
                             "stype":"jitter_equad",

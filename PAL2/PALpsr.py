@@ -923,6 +923,7 @@ class Pulsar(object):
             if incJitter:
                 self.avetoas, self.aveflags, U = PALutils.exploderMatrixNoSingles(self.toas, \
                                                     np.array(self.flags), dt=10)
+                print np.unique(self.aveflags)
                 self.Tmat = np.concatenate((self.Tmat, U), axis=1)
 
         # Construct the compression matrix
