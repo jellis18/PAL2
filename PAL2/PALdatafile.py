@@ -353,20 +353,20 @@ class DataFile(object):
             self.writeData(flagGroup, flagid, t2pulsar.flags[flagid][t2pulsar.deleted==0], \
                            overwrite=overwrite)
         
-        if not "tobs_all" in flagGroup:
-            # look for tobs flag for integration time
-            tobs = []
-            nobs = len(t2pulsar.toas())
-            pulsarname = map(str, [t2pulsar.name] * nobs)
-            
-            #TODO: fix this to deal on a TOA by TOA basis
-            if "tobs" in flagGroup:
-                tobs = map(float, flagGroup['tobs'])
-            else:
-                print 'No tobs flag for PSR {0}, using 20 mins'.format(t2pulsar.name)
-            tobs = 1200.0*np.ones(nobs)
+        #if not "tobs_all" in flagGroup:
+        #    # look for tobs flag for integration time
+        #    tobs = []
+        #    nobs = len(t2pulsar.toas())
+        #    pulsarname = map(str, [t2pulsar.name] * nobs)
+        #    
+        #    #TODO: fix this to deal on a TOA by TOA basis
+        #    if "tobs" in flagGroup:
+        #        tobs = map(float, flagGroup['tobs'])
+        #    else:
+        #        print 'No tobs flag for PSR {0}, using 20 mins'.format(t2pulsar.name)
+        #    tobs = 1200.0*np.ones(nobs)
 
-            self.writeData(flagGroup, "tobs_all", tobs, overwrite=overwrite)
+        #    self.writeData(flagGroup, "tobs_all", tobs, overwrite=overwrite)
 
         if not "efacequad" in flagGroup:
             # Check if the sys-flag is present in this set. If it is, add an
@@ -434,6 +434,23 @@ class DataFile(object):
             #    efacequad_freq = pulsarname
 
             self.writeData(flagGroup, "efacequad_freq", efacequad_freq, overwrite=overwrite)
+        
+        if not "tobs_all" in flagGroup:
+            tobs = []
+            nobs = len(t2pulsar.toas()[t2pulsar.deleted==0])
+            #pulsarname = map(str, [t2pulsar.name] * nobs)
+            pulsarname = t2pulsar.name
+
+
+            for ii in range(nobs):
+
+                if 'tobs' in flagGroup and np.all([flagGroup['tobs'][ii] != '', \
+                                        flagGroup['tobs'][ii]!= 'UNKNOWN']):
+                    tobs.append(float(flagGroup['tobs'][ii]))
+                else:
+                    tobs.append(1200.0)
+
+            self.writeData(flagGroup, "tobs_all", efacequad_freq, overwrite=overwrite)
 
         if not "pulsarname" in flagGroup:
             nobs = len(t2pulsar.toas())

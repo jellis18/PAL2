@@ -73,22 +73,22 @@ parser.add_argument('--GWBAmpPrior', dest='GWBAmpPrior', action='store', type=st
 parser.add_argument('--incEquad', dest='incEquad', action='store_true',default=False,
                    help='include Equad')
 parser.add_argument('--separateEquads', dest='separateEquads', action='store', type=str, \
-                    default='None', help='separate equads [None, backend, frequencies]')
+                    default='frequencies', help='separate equads [None, backend, frequencies]')
 
 parser.add_argument('--noVaryEfac', dest='noVaryEfac', action='store_true',default=False,
                    help='Option to not vary efac')
 parser.add_argument('--separateEfacs', dest='separateEfacs', action='store', type=str, \
-                    default='None', help='separate efacs [None, backend, frequencies]')
+                    default='frequencies', help='separate efacs [None, backend, frequencies]')
 
 parser.add_argument('--incJitter', dest='incJitter', action='store_true',default=False,
                    help='include Jitter')
 parser.add_argument('--separateJitter', dest='separateJitter', action='store', type=str, \
-                    default='None', help='separate Jitter [None, backend, frequencies]')
+                    default='frequencies', help='separate Jitter [None, backend, frequencies]')
 
 parser.add_argument('--incJitterEquad', dest='incJitterEquad', action='store_true',\
                     default=False, help='include Jitter')
 parser.add_argument('--separateJitterEquad', dest='separateJitterEquad', action='store', \
-                    type=str, default='None', \
+                    type=str, default='frequencies', \
                     help='separate Jitter Equad [None, backend, frequencies]')
 
 
@@ -433,15 +433,15 @@ elif args.sampler == 'multinest':
                 cube[ii] = model.pmin[ii] + cube[ii] * (model.pmax[ii]-model.pmin[ii])
 
                 # number of live points
-    nlive = 500
+    nlive = 100
     n_params = ndim
 
     # run MultiNest
     pymultinest.run(myloglike, myprior, n_params, resume = False, \
-                    verbose = True, sampling_efficiency = 0.3, \
+                    verbose = True, sampling_efficiency = 0.1, \
                     outputfiles_basename =  args.outDir+'/mn'+'-', \
                     n_iter_before_update=5, n_live_points=nlive, \
-                    const_efficiency_mode=False, \
+                    const_efficiency_mode=True, importance_nested_sampling=True, \
                     n_clustering_params=n_params, init_MPI=False)
 
 
