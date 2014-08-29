@@ -320,6 +320,26 @@ def createResidualsFast(psr, gwtheta, gwphi, mc, dist, fgw, phase0, psi, inc, pd
 
     return res
 
+def constructShapelet(times, t0, q, amps):
+    """
+    Construct shapelet.
+
+    @param times: sample times
+    @param t0: event time
+    @param q: width of event
+    @param amps: vector of amplitudes for different components
+    """
+   
+    hermcoeff = []
+    for ii in range(len(alpha)):
+        hermcoeff.append(amps[ii] / np.sqrt(2**ii*ss.gamma(ii+1)*np.sqrt(2*np.pi*q**2)))
+        
+    # evaluate hermite polynomial sums
+    hermargs = (times-t0)/q
+    hval = herm.hermval(hermargs, np.array(hermcoeff)) * np.exp(-hermargs**2/2)
+    
+    return hval
+
 
 
 def computeLuminosityDistance(z):

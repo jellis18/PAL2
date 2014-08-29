@@ -58,6 +58,10 @@ parser.add_argument('--DMAmpPrior', dest='DMAmpPrior', action='store', type=str,
                     default='log', help='prior on DM Amplitude [uniform, log]')
 parser.add_argument('--incSingleDM', dest='incSingleDM', action='store_true',default=False,
                    help='include single frequency DM')
+parser.add_argument('--incDMshapelet', dest='incDMshapelet', action='store_true',default=False,
+                   help='include shapelet event for DM')
+parser.add_argument('--nshape', dest='nshape', type='int', action='store',default=3,
+                   help='number of coefficients for shapelet event for DM')
 
 parser.add_argument('--incGWB', dest='incGWB', action='store_true',default=False,
                    help='include GWB')
@@ -396,7 +400,7 @@ elif args.sampler == 'multinest':
 
             # check prior
             if model.mark3LogPrior(acube) != -np.inf:
-                return model.mark2LogLikelihood(acube)
+                return model.mark6LogLikelihood(acube)
             else:
                 print 'WARNING: Prior returns -np.inf!!'
                 return -np.inf
@@ -433,12 +437,12 @@ elif args.sampler == 'multinest':
                 cube[ii] = model.pmin[ii] + cube[ii] * (model.pmax[ii]-model.pmin[ii])
 
                 # number of live points
-    nlive = 100
+    nlive = 2000
     n_params = ndim
 
     # run MultiNest
     pymultinest.run(myloglike, myprior, n_params, resume = False, \
-                    verbose = True, sampling_efficiency = 0.1, \
+                    verbose = True, sampling_efficiency = 0.02, \
                     outputfiles_basename =  args.outDir+'/mn'+'-', \
                     n_iter_before_update=5, n_live_points=nlive, \
                     const_efficiency_mode=True, importance_nested_sampling=True, \

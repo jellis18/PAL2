@@ -126,6 +126,7 @@ class PTAmodels(object):
     def makeModelDict(self,  nfreqs=20, ndmfreqs=None, \
             incRedNoise=False, noiseModel='powerlaw', fc=None, logf=False,\
             incDM=False, dmModel='powerlaw', \
+            incDMEvent=False, dmEventModel='shapelet', ndmEventCoeffs=3, \
             incScattering=False, scatteringModel='powerlaw', \
             incGWB=False, gwbModel='powerlaw', \
             incBWM=False, \
@@ -373,7 +374,7 @@ class PTAmodels(object):
                     prior = [redSpectrumPrior]*nfreqs
                 elif noiseModel=='powerlaw':
                     bvary = [True, True, False]
-                    pmin = [-20.0, 1.02, 1.0e-11]
+                    pmin = [-20.0, 0.02, 1.0e-11]
                     pmax = [-11.0, 6.98, 3.0e-9]
                     pstart = [-19.0, 2.01, 1.0e-10]
                     pwidth = [0.1, 0.1, 5.0e-11]
@@ -413,7 +414,7 @@ class PTAmodels(object):
                     DMModel = 'dmspectrum'
                 elif dmModel=='powerlaw':
                     bvary = [True, True, False]
-                    pmin = [-14.0, 1.02, 1.0e-11]
+                    pmin = [-14.0, 0.02, 1.0e-11]
                     pmax = [-6.5, 6.98, 3.0e-9]
                     pstart = [-13.0, 2.01, 1.0e-10]
                     pwidth = [0.1, 0.1, 5.0e-11]
@@ -505,6 +506,37 @@ class PTAmodels(object):
                         })
                     signals.append(newsignal)
 
+            if incDMEvent:
+                if dmEventModel == 'shapelet':
+                    stype = 'dmshapelet'
+                    bvary = [True] * 2+ndmEventCoeffs
+                    pmin = [-1e-9] * ndmEventCoeffs
+                    pmin += [ p.toas.min()/86400, 14]
+                    pmax = [1e-9] * ndmEventCoeffs
+                    pmax += [p.toas.max()/86400, 500]
+                    pwidth = [1e-8] * ndmEventCoeffs
+                    pwidth += [1, 1]
+                    pstart = [0] * ndmEventCoeffs
+                    pstart += [(p.toas.max()-p.toas.min())/2, 30]
+                    parids = ['dmShapeAmp_{0}'.format(ii) for ii in \
+                                            range(len(ndmEventCoeffs))]
+                    parids += ['dmShapeTime', 'dmShapeWidth']
+                    priors = ['uniform'] * ndmEventCoeffs
+                    priors += ['uniform', 'uniform']
+                newsignal = OrderedDict({
+                    "stype":stype,
+                    "corr":"single",
+                    "pulsarind":ii,
+                    "bvary":bvary,
+                    "pmin":pmin,
+                    "pmax":pmax,
+                    "pwidth":pwidth,
+                    "pstart":pstart,
+                    "parid":parids,
+                    "prior":priors
+                    })
+                signals.append(newsignal)
+
             
             if incTimingModel:
                 if nonLinear:
@@ -512,14 +544,6 @@ class PTAmodels(object):
                     # libstempo object
                     p.initLibsTempoObject()
 
-                    #errs = []
-                    #est = []
-                    #for t2par in p.t2psr.pars:
-                    #    errs += [np.longdouble(p.t2psr[t2par].err)]
-                    #    est += [np.longdouble(p.t2psr[t2par].val)]
-                    #tmperrs = np.array([0.0] + errs)
-                    #tmpest = np.array([0.0] + est)
-                #else:
 
                 # Just do the timing-model fit ourselves here, in order to set
                 # the prior.
@@ -894,6 +918,10 @@ class PTAmodels(object):
             signal['npsrfreqindex'] = psrSingleFreqs[signal['pulsarind']]
             self.addSignalFrequencyLine(signal)
             self.haveFrequencyLines = True
+
+        elif signal['stype'] == 'dmshapelet':
+            self.ptasignals.append(signal)
+            self.haveDetSources = True
 
         else:
             # Some other unknown signal
@@ -1549,11 +1577,10 @@ class PTAmodels(object):
                     flagname = sig['stype']
                     flagvalue = sig['parid'][jj]
                 
-                #TODO: add BWM and continuous Wave
-                #elif sig['stype'] == 'bwm':
-                #    flagname = 'BurstWithMemory'
-                #    flagvalue = ['burst-arrival', 'amplitude', 'raj', 'decj', 'polarisation'][jj]
-
+                elif sig['stype'] == 'dmshapelet':
+                    flagname = sig['stype']
+                    flagvalue = sig['parid'][jj]
+            
                 else:
                     flagname = 'none'
                     flagvalue = 'none'
@@ -1940,14 +1967,6 @@ class PTAmodels(object):
                     p.AGFF = np.dot(p.Amat.T, GtF)
                 else:
                     p.FFtot = Ftemp
-
-
-
-
-
-
-                
-
 
 
     """
@@ -2385,6 +2404,18 @@ class PTAmodels(object):
                 # Generate the new residuals
                 psr.detresiduals = np.array(psr.t2psr.residuals(updatebats=True), 
                                             dtype=np.double) + offset
+
+
+            # dm shapelet signal
+            elif sig['stype'] == 'dmshapelet':
+                psr = self.psr[sig['pulsarind']]
+                amps, time, width = sparameters[:-2], sparameters[1], sparameters[2]
+
+                sig = PALutils.constructShapelet(psr.toas/86400, time, width, amps)
+
+                psr.detresiduals -= sig
+
+
 
         
             # continuous wave signal
