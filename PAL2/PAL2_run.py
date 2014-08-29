@@ -60,7 +60,7 @@ parser.add_argument('--incSingleDM', dest='incSingleDM', action='store_true',def
                    help='include single frequency DM')
 parser.add_argument('--incDMshapelet', dest='incDMshapelet', action='store_true',default=False,
                    help='include shapelet event for DM')
-parser.add_argument('--nshape', dest='nshape', type='int', action='store',default=3,
+parser.add_argument('--nshape', dest='nshape', type=int, action='store', default=3, \
                    help='number of coefficients for shapelet event for DM')
 
 parser.add_argument('--incGWB', dest='incGWB', action='store_true',default=False,
@@ -188,14 +188,17 @@ elif args.incTimingModel and args.fullmodel and args.incNonGaussian:
 else:
     likfunc = 'mark1'
 
-if args.Tmatrix:
+if args.Tmatrix or args.incDMshapelet:
     likfunc = 'mark6'
 
 #likfunc= 'mark5'
 print likfunc
 
-fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, logf=args.logfrequencies, \
+fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
+                    logf=args.logfrequencies, \
                     incDM=args.incDM, dmModel=args.dmModel, \
+                    incDMEvent=args.incDMshapelet, dmEventModel='shapelet', \
+                    ndmEventCoeffs=args.nshape, \
                     separateEfacs=separateEfacs, separateEfacsByFreq=separateEfacsByFreq, \
                     separateEquads=separateEquads, separateEquadsByFreq=separateEquadsByFreq, \
                     separateJitter=separateJitter, separateJitterByFreq=separateJitterByFreq, \
@@ -296,7 +299,7 @@ if args.sampler == 'mcmc':
     else:
         loglike = model.mark1LogLikelihood
 
-    if args.Tmatrix:
+    if args.Tmatrix or args.incDMshapelet:
         loglike = model.mark6LogLikelihood
 
     #loglike = model.mark5LogLikelihood
@@ -424,7 +427,7 @@ elif args.sampler == 'multinest':
             
             # check prior
             if model.mark3LogPrior(acube) != -np.inf:
-                return model.mark1LogLikelihood(acube)
+                return model.mark6LogLikelihood(acube)
             else:
                 print 'WARNING: Prior returns -np.inf!!'
                 return -np.inf
@@ -437,7 +440,7 @@ elif args.sampler == 'multinest':
                 cube[ii] = model.pmin[ii] + cube[ii] * (model.pmax[ii]-model.pmin[ii])
 
                 # number of live points
-    nlive = 2000
+    nlive = 1000
     n_params = ndim
 
     # run MultiNest

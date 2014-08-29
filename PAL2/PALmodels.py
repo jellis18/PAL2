@@ -167,6 +167,12 @@ class PTAmodels(object):
             else:
                 ndmfreqs = 0
 
+            if incDMEvent:
+                p.ndmEventCoeffs = ndmEventCoeffs
+            else:
+                p.ndmEventCoeffs = 0
+
+
             if separateEfacs or separateEfacsByFreq:
                 if separateEfacs and ~separateEfacsByFreq:
                     pass
@@ -509,20 +515,14 @@ class PTAmodels(object):
             if incDMEvent:
                 if dmEventModel == 'shapelet':
                     stype = 'dmshapelet'
-                    bvary = [True] * 2+ndmEventCoeffs
-                    pmin = [-1e-9] * ndmEventCoeffs
-                    pmin += [ p.toas.min()/86400, 14]
-                    pmax = [1e-9] * ndmEventCoeffs
-                    pmax += [p.toas.max()/86400, 500]
-                    pwidth = [1e-8] * ndmEventCoeffs
-                    pwidth += [1, 1]
-                    pstart = [0] * ndmEventCoeffs
-                    pstart += [(p.toas.max()-p.toas.min())/2, 30]
-                    parids = ['dmShapeAmp_{0}'.format(ii) for ii in \
-                                            range(len(ndmEventCoeffs))]
-                    parids += ['dmShapeTime', 'dmShapeWidth']
-                    priors = ['uniform'] * ndmEventCoeffs
-                    priors += ['uniform', 'uniform']
+                    bvary = [True] * 2
+                    pmin = [ p.toas.min()/86400, 14]
+                    pmax = [p.toas.max()/86400, 500]
+                    pwidth = [1, 1]
+                    pstart = [(p.toas.max()-p.toas.min())/2, 30]
+                    parids = ['dmShapeTime', 'dmShapeWidth']
+                    priors = ['uniform', 'uniform']
+                    p.ndmEventCoeffs = ndmEventCoeffs
                 newsignal = OrderedDict({
                     "stype":stype,
                     "corr":"single",
@@ -921,7 +921,6 @@ class PTAmodels(object):
 
         elif signal['stype'] == 'dmshapelet':
             self.ptasignals.append(signal)
-            self.haveDetSources = True
 
         else:
             # Some other unknown signal
@@ -1671,6 +1670,7 @@ class PTAmodels(object):
         
         for ii, p in enumerate(self.psr):
 
+
             # number of red and DM frequencies
             self.npf[ii] = len(p.Ffreqs)
             self.npfdm[ii] = len(p.Fdmfreqs)
@@ -1679,7 +1679,8 @@ class PTAmodels(object):
             self.ntmpars += len(p.ptmdescription)
 
             if self.likfunc == 'mark6':
-                nphiTmat += p.Tmat.shape[1] + p.nSingleFreqs*2 + p.nSingleDMFreqs*2
+                nphiTmat += p.Tmat.shape[1] + p.nSingleFreqs*2 + p.nSingleDMFreqs*2 + \
+                        p.ndmEventCoeffs
 
             # noise vectors
             p.Nvec = np.zeros(len(p.toas))
@@ -1895,6 +1896,38 @@ class PTAmodels(object):
 
 
     """
+    Update T matrix to include additional linear terms
+    
+    """
+    def updateTmatrix(self, parameters):
+
+        for ss, sig in enumerate(self.ptasignals):
+            # short hand
+            psrind = sig['pulsarind']
+            parind = sig['parindex']
+            npars = sig['npars']
+            psr = self.psr[psrind]
+        
+            # parameters for this signal
+            sparameters = sig['pstart'].copy()
+
+            # which ones are varying
+            sparameters[sig['bvary']] = parameters[parind:parind+npars]
+
+            if sig['stype'] == 'dmshapelet':
+                t0, width = sparameters[0], sparameters[1]
+                for ii in range(psr.ndmEventCoeffs):
+                    amps = [1 if jj==ii else 0 for jj in range(psr.ndmEventCoeffs)]
+                    sig = PALutils.constructShapelet(psr.toas/86400, t0, width, amps) * \
+                            4.15e3/psr.freqs**2
+                    sig = sig[...,None]
+                    if ii == 0:
+                        psr.Ttmat = np.append(psr.Tmat, sig, axis=1)
+                    else:
+                        psr.Ttmat = np.append(psr.Ttmat, sig, axis=1)
+
+
+    """
     Update fourier design matrices to include free floating spectral lines.
 
     """
@@ -1981,6 +2014,7 @@ class PTAmodels(object):
         
         # Loop over all signals and determine rho (GW signals) and kappa (red + DM signals)
         rho = None
+        incDMshapelet = False
         for ss, sig in enumerate(self.ptasignals):
 
             # short hand
@@ -2119,6 +2153,9 @@ class PTAmodels(object):
                 # fill in kappa
                 self.psr[psrind].kappadmsingle = pcdoubled
 
+            if sig['stype'] == 'dmshapelet':
+                incDMshapelet = True
+
 
         # now that we have obtained rho and kappa, we can construct Phiinv
         sigdiag = []
@@ -2162,6 +2199,9 @@ class PTAmodels(object):
                                                  p.kappa_tot))
                     if incJitter:
                         p.kappa_tot = np.concatenate((p.kappa_tot, np.log10(p.Qamp)))
+                    if incDMshapelet:
+                        p.kappa_tot = np.concatenate((p.kappa_tot, np.ones(p.ndmEventCoeffs)*80))
+
 
                 sigdiag.append(10**p.kappa_tot)
 
@@ -2217,6 +2257,8 @@ class PTAmodels(object):
                                                  p.kappa_tot))
                     if incJitter:
                         p.kappa_tot = np.concatenate((p.kappa_tot, np.log10(p.Qamp)))
+                    if incDMshapelet:
+                        p.kappa_tot = np.concatenate((p.kappa_tot, np.ones(p.ndmEventCoeffs)*80))
 
                 # append to signal diagonal
                 sigdiag.append(10**p.kappa_tot+self.gwamp)
@@ -2404,18 +2446,6 @@ class PTAmodels(object):
                 # Generate the new residuals
                 psr.detresiduals = np.array(psr.t2psr.residuals(updatebats=True), 
                                             dtype=np.double) + offset
-
-
-            # dm shapelet signal
-            elif sig['stype'] == 'dmshapelet':
-                psr = self.psr[sig['pulsarind']]
-                amps, time, width = sparameters[:-2], sparameters[1], sparameters[2]
-
-                sig = PALutils.constructShapelet(psr.toas/86400, time, width, amps)
-
-                psr.detresiduals -= sig
-
-
 
         
             # continuous wave signal
@@ -3617,7 +3647,7 @@ class PTAmodels(object):
 
     """
 
-    def mark6LogLikelihood(self, parameters, incCorrelations=True, incJitter=False):
+    def mark6LogLikelihood(self, parameters, incCorrelations=False, incJitter=False):
 
         loglike = 0
 
@@ -3632,7 +3662,8 @@ class PTAmodels(object):
         if self.haveDetSources:
             self.updateDetSources(parameters)
 
-        
+        self.updateTmatrix(parameters)
+
         # compute the white noise terms in the log likelihood
         TNT = []
         nfref = 0
@@ -3645,13 +3676,13 @@ class PTAmodels(object):
                 
             # equivalent to T^T N^{-1} \delta t
             if ct == 0:
-                d = np.dot(p.Tmat.T, p.detresiduals/p.Nvec)
+                d = np.dot(p.Ttmat.T, p.detresiduals/p.Nvec)
             else:
-                d = np.append(d, np.dot(p.Tmat.T, p.detresiduals/p.Nvec))
+                d = np.append(d, np.dot(p.Ttmat.T, p.detresiduals/p.Nvec))
 
             # compute T^T N^{-1} T
-            right = ((1/p.Nvec) * p.Tmat.T).T
-            TNT.append(np.dot(p.Tmat.T, right))
+            right = ((1/p.Nvec) * p.Ttmat.T).T
+            TNT.append(np.dot(p.Ttmat.T, right))
 
             # log determinant of G^TNG
             logdet_N = np.sum(np.log(p.Nvec))
@@ -3667,7 +3698,7 @@ class PTAmodels(object):
 
                 # compute sigma
                 logdet_Sigma = 0
-                nf = p.Tmat.shape[1]
+                nf = p.Ttmat.shape[1]
                 Sigma = TNT[ct] + self.Phiinv[nfref:(nfref+nf), nfref:(nfref+nf)]
                 dd = d[nfref:(nfref+nf)]
 

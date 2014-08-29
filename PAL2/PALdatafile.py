@@ -417,22 +417,6 @@ class DataFile(object):
                             in pulsar {1}'.format(ii, pulsarname)
                     efacequad_freq.append(pulsarname)
             
-
-            
-            # create "f" flag from fe and be flags
-            #if "group" in flagGroup:
-            #    efacequad = map('-'.join, zip(pulsarname, flagGroup['group']))
-            #elif "sys" in flagGroup:
-            #    efacequad = map('-'.join, zip(pulsarname, flagGroup['sys']))
-            #elif "fe" in flagGroup and 'be' in flagGroup:
-            #    fflag = map('-'.join, zip(flagGroup['fe'], flagGroup['be']))
-            #    efacequad_freq = map('-'.join, zip(pulsarname, fflag))
-            #elif "f" in flagGroup:
-            #    efacequad_freq = map('-'.join, zip(pulsarname, flagGroup['f']))
-            #else:
-            #    print 'WARNING: no flags found, using pulsarname as default'
-            #    efacequad_freq = pulsarname
-
             self.writeData(flagGroup, "efacequad_freq", efacequad_freq, overwrite=overwrite)
         
         if not "tobs_all" in flagGroup:
@@ -450,7 +434,7 @@ class DataFile(object):
                 else:
                     tobs.append(1200.0)
 
-            self.writeData(flagGroup, "tobs_all", efacequad_freq, overwrite=overwrite)
+            self.writeData(flagGroup, "tobs_all", tobs, overwrite=overwrite)
 
         if not "pulsarname" in flagGroup:
             nobs = len(t2pulsar.toas())

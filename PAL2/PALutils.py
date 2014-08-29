@@ -4,6 +4,7 @@ import scipy.special as ss
 import scipy.linalg as sl
 import scipy.integrate as si
 import scipy.interpolate as interp
+import numpy.polynomial.hermite as herm
 #import numexpr as ne
 import sys,os
 
@@ -331,7 +332,7 @@ def constructShapelet(times, t0, q, amps):
     """
    
     hermcoeff = []
-    for ii in range(len(alpha)):
+    for ii in range(len(amps)):
         hermcoeff.append(amps[ii] / np.sqrt(2**ii*ss.gamma(ii+1)*np.sqrt(2*np.pi*q**2)))
         
     # evaluate hermite polynomial sums
