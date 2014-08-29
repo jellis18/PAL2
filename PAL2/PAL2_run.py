@@ -255,7 +255,6 @@ if args.noVaryEfac:
         if sig['corr'] == 'single' and sig['stype'] == 'efac':
             sig['bvary'][0] = False
             sig['pstart'][0] = 1
-
 # check for single efacs
 if args.incCW or args.incTimingModel or args.incSingleRed or args.incSingleDM:
     for p in model.psr:

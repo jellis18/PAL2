@@ -732,6 +732,7 @@ class Pulsar(object):
             tmpars=None, memsave=True, incJitter=False):
 
 
+
         # For creating the auxiliaries it does not really matter: we are now
         # creating all quantities per default
         self.twoComponentNoise = twoComponent

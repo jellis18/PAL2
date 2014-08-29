@@ -1980,7 +1980,7 @@ class PTAmodels(object):
                 # final product
                 p.UtFF = Ftemp
 
-            else:
+            elif np.any([addedSingle, addedDMSingle]) and self.likfunc != 'mark2':
                 Ftemp = p.Ftot.copy()
 
                 # added frequency independent line
@@ -1998,8 +1998,9 @@ class PTAmodels(object):
                 if p.twoComponentNoise:
                     GtF = np.dot(p.Hmat.T, Ftemp)
                     p.AGFF = np.dot(p.Amat.T, GtF)
-                else:
-                    p.FFtot = Ftemp
+            else:
+                p.FFtot = p.Ftot.copy()
+                p.AGFF = p.AGF
 
 
     """
