@@ -4,12 +4,10 @@ class MPIDummy(object):
         pass
 
     def Get_rank(self):
-        self.MPIrank = 0
-        pass
+        return 0
 
     def Get_size(self):
-        self.MPIsize=1
-        pass
+        return 1 
 
     def barrier(self):
         pass
