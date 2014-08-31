@@ -188,7 +188,7 @@ elif args.incTimingModel and args.fullmodel and args.incNonGaussian:
 else:
     likfunc = 'mark1'
 
-if args.Tmatrix or args.incDMshapelet:
+if args.Tmatrix:
     likfunc = 'mark6'
 
 #likfunc= 'mark5'
@@ -298,7 +298,7 @@ if args.sampler == 'mcmc':
     else:
         loglike = model.mark1LogLikelihood
 
-    if args.Tmatrix or args.incDMshapelet:
+    if args.Tmatrix:
         loglike = model.mark6LogLikelihood
 
     #loglike = model.mark5LogLikelihood
@@ -402,9 +402,9 @@ elif args.sampler == 'multinest':
 
             # check prior
             if model.mark3LogPrior(acube) != -np.inf:
-                return model.mark6LogLikelihood(acube)
+                return model.mark2LogLikelihood(acube)
             else:
-                print 'WARNING: Prior returns -np.inf!!'
+                #print 'WARNING: Prior returns -np.inf!!'
                 return -np.inf
 
         def myprior(cube, ndim, nparams):
@@ -428,7 +428,7 @@ elif args.sampler == 'multinest':
             if model.mark3LogPrior(acube) != -np.inf:
                 return model.mark6LogLikelihood(acube)
             else:
-                print 'WARNING: Prior returns -np.inf!!'
+                #print 'WARNING: Prior returns -np.inf!!'
                 return -np.inf
 
             return model.mark1LogLikelihood(acube)

@@ -48,6 +48,49 @@ def fpStat(psr, f0):
     # return F-statistic
     return fstat
 
+# compute f_e-statistic
+def feStat(psr, gwtheta, gwphi, f0):
+    """ 
+    Computes the F-statistic as defined in Ellis, Siemens, Creighton (2012)
+    
+    @param psr: List of pulsar object instances
+    @param gwtheta: GW polar angle
+    @param gwphi: GW azimuthal angle
+    @param f0: Gravitational wave frequency
+
+    @return: Value of the Fe statistic evaluated at gwtheta, phi, f0
+
+    """
+    
+    npsr = len(psr)
+    N = np.zeros(4)
+    M = np.zeros((4,4))
+    for ii, p in enumerate(psr):
+        fplus, fcross, cosMu = createAntennaPatternFuncs(p, gwtheta, gwphi)
+
+        # define A
+        A = np.zeros((4, len(p.toas)))
+        A[0,:] = fplus/f0**(1./3.) * np.sin(2*np.pi*f0*p.toas)
+        A[1,:] = fplus/f0**(1./3.) * np.cos(2*np.pi*f0*p.toas)
+        A[2,:] = fcross/f0**(1./3.) * np.sin(2*np.pi*f0*p.toas)
+        A[3,:] = fcross/f0**(1./3.) * np.cos(2*np.pi*f0*p.toas)
+
+
+        N += np.array([np.dot(A[0,:], np.dot(p.invCov, p.res)), \
+                        np.dot(A[1,:], np.dot(p.invCov, p.res)), \
+                        np.dot(A[2,:], np.dot(p.invCov, p.res)), \
+                        np.dot(A[3,:], np.dot(p.invCov, p.res))]) 
+
+        M += np.dot(A, np.dot(p.invCov, A.T))
+
+    # inverse of M
+    Minv = np.linalg.pinv(M)
+
+    # Fe-statistic
+    return 0.5 * np.dot(N, np.dot(Minv, N))
+
+
+
 def createAntennaPatternFuncs(psr, gwtheta, gwphi):
     """
     Function to create pulsar antenna pattern functions as defined
@@ -333,7 +376,7 @@ def constructShapelet(times, t0, q, amps):
    
     hermcoeff = []
     for ii in range(len(amps)):
-        hermcoeff.append(amps[ii] / np.sqrt(2**ii*ss.gamma(ii+1)*np.sqrt(2*np.pi*q**2)))
+        hermcoeff.append(amps[ii] / np.sqrt(2**ii*ss.gamma(ii+1)*np.sqrt(2*np.pi)))
         
     # evaluate hermite polynomial sums
     hermargs = (times-t0)/q

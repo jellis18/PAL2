@@ -513,16 +513,33 @@ class PTAmodels(object):
                     signals.append(newsignal)
 
             if incDMEvent:
-                if dmEventModel == 'shapelet':
-                    stype = 'dmshapelet'
+                if dmEventModel == 'shapeletmarg':
+                    stype = 'dmshapeletmarg'
                     bvary = [True] * 2
                     pmin = [ p.toas.min()/86400, 14]
                     pmax = [p.toas.max()/86400, 500]
-                    pwidth = [1, 1]
+                    pwidth = [10, 5]
                     pstart = [(p.toas.max()-p.toas.min())/2, 30]
                     parids = ['dmShapeTime', 'dmShapeWidth']
                     priors = ['uniform', 'uniform']
                     p.ndmEventCoeffs = ndmEventCoeffs
+                elif dmEventModel == 'shapelet':
+                    stype = 'dmshapelet'
+                    bvary = [True] * 2
+                    bvary += [True] * ndmEventCoeffs
+                    pmin = [ p.toas.min()/86400, 14]
+                    pmin += [-0.01] * ndmEventCoeffs
+                    pmax = [p.toas.max()/86400, 500]
+                    pmax += [0.01] * ndmEventCoeffs
+                    pwidth = [10, 5]
+                    pwidth += [0.0001] * ndmEventCoeffs
+                    pstart = [(p.toas.max()-p.toas.min())/2, 30]
+                    pstart += [0.0] * ndmEventCoeffs
+                    parids = ['dmShapeTime', 'dmShapeWidth']
+                    names = ['dmShapeAmp_{0}'.format(jj) for jj in range(ndmEventCoeffs)]
+                    parids += names
+                    priors = ['uniform', 'uniform']
+                    prior += ['uniform'] * ndmEventCoeffs
                 newsignal = OrderedDict({
                     "stype":stype,
                     "corr":"single",
@@ -919,8 +936,12 @@ class PTAmodels(object):
             self.addSignalFrequencyLine(signal)
             self.haveFrequencyLines = True
 
+        elif signal['stype'] == 'dmshapeletmarg':
+            self.ptasignals.append(signal)
+        
         elif signal['stype'] == 'dmshapelet':
             self.ptasignals.append(signal)
+            self.haveDetSources = True
 
         else:
             # Some other unknown signal
@@ -1576,6 +1597,10 @@ class PTAmodels(object):
                     flagname = sig['stype']
                     flagvalue = sig['parid'][jj]
                 
+                elif sig['stype'] == 'dmshapeletmarg':
+                    flagname = sig['stype']
+                    flagvalue = sig['parid'][jj]
+                
                 elif sig['stype'] == 'dmshapelet':
                     flagname = sig['stype']
                     flagvalue = sig['parid'][jj]
@@ -1914,7 +1939,7 @@ class PTAmodels(object):
             # which ones are varying
             sparameters[sig['bvary']] = parameters[parind:parind+npars]
 
-            if sig['stype'] == 'dmshapelet':
+            if sig['stype'] == 'dmshapeletmarg':
                 t0, width = sparameters[0], sparameters[1]
                 for ii in range(psr.ndmEventCoeffs):
                     amps = [1 if jj==ii else 0 for jj in range(psr.ndmEventCoeffs)]
@@ -2000,7 +2025,8 @@ class PTAmodels(object):
                     p.AGFF = np.dot(p.Amat.T, GtF)
             else:
                 p.FFtot = p.Ftot.copy()
-                p.AGFF = p.AGF
+                if p.twoComponentNoise:
+                    p.AGFF = p.AGF
 
 
     """
@@ -2154,7 +2180,7 @@ class PTAmodels(object):
                 # fill in kappa
                 self.psr[psrind].kappadmsingle = pcdoubled
 
-            if sig['stype'] == 'dmshapelet':
+            if sig['stype'] == 'dmshapeletmarg':
                 incDMshapelet = True
 
 
@@ -2447,6 +2473,17 @@ class PTAmodels(object):
                 # Generate the new residuals
                 psr.detresiduals = np.array(psr.t2psr.residuals(updatebats=True), 
                                             dtype=np.double) + offset
+
+
+            # dm shapelet
+            elif sig['stype'] == 'dmshapelet':
+                psr = self.psr[sig['pulsarind']]
+                t0, width, amps = sparameters[0], sparameters[1], sparameters[2:]
+                sig = PALutils.constructShapelet(psr.toas/86400, t0, width, amps) * \
+                            4.15e3/psr.freqs**2
+
+                psr.detresiduals -= sig
+
 
         
             # continuous wave signal
