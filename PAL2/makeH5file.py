@@ -28,6 +28,7 @@ except OSError:
 
 parFiles = glob.glob(args.pardir + '/*.par')
 timFiles = glob.glob(args.timdir + '/*.tim')
+print parFiles, timFiles
 
 
 df = PALdatafile.DataFile(args.h5file)

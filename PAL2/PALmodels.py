@@ -21,6 +21,8 @@ try:
 except ImportError:
     from ordereddict import OrderedDict
 
+import matplotlib.pyplot as plt
+
 
 """
 
@@ -577,8 +579,9 @@ class PTAmodels(object):
                 
                 tmperrs = np.sqrt(np.diag(Sigma))
                 tmpest = p.ptmpars
-                p.ptmparerrs = tmperrs
+                #p.ptmparerrs = tmperrs
                 #tmperrs = p.ptmparerrs
+                print p.ptmparerrs, tmperrs
                 #tmpest2 = np.dot(Sigma, np.dot(p.Mmat.T, w*p.detresiduals))
 
                 # Figure out which parameters we'll keep in the design matrix
@@ -599,6 +602,7 @@ class PTAmodels(object):
                 else:
                     newptmdescription = p.getNewTimingModelParameterList(keep=True, \
                         tmpars=['Offset', 'F0', 'F1', 'RAJ', 'DECJ', 'LAMBDA', \
+                                'ELONG', 'ELAT', \
                                 'BETA' ,'DM', 'DM1', 'DM2'] + jumps + dmx + fds)
 
 
@@ -682,7 +686,7 @@ class PTAmodels(object):
                             pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
                             pwidth += [tmperrs[jj]]
                             pstart += [tmpest[jj]]
-                        #print parid, pmin[-1], pmax[-1], pwidth[-1], pstart[-1]
+                        print parid, pmin[-1], pmax[-1], pwidth[-1], pstart[-1]
 
                 if nonLinear:
                     stype = 'nonlineartimingmodel'
@@ -1945,6 +1949,8 @@ class PTAmodels(object):
                     amps = [1 if jj==ii else 0 for jj in range(psr.ndmEventCoeffs)]
                     sig = PALutils.constructShapelet(psr.toas/86400, t0, width, amps) * \
                             4.15e3/psr.freqs**2
+                    #plt.plot(psr.toas/86400, sig/(4.15e3/psr.freqs**2), '.')
+                    #plt.show()
                     sig = sig[...,None]
                     if ii == 0:
                         psr.Ttmat = np.append(psr.Tmat, sig, axis=1)
@@ -2228,7 +2234,6 @@ class PTAmodels(object):
                         p.kappa_tot = np.concatenate((p.kappa_tot, np.log10(p.Qamp)))
                     if incDMshapelet:
                         p.kappa_tot = np.concatenate((p.kappa_tot, np.ones(p.ndmEventCoeffs)*80))
-
 
                 sigdiag.append(10**p.kappa_tot)
 
@@ -3788,6 +3793,78 @@ class PTAmodels(object):
     def zeroLogLikelihood(self, parameters):
 
         return 0
+    
+    """
+    Reconstruct ML signal from Tmatrix
+
+    EFAC + EQUAD + Red noise + DMV + GWs
+
+    No frequency lines
+
+    Uses Woodbury lemma and "T" matrix formalism
+
+    """
+
+    def reconstructML(self, parameters, incCorrelations=False, incJitter=False):
+
+        loglike = 0
+
+        # set pulsar white noise parameters
+        self.setPsrNoise(parameters, incJitter=False)
+
+        # set red noise, DM and GW parameters
+        self.constructPhiMatrix(parameters, incCorrelations=incCorrelations, \
+                                incTM=True, incJitter=incJitter)
+
+        # set deterministic sources
+        if self.haveDetSources:
+            self.updateDetSources(parameters)
+
+        self.updateTmatrix(parameters)
+
+        # compute the white noise terms in the log likelihood
+        TNT = []
+        nfref = 0
+        ml_vals, ml_errs = [], []
+        for ct, p in enumerate(self.psr):
+
+            # check for nans or infs
+            if np.any(np.isnan(p.detresiduals)) or np.any(np.isinf(p.detresiduals)):
+                return -np.inf
+                        
+                
+            # equivalent to T^T N^{-1} \delta t
+            if ct == 0:
+                d = np.dot(p.Ttmat.T, p.detresiduals/p.Nvec)
+            else:
+                d = np.append(d, np.dot(p.Ttmat.T, p.detresiduals/p.Nvec))
+
+            # compute T^T N^{-1} T
+            right = ((1/p.Nvec) * p.Ttmat.T).T
+            TNT.append(np.dot(p.Ttmat.T, right))
+
+            
+            # calculate red noise piece
+            if not incCorrelations:
+
+                # compute sigma
+                nf = p.Ttmat.shape[1]
+                Sigma = TNT[ct] + self.Phiinv[nfref:(nfref+nf), nfref:(nfref+nf)]
+                dd = d[nfref:(nfref+nf)]
+
+                # cholesky decomp for maximum likelihood fourier components
+                try:
+                    cf = sl.cho_factor(Sigma)
+                    ml_vals.append(sl.cho_solve(cf, dd))
+                    sigma_inv = sl.cho_solve(cf, np.eye(len(dd)))
+                    ml_errs.append(np.sqrt(np.diag(sigma_inv)))
+                except np.linalg.LinAlgError:
+                    return -np.inf
+
+                # increment frequency counter
+                nfref += nf
+
+        return ml_vals, ml_errs
 
         
     """
@@ -3848,6 +3925,8 @@ class PTAmodels(object):
     def mark3LogPrior(self, parameters):
 
         prior = 0
+        #for ct, pp in enumerate(parameters):
+        #    print pp, self.pmin[ct], pp >= self.pmin[ct]
         if np.all(parameters >= self.pmin) and np.all(parameters <= self.pmax):
             prior += -np.sum(np.log(self.pmax-self.pmin))
 

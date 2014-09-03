@@ -62,6 +62,8 @@ parser.add_argument('--incDMshapelet', dest='incDMshapelet', action='store_true'
                    help='include shapelet event for DM')
 parser.add_argument('--nshape', dest='nshape', type=int, action='store', default=3, \
                    help='number of coefficients for shapelet event for DM')
+parser.add_argument('--margShapelet', dest='margShapelet', action='store_true', default=False, \
+                   help='Analytically marginalize over shapelet coefficients')
 
 parser.add_argument('--incGWB', dest='incGWB', action='store_true',default=False,
                    help='include GWB')
@@ -188,8 +190,14 @@ elif args.incTimingModel and args.fullmodel and args.incNonGaussian:
 else:
     likfunc = 'mark1'
 
-if args.Tmatrix:
+if args.Tmatrix or args.margShapelet:
     likfunc = 'mark6'
+
+if args.margShapelet:
+    dmEventModel = 'shapeletmarg'
+else:
+    dmEventModel = 'shapelet'
+
 
 #likfunc= 'mark5'
 print likfunc
@@ -197,7 +205,7 @@ print likfunc
 fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     logf=args.logfrequencies, \
                     incDM=args.incDM, dmModel=args.dmModel, \
-                    incDMEvent=args.incDMshapelet, dmEventModel='shapelet', \
+                    incDMEvent=args.incDMshapelet, dmEventModel=dmEventModel, \
                     ndmEventCoeffs=args.nshape, \
                     separateEfacs=separateEfacs, separateEfacsByFreq=separateEfacsByFreq, \
                     separateEquads=separateEquads, separateEquadsByFreq=separateEquadsByFreq, \
@@ -298,7 +306,7 @@ if args.sampler == 'mcmc':
     else:
         loglike = model.mark1LogLikelihood
 
-    if args.Tmatrix:
+    if args.Tmatrix or args.margShapelet:
         loglike = model.mark6LogLikelihood
 
     #loglike = model.mark5LogLikelihood
