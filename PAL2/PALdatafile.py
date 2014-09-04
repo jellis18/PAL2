@@ -293,7 +293,7 @@ class DataFile(object):
                        overwrite=overwrite)  # Seconds
         self.writeData(psrGroup, 'toaErr', np.double(1e-6*t2pulsar.toaerrs[t2pulsar.deleted==0]),\
                        overwrite=overwrite)    # Seconds
-        self.writeData(psrGroup, 'freq', np.double(t2pulsar.freqs[t2pulsar.deleted==0]), \
+        self.writeData(psrGroup, 'freq', np.double(t2pulsar.freqsSSB[t2pulsar.deleted==0]/1e6), \
                        overwrite=overwrite)    # MHz
 
         # TODO: writing the design matrix should be done irrespective of the fitting flag
