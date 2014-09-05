@@ -334,9 +334,9 @@ class DataFile(object):
         tmperrpost = np.zeros(len(tmpname))
         for i in range(len(t2pulsar.pars)):
             tmpvalpre[i+1] = t2pulsar.prefit[tmpname[i+1]].val
-            tmpvalpost[i+1] = t2pulsar.prefit[tmpname[i+1]].val
+            tmpvalpost[i+1] = t2pulsar[tmpname[i+1]].val
             tmperrpre[i+1] = t2pulsar.prefit[tmpname[i+1]].err
-            tmperrpost[i+1] = t2pulsar.prefit[tmpname[i+1]].err
+            tmperrpost[i+1] = t2pulsar[tmpname[i+1]].err
 
         self.writeData(psrGroup, 'tmp_name', tmpname, overwrite=overwrite)          # TMP name
         self.writeData(psrGroup, 'tmp_valpre', tmpvalpre, overwrite=overwrite)      # TMP pre-fit value

@@ -579,7 +579,7 @@ class PTAmodels(object):
                 
                 tmperrs = np.sqrt(np.diag(Sigma))
                 tmpest = p.ptmpars
-                #p.ptmparerrs = tmperrs
+                p.ptmparerrs = tmperrs
                 #tmperrs = p.ptmparerrs
                 print p.ptmparerrs, tmperrs
                 #tmpest2 = np.dot(Sigma, np.dot(p.Mmat.T, w*p.detresiduals))
@@ -656,11 +656,11 @@ class PTAmodels(object):
                             pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
                             pwidth += [tmperrs[jj]]
                             pstart += [tmpest[jj]]
-                        elif parid == 'EDOT':
-                            pmin += [-500.0 * tmperrs[jj] + tmpest[jj]]
-                            pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
-                            pwidth += [tmperrs[jj]]
-                            pstart += [0]
+                        #elif parid == 'EDOT':
+                        #    pmin += [-500.0 * tmperrs[jj] + tmpest[jj]]
+                        #    pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
+                        #    pwidth += [tmperrs[jj]]
+                        #    pstart += [0]
                         
                         # make parameter be the 'parameter offset'
                         elif parid == 'Offset':
@@ -1706,6 +1706,7 @@ class PTAmodels(object):
             self.npftot[ii] = self.npf[ii] + self.npfdm[ii] + \
                     p.nSingleFreqs*2 + p.nSingleDMFreqs*2
             self.ntmpars += len(p.ptmdescription)
+            p.Ttmat = p.Tmat.copy()
 
             if self.likfunc == 'mark6':
                 nphiTmat += p.Tmat.shape[1] + p.nSingleFreqs*2 + p.nSingleDMFreqs*2 + \
@@ -3825,7 +3826,7 @@ class PTAmodels(object):
         # compute the white noise terms in the log likelihood
         TNT = []
         nfref = 0
-        ml_vals, ml_errs = [], []
+        ml_vals, ml_errs, chisq = [], [], []
         for ct, p in enumerate(self.psr):
 
             # check for nans or infs
@@ -3861,10 +3862,20 @@ class PTAmodels(object):
                 except np.linalg.LinAlgError:
                     return -np.inf
 
+                #p.detresiduals -= np.dot(p.Ttmat, ml_vals[-1])
+                d = np.dot(p.Ttmat.T, p.detresiduals/p.Nvec)
+
+                expval2 = sl.cho_solve(cf, d)
+
+                # triple product
+                rNr = np.dot(p.detresiduals, p.detresiduals/p.Nvec)
+
+                chisq.append(rNr - np.dot(d, expval2))
+
                 # increment frequency counter
                 nfref += nf
 
-        return ml_vals, ml_errs
+        return ml_vals, ml_errs, chisq
 
         
     """
