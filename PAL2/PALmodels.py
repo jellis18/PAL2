@@ -3998,7 +3998,7 @@ class PTAmodels(object):
         return loglike
 
     """
-    mark 6 log likelihood. Full unmarginalized likelihood
+    mark 7 log likelihood. Full unmarginalized likelihood
 
     EFAC + EQUAD + Red noise + DMV + TM + GWs
 
@@ -4006,7 +4006,7 @@ class PTAmodels(object):
    
     """
 
-    def mark6LogLikelihood(self, parameters, incCorrelations=True):
+    def mark7LogLikelihood(self, parameters, incCorrelations=True):
 
         loglike = 0
 

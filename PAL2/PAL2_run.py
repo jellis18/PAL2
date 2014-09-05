@@ -203,7 +203,7 @@ else:
     likfunc = 'mark1'
 
 if args.noMarg:
-    likfunc = 'mark6'
+    likfunc = 'mark7'
 
 #likfunc= 'mark5'
 print likfunc
@@ -316,7 +316,7 @@ if args.sampler == 'mcmc':
         loglike = model.mark1LogLikelihood
     
     if args.noMarg:
-        loglike = model.mark6LogLikelihood
+        loglike = model.mark7LogLikelihood
 
     #loglike = model.mark5LogLikelihood
 
