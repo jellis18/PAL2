@@ -736,6 +736,9 @@ class Pulsar(object):
         # For creating the auxiliaries it does not really matter: we are now
         # creating all quantities per default
         self.twoComponentNoise = twoComponent
+        if likfunc=='mark7':
+            self.twoComponentNoise = False
+
 
         # get Tmax
         self.Tmax = Tmax
@@ -883,7 +886,7 @@ class Pulsar(object):
         # Next we'll need the G-matrices, and the compression matrices.
         if tmpars is not None:
             # list of parameters to delete from design matrix
-            if likfunc == 'mark4' or likfunc == 'mark5':
+            if likfunc == 'mark4' or likfunc == 'mark5' or likfunc == 'mark7':
                 print 'Including all timing model parameters Numerically'
                 Mmat = self.Mmat
             else:

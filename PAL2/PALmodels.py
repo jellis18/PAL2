@@ -129,6 +129,7 @@ class PTAmodels(object):
             incRedNoise=False, noiseModel='powerlaw', fc=None, logf=False,\
             incDM=False, dmModel='powerlaw', \
             incDMEvent=False, dmEventModel='shapelet', ndmEventCoeffs=3, \
+            incRedFourierMode=False, incDMFourierMode=False, incGWFourierMode=False, \
             incScattering=False, scatteringModel='powerlaw', \
             incGWB=False, gwbModel='powerlaw', \
             incBWM=False, \
@@ -193,7 +194,7 @@ class PTAmodels(object):
                         "flagvalue":flagval,
                         "bvary":[varyEfac],
                         "pmin":[0.001],
-                        "pmax":[5.0],
+                        "pmax":[10.0],
                         "pwidth":[0.1],
                         "pstart":[1.0],
                         "prior":efacPrior
@@ -208,7 +209,7 @@ class PTAmodels(object):
                     "flagvalue":p.name,
                     "bvary":[varyEfac],
                     "pmin":[0.001],
-                    "pmax":[5.0],
+                    "pmax":[10.0],
                     "pwidth":[0.1],
                     "pstart":[1.0], 
                     "prior":efacPrior
@@ -443,6 +444,74 @@ class PTAmodels(object):
                     "prior":prior
                     })
                 signals.append(newsignal)
+
+
+            if incRedFourierMode:
+                bvary = [True]*2*nfreqs
+                pmin = [-1e-5]*2*nfreqs
+                pmax = [1e-5]*2*nfreqs
+                pstart = [0.0]*2*nfreqs
+                pwidth = [1e-8]*2*nfreqs
+                prior = [redSpectrumPrior]*2*nfreqs
+                
+                newsignal = OrderedDict({
+                    "stype":'redfouriermode',
+                    "corr":"single",
+                    "pulsarind":ii,
+                    "flagvalue":p.name,
+                    "bvary":bvary,
+                    "pmin":pmin,
+                    "pmax":pmax,
+                    "pwidth":pwidth,
+                    "pstart":pstart,
+                    "prior":prior
+                    })
+                signals.append(newsignal)
+            
+            if incDMFourierMode:
+                bvary = [True]*2*ndmfreqs
+                pmin = [-1e-2]*2*ndmfreqs
+                pmax = [1e-2]*2*ndmfreqs
+                pstart = [0.0]*2*ndmfreqs
+                pwidth = [1e-3]*2*ndmfreqs
+                prior = [DMSpectrumPrior]*2*ndmfreqs
+                
+                newsignal = OrderedDict({
+                    "stype":'dmfouriermode',
+                    "corr":"single",
+                    "pulsarind":ii,
+                    "flagvalue":p.name,
+                    "bvary":bvary,
+                    "pmin":pmin,
+                    "pmax":pmax,
+                    "pwidth":pwidth,
+                    "pstart":pstart,
+                    "prior":prior
+                    })
+                signals.append(newsignal)
+        
+            if incGWFourierMode:
+                bvary = [True]*2*nfreqs
+                pmin = [-1e-5]*2*nfreqs
+                pmax = [1e-5]*2*nfreqs
+                pstart = [0.0]*2*nfreqs
+                pwidth = [1e-7]*2*nfreqs
+                prior = [GWSpectrumPrior]*2*nfreqs
+                
+                newsignal = OrderedDict({
+                    "stype":'gwfouriermode',
+                    "corr":"gr",
+                    "pulsarind":ii,
+                    "flagvalue":p.name,
+                    "bvary":bvary,
+                    "pmin":pmin,
+                    "pmax":pmax,
+                    "pwidth":pwidth,
+                    "pstart":pstart,
+                    "prior":prior
+                    })
+                signals.append(newsignal)
+
             
             if incScattering:
                 if scatteringModel=='spectrum':
@@ -907,6 +976,12 @@ class PTAmodels(object):
             # A DM variation signal
             self.addSignalDMV(signal)
             self.haveStochSources = True
+                    
+        
+        elif signal['stype'] in ['redfouriermode', 'dmfouriermode', 'gwfouriermode']:
+            # fourier amplitudes
+            self.ptasignals.append(signal)
+            self.haveDetSources = True
 
         elif signal['stype'] == 'cw':
             # a continuous GW signal
@@ -1500,8 +1575,8 @@ class PTAmodels(object):
             self.addSignal(signal, index, p.Tmax)
             index += self.ptasignals[-1]['npars']
 
-        self.allocateLikAuxiliaries()
         self.initPrior()
+        self.allocateLikAuxiliaries()
         #self.pardes = self.getModelParameterList()
 
     """
@@ -1608,6 +1683,20 @@ class PTAmodels(object):
                 elif sig['stype'] == 'dmshapelet':
                     flagname = sig['stype']
                     flagvalue = sig['parid'][jj]
+                
+                elif sig['stype'] == 'redfouriermode':
+                    flagname = 'redfourier'
+                    flagvalue = sig['flagvalue'] + '_ared_' + \
+                            str(self.psr[psrindex].Ffreqs[jj])
+                
+                elif sig['stype'] == 'dmfouriermode':
+                    flagname = 'dmfourier'
+                    flagvalue = sig['flagvalue'] + '_adm_' + \
+                            str(self.psr[psrindex].Fdmfreqs[jj])
+                
+                elif sig['stype'] == 'gwfouriermode':
+                    flagname = 'gwfourier'
+                    flagvalue = sig['flagvalue'] + '_agw_' + str(self.gwfreqs[jj])
             
                 else:
                     flagname = 'none'
@@ -1694,6 +1783,7 @@ class PTAmodels(object):
         self.npobs = np.zeros(self.npsr, dtype=np.int)
         self.npgs = np.zeros(self.npsr, dtype=np.int)
         self.npgos = np.zeros(self.npsr, dtype=np.int)
+        self.gradient = np.zeros(self.dimensions)
         self.ntmpars = 0
         nphiTmat = 0
         
@@ -1706,9 +1796,9 @@ class PTAmodels(object):
             self.npftot[ii] = self.npf[ii] + self.npfdm[ii] + \
                     p.nSingleFreqs*2 + p.nSingleDMFreqs*2
             self.ntmpars += len(p.ptmdescription)
-            p.Ttmat = p.Tmat.copy()
 
             if self.likfunc == 'mark6':
+                p.Ttmat = p.Tmat.copy()
                 nphiTmat += p.Tmat.shape[1] + p.nSingleFreqs*2 + p.nSingleDMFreqs*2 + \
                         p.ndmEventCoeffs
 
@@ -1807,6 +1897,230 @@ class PTAmodels(object):
         #    self.rGE = np.zeros(np.sum(self.npff)+np.sum(self.npffdm))
         #    self.EGGNGGE = np.zeros((np.sum(self.npff)+np.sum(self.npffdm), \
         #            np.sum(self.npff)+np.sum(self.npffdm)))
+
+    """
+    Fill in vector or Fourier amplitudes for all sources
+
+    TODO: clean this up a bit
+
+    """
+    def setFourierAmplitudes(self, parameters, returnIndices=False):
+
+        # loop over signals
+        ared, adm, agw, indices = [], [], [], []
+        for ss, sig in enumerate(self.ptasignals):
+            # short hand
+            psrind = sig['pulsarind']
+            parind = sig['parindex']
+            npars = sig['npars']
+            
+            # parameters for this signal
+            sparameters = sig['pstart'].copy()
+
+            # which ones are varying
+            sparameters[sig['bvary']] = parameters[parind:parind+npars]
+
+            if sig['stype'] == 'redfouriermode':
+                ared.append(sparameters)
+                indices.append(np.arange(parind,parind+npars))
+            
+            if sig['stype'] == 'dmfouriermode':
+                adm.append(sparameters)
+                indices.append(np.arange(parind,parind+npars))
+            
+            if sig['stype'] == 'gwfouriermode':
+                agw.append(sparameters)
+                indices.append(np.arange(parind,parind+npars))
+
+        # loop over all pulsars and fill in total a array
+        aarray = []
+        for ct, p in enumerate(self.psr):
+
+            if len(ared) != 0 and len(adm) != 0:
+                atot = np.concatenate((ared[ct], adm[ct]))
+            elif len(ared) != 0 and len(adm) == 0:
+                atot = ared[ct]
+            elif len(ared) == 0 and len(adm) != 0:
+                atot = adm[ct]
+
+            # GW piece
+            if len(adm) > 0:
+                gwamp = np.concatenate((agw[ct], np.zeros(len(adm[ct]))))
+            elif len(agw) == 0:
+                gwamp = 0
+            else:
+                gwamp = agw[ct]
+
+            # append to diagonal elements
+            if len(atot) > 0:
+                aarray.append(atot + gwamp)
+            else:
+                aarrayappend(gwamp)
+
+        if returnIndices:
+            ret = (np.array(aarray).flatten(), np.array(indices).flatten())
+        else:
+            ret = np.array(aarray).flatten()
+
+        return ret
+
+
+    """
+    Construct the gradient of various parameters for use
+    in HMC and MALA.
+
+    Does not include GWB correlations yet
+
+    TODO: make more robust, very specific at the moment
+    """
+    def constructGradients(self, parameters, incCorrelations=False):
+
+        # set pulsar white noise parameters
+        self.setPsrNoise(parameters, incJitter=False)
+
+        # set red noise, DM and GW parameters
+        self.constructPhiMatrix(parameters, incCorrelations=incCorrelations)
+        
+        # frequency lines
+        #self.updateSpectralLines(parameters)
+
+        # set deterministic sources
+        if self.haveDetSources:
+            self.updateDetSources(parameters)
+
+        # first do fourier modes as they are a bit different
+        a, ind = self.setFourierAmplitudes(parameters, returnIndices=True)
+        Phiinva = np.diag(self.Phiinv) * a
+        for ct, p in enumerate(self.psr):
+            
+            # F^T N^{-1} (dt-Fa-Me)
+            if ct == 0:
+                d = np.dot(p.Ftot.T, p.detresiduals/p.Nvec)
+            else:
+                d = np.append(d, np.dot(p.Ftot.T, p.detresiduals/p.Nvec))
+
+        # fill in gradient
+        self.gradient[ind] = d - Phiinva
+
+        
+        # loop over all signals
+        for ss, sig in enumerate(self.ptasignals):        
+            
+            # short hand
+            psrind = sig['pulsarind']
+            parind = sig['parindex']
+            npars = sig['npars']
+            p = self.psr[psrind]
+            
+            # parameters for this signal
+            sparameters = sig['pstart'].copy()
+
+            # which ones are varying
+            sparameters[sig['bvary']] = parameters[parind:parind+npars]
+
+            # linear timing model parameters (not doing non-linear yet)
+            if sig['stype'] == 'lineartimingmodel':
+
+                self.gradient[parind:parind+npars] = np.dot(p.Mmat.T, p.detresiduals/p.Nvec)
+                
+                # check for special parameterizations
+                pindex = 0
+                for jj in range(sig['ntotpars']):
+                    if sig['bvary'][jj]:
+
+                        if sig['parid'][jj] in ['F0', 'F1', 'Offset']:
+                            self.gradient[parind+jj] *= p.ptmparerrs[jj]
+
+                        pindex += 1
+
+            # efac
+            if sig['stype'] == 'efac':
+
+                efac = sparameters
+
+                # this efac only applies to some TOAs
+                ind = np.flatnonzero(sig['Nvec'])
+
+                self.gradient[parind] = -len(ind)/efac + \
+                        1/efac * np.dot(p.detresiduals[ind]**2,1/p.Nvec[ind])
+            
+            # equad
+            if sig['stype'] == 'equad':
+
+                equad = 10**sparameters
+                
+                # this equad only applies to some TOAs
+                ind = np.flatnonzero(sig['Nvec'])
+
+                self.gradient[parind] = -0.5*len(ind)*np.log(10) + \
+                        0.5* np.dot(p.detresiduals[ind]**2, 1/p.Nvec[ind]) * np.log(10)
+
+            # red spectral components
+            if sig['stype'] == 'spectrum':
+
+                if sig['corr'] == 'single':
+
+                    # get power spectrum coefficients
+                    rho = np.array([sparameters, sparameters]).T.flatten()
+
+                    # get corresponding fourier modes
+                    ind = self.getSignalNumbersFromDict(self.ptasignals, \
+                                stype='redfouriermode', psrind=psrind)
+                    fourierdict = self.ptasignals[ind]
+                    psrind_a = fourierdict['pulsarind']
+                    parind_a = fourierdict['parindex']
+                    npars_a = fourierdict['npars']
+
+                    avals = fourierdict['pstart'].copy()
+                    avals[fourierdict['bvary']] = parameters[psrind_a:psrind_a:npars_a]
+
+                    # loop over coefficients
+                    for jj in range(npars):
+
+                        self.gradient[parind+jj] = -np.log(10) + 0.5*np.log(10) * \
+                                np.sum(avals[2*jj:2*jj+1]**2/ \
+                                       rho[2*jj:2*jj+1])
+
+            # red powerlaw
+            if sig['stype'] == 'powerlaw':
+
+                if sig['corr'] == 'single':
+
+                    # get amplitude and spectral index
+                    Amp = 10**sparameters[0]
+                    gamma = sparameters[1]
+                    
+                    freqpy = p.Ffreqs
+                    f1yr = 1/3.16e7
+                    #f1yr = 1/self.psr[psrind].Tmax 
+                    rho = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
+                                         freqpy**(-gamma)/sig['Tmax'])
+
+                    # get corresponding fourier modes
+                    ind = self.getSignalNumbersFromDict(self.ptasignals, \
+                                stype='redfouriermode', psrind=psrind)
+                    fourierdict = self.ptasignals[ind]
+                    psrind_a = fourierdict['pulsarind']
+                    parind_a = fourierdict['parindex']
+                    npars_a = fourierdict['npars']
+
+                    avals = fourierdict['pstart'].copy()
+                    avals[fourierdict['bvary']] = parameters[psrind_a:psrind_a:npars_a]
+
+                    # loop over coefficients
+                    for jj in range(int(len(p.Ffreqs)/2)):
+                        
+                        # logA gradient
+                        self.gradient[parind] += (-np.log(10) + 0.5*np.log(10) * \
+                                np.sum(avals[2*jj:2*jj+1]**2/ \
+                                       rho[2*jj:2*jj+1])) * 2
+
+                        self.gradient[parind+1] += 0.5 * np.log10(f1yr/p.Ffreqs[jj]) * \
+                                            self.gradient[parind]
+
+
+
+        return self.gradient
 
 
    
@@ -2442,11 +2756,11 @@ class PTAmodels(object):
                     if sig['bvary'][jj]:
                         # check for direct offset parameters
                         if sig['parid'][jj] == 'Offset':
-                            offset += [sparameters[pindex]]
+                            offset += [sparameters[pindex]*psr.ptmparerrs[jj]]
                         elif sig['parid'][jj] == 'F0':
-                            offset += [sparameters[pindex]]
+                            offset += [sparameters[pindex]*psr.ptmparerrs[jj]]
                         elif sig['parid'][jj] == 'F1':
-                            offset += [sparameters[pindex]]
+                            offset += [sparameters[pindex]*psr.ptmparerrs[jj]]
                         else:
                             offset += [sparameters[pindex]-sig['pstart'][jj]]
 
@@ -2454,6 +2768,7 @@ class PTAmodels(object):
 
                 # residuals = M * pars
                 psr.detresiduals -= np.dot(Mmat, np.array(offset))
+                #print  np.dot(Mmat, np.array(offset))
 
             elif sig['stype'] == 'nonlineartimingmodel':
                 # The t2psr libstempo object has to be set. Assume it is.
@@ -2479,6 +2794,24 @@ class PTAmodels(object):
                 # Generate the new residuals
                 psr.detresiduals = np.array(psr.t2psr.residuals(updatebats=True), 
                                             dtype=np.double) + offset
+            
+            # fourier modes
+            if sig['stype'] in ['redfouriermode', 'gwfouriermode']:
+                pp = sig['pulsarind']
+                psr = self.psr[pp]
+                
+                # fourier amplitudes
+                a = sparameters
+                psr.detresiduals -= np.dot(psr.Fmat, a)
+
+            if sig['stype'] == 'dmfouriermode':
+                pp = sig['pulsarind']
+                psr = self.psr[pp]
+                
+                # fourier amplitudes
+                a = sparameters
+
+                psr.detresiduals -= np.dot(psr.DF, a)
 
 
             # dm shapelet
@@ -3785,6 +4118,60 @@ class PTAmodels(object):
 
         return loglike
 
+    
+    """
+    mark 7 log likelihood. Full unmarginalized likelihood
+
+    EFAC + EQUAD + Red noise + DMV + TM + GWs
+
+    No jitter yet or frequency lines yet
+   
+    """
+
+    def mark7LogLikelihood(self, parameters, incCorrelations=True):
+
+        loglike = 0
+
+
+        # set pulsar white noise parameters
+        self.setPsrNoise(parameters, incJitter=False)
+
+        # set red noise, DM and GW parameters
+        self.constructPhiMatrix(parameters, incCorrelations=incCorrelations)
+        
+        # frequency lines
+        #self.updateSpectralLines(parameters)
+
+        # set deterministic sources
+        if self.haveDetSources:
+            self.updateDetSources(parameters)
+
+        
+        # compute the white noise terms in the log likelihood
+        rNr = []
+        for ct, p in enumerate(self.psr):
+
+            # log determinant of N
+            logdet_N = np.sum(np.log(p.Nvec))
+
+            # triple product
+            rNr = np.dot(p.detresiduals, p.detresiduals/p.Nvec)
+
+            # first component of likelihood function
+            loglike += -0.5 * (logdet_N + rNr)
+        
+        # Fourier amplitude prior
+        a = self.setFourierAmplitudes(parameters)
+        if incCorrelations:
+            aPhia = np.dot(a.T, np.dot(self.Phiinv, a))
+        else:
+            aPhia = np.dot(a.T, (np.diag(self.Phiinv)*a))
+        
+        loglike += -0.5 * (self.logdetPhi + aPhia)
+
+        return loglike
+
+
 
 
     
@@ -3862,7 +4249,7 @@ class PTAmodels(object):
                 except np.linalg.LinAlgError:
                     return -np.inf
 
-                #p.detresiduals -= np.dot(p.Ttmat, ml_vals[-1])
+                p.detresiduals -= np.dot(p.Ttmat, ml_vals[-1])
                 d = np.dot(p.Ttmat.T, p.detresiduals/p.Nvec)
 
                 expval2 = sl.cho_solve(cf, d)

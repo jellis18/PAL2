@@ -585,7 +585,11 @@ def exploderMatrixNoSingles(times, flags, dt=10):
         
     for i in isort[1:]:
         if times[i] - bucket_ref[-1][0] < dt and flags[i] == bucket_ref[-1][1]:
-            bucket_ind[-1].append(i)
+            if 'ABPP-L' in flags[i]:
+                bucket_ref.append([times[i], flags[i]])
+                bucket_ind.append([i])
+            else:
+                bucket_ind[-1].append(i)
         else:
             bucket_ref.append([times[i], flags[i]])
             bucket_ind.append([i])
