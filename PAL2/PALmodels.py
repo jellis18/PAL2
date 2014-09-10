@@ -450,7 +450,7 @@ class PTAmodels(object):
                 bvary = [True]*2*nfreqs
                 pmin = [-1e-5]*2*nfreqs
                 pmax = [1e-5]*2*nfreqs
-                pstart = [0.0]*2*nfreqs
+                pstart = [1e-9]*2*nfreqs
                 pwidth = [1e-8]*2*nfreqs
                 prior = [redSpectrumPrior]*2*nfreqs
                 
@@ -2767,7 +2767,9 @@ class PTAmodels(object):
                         pindex += 1
 
                 # residuals = M * pars
+                eps = np.dot(psr.Vmat.T, np.array(offset))*psr.Svec
                 psr.detresiduals -= np.dot(Mmat, np.array(offset))
+                #psr.detresiduals -= np.dot(Mmat, eps)
                 #print  np.dot(Mmat, np.array(offset))
 
             elif sig['stype'] == 'nonlineartimingmodel':
@@ -4223,9 +4225,9 @@ class PTAmodels(object):
                 
             # equivalent to T^T N^{-1} \delta t
             if ct == 0:
-                d = np.dot(p.Ttmat.T, p.detresiduals/p.Nvec)
+                d = np.dot(p.Ttmat.T, p.residuals/p.Nvec)
             else:
-                d = np.append(d, np.dot(p.Ttmat.T, p.detresiduals/p.Nvec))
+                d = np.append(d, np.dot(p.Ttmat.T, p.residuals/p.Nvec))
 
             # compute T^T N^{-1} T
             right = ((1/p.Nvec) * p.Ttmat.T).T

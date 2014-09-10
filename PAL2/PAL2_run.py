@@ -109,6 +109,8 @@ parser.add_argument('--tmmodel', dest='tmmodel', action='store', type=str, \
 parser.add_argument('--fullmodel', dest='fullmodel', action='store_true', \
                     default=False, \
                     help='Use full timing model, no marginalization')
+parser.add_argument('--noMarg', dest='noMarg', action='store_true',default=False,
+                   help='No analytic marginalization')
 
 parser.add_argument('--incNonGaussian', dest='incNonGaussian', action='store_true', \
                     default=False, \
@@ -181,6 +183,16 @@ separateJitterByFreq = args.separateJitter == 'frequencies'
 separateJitterEquad = args.separateJitterEquad == 'backend'
 separateJitterEquadByFreq = args.separateJitterEquad == 'frequencies'
 
+# no marginalization setting
+incRedFourierMode, incDMFourierMode, incGWFourierMode = False, False, False
+if args.noMarg:
+    if args.incRed:
+        incRedFourierMode = True
+    if args.incGWB:
+        incGWFourierMode = True
+    if args.incDM:
+        incDMFourierMode = True
+
 if args.incJitter or args.incJitterEquad or args.incJitterEpoch:
     likfunc = 'mark2'
 elif args.incTimingModel and args.fullmodel and not args.incNonGaussian:
@@ -189,6 +201,9 @@ elif args.incTimingModel and args.fullmodel and args.incNonGaussian:
     likfunc='mark5'
 else:
     likfunc = 'mark1'
+
+if args.noMarg:
+    likfunc = 'mark7'
 
 if args.Tmatrix or args.margShapelet:
     likfunc = 'mark6'
@@ -201,7 +216,6 @@ else:
 
 #likfunc= 'mark5'
 print likfunc
-
 fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     logf=args.logfrequencies, \
                     incDM=args.incDM, dmModel=args.dmModel, \
@@ -212,6 +226,8 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     separateJitter=separateJitter, separateJitterByFreq=separateJitterByFreq, \
                     separateJitterEquad=separateJitterEquad, \
                     separateJitterEquadByFreq=separateJitterEquadByFreq, \
+                    incRedFourierMode=incRedFourierMode, incDMFourierMode=incDMFourierMode, \
+                    incGWFourierMode=incGWFourierMode, \
                     incEquad=args.incEquad, incJitter=args.incJitter, \
                     incTimingModel=args.incTimingModel, nonLinear=args.tmmodel=='nonlinear', \
                     fulltimingmodel=args.fullmodel, incNonGaussian=args.incNonGaussian, \
@@ -308,6 +324,9 @@ if args.sampler == 'mcmc':
 
     if args.Tmatrix or args.margShapelet:
         loglike = model.mark6LogLikelihood
+    if args.noMarg:
+        loglike = model.mark7LogLikelihood
+                                
 
     #loglike = model.mark5LogLikelihood
 

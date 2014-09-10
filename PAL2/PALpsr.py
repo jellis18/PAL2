@@ -921,6 +921,13 @@ class Pulsar(object):
         self.Gmat = U[:, Mmat.shape[1]:].copy()
         self.Gcmat = U[:, :Mmat.shape[1]].copy()
 
+
+        ########
+        M, S, V = np.linalg.svd(Mmat, full_matrices=False)
+        #self.Mmat = M
+        self.Svec = S
+        self.Vmat = V.T
+
         # T matrix
         if likfunc == 'mark6':
             self.Tmat = np.concatenate((self.Mmat, self.Ftot), axis=1)
