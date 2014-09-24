@@ -1058,7 +1058,7 @@ class PTAmodels(object):
             self.addSignalTimeCorrelated(signal)
             self.haveStochSources = True
             if signal['corr'] in ['gr_sph']:
-               psr_locs = [[p.phi, p.theta] for p in self.psr]
+               psr_locs = np.array([[p.phi[0], p.theta[0]] for p in self.psr])
                lmax = signal['lmax']
                self.AniBasis = ani.CorrBasis(psr_locs, lmax)# nside=32, ephem=False)
 
@@ -1737,7 +1737,7 @@ class PTAmodels(object):
                     flagname = 'cw'
                     flagvalue = sig['parid'][jj]
 
-                elif sig['stype'] == 'powerlaw':
+                elif sig['stype'] == 'powerlaw' and sig['corr'] != 'gr_sph':
                     flagname = 'powerlaw'
 
                     if sig['corr'] == 'gr':
@@ -1785,8 +1785,9 @@ class PTAmodels(object):
                     flagvalue = sig['parid'][jj]
                 
                 elif sig['corr'] == 'gr_sph':
-                    flagname = sig['stype']
-                    flagvalue = sig['parid'][jj]
+                    if sig['bvary'][jj]:
+                        flagname = sig['stype']
+                        flagvalue = sig['parid'][jj]
                 
                 elif sig['stype'] in ['DMXconstantKernel', 'DMXseKernel']:
                     flagname = sig['stype']
