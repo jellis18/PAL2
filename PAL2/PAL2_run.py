@@ -83,6 +83,8 @@ parser.add_argument('--GWBAmpPrior', dest='GWBAmpPrior', action='store', type=st
 
 parser.add_argument('--incGWBAni', dest='incGWBAni', action='store_true',default=False,
                    help='include GWB')
+parser.add_argument('--nls', dest='nls', action='store', type=int, default=2,
+                   help='number of ls to use in anisitropic search')
 
 parser.add_argument('--incEquad', dest='incEquad', action='store_true',default=False,
                    help='include Equad')
@@ -237,6 +239,7 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     incDMEvent=args.incDMshapelet, dmEventModel=dmEventModel, \
                     ndmEventCoeffs=args.nshape, \
                     incDMX=args.incDMX, \
+                    incGWBAni=args.incGWBani, numLs=args.nls,\
                     incDMXKernel=incDMXKernel, DMXKernelModel=DMXKernelModel, \
                     separateEfacs=separateEfacs, separateEfacsByFreq=separateEfacsByFreq, \
                     separateEquads=separateEquads, separateEquadsByFreq=separateEquadsByFreq, \
@@ -360,7 +363,7 @@ if args.sampler == 'mcmc':
     
     # log likelihood arguments
     loglkwargs = {}
-    if args.noCorrelations or not(args.incGWB):
+    if args.noCorrelations or not(np.any([args.incGWB, args.incGWBAni])):
         print 'Running model with no GWB correlations'
         loglkwargs['incCorrelations'] = False
     if args.incJitterEquad and args.Tmatrix:
