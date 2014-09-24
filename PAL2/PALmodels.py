@@ -943,7 +943,7 @@ class PTAmodels(object):
                 prior = [GWAmpPrior, GWSiPrior, 'log']
                 prior += ['uniform'] * (2*numLs+1)
                 parids = ['aGWB-Amplitude', 'aGWB-SpectralIndex', 'fL']
-                parids += [x = ['c_' +str(l) + str(m) for l in range(numLs) \
+                parids += [['c_' +str(l) + str(m) for l in range(numLs) \
                                 for m in range(-numLs,numLs)]]
 
             newsignal = OrderedDict({
