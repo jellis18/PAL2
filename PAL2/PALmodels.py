@@ -10,7 +10,7 @@ import tempfile
 import scipy.linalg as sl
 import scipy.special as ss
 from numpy.polynomial.hermite import hermval
-import AnisCoefficients_pix as ani
+import AnisCoefficientsV2 as ani
 
 import PALutils
 import PALdatafile
