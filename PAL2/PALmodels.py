@@ -1060,7 +1060,7 @@ class PTAmodels(object):
             if signal['corr'] in ['gr_sph']:
                psr_locs = [[p.phi, p.theta] for p in self.psr]
                lmax = signal['lmax']
-               self.AniBasis = ani.CorrBasis(psr_locs, lmax, nside=32, ephem=False)
+               self.AniBasis = ani.CorrBasis(psr_locs, lmax)# nside=32, ephem=False)
 
         elif signal['stype'] in ['dmpowerlaw', 'dmspectrum']:
             # A DM variation signal
