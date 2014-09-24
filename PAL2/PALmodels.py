@@ -955,7 +955,7 @@ class PTAmodels(object):
                 "pmax":pmax,
                 "pwidth":pwidth,
                 "pstart":pstart,
-                "parid":parids
+                "parid":parids,
                 "prior":prior,
                 "lmax":numLs
                 })
