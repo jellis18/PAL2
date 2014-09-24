@@ -926,7 +926,7 @@ class PTAmodels(object):
                 prior = [GWspectrumPrior]*nfreqs
                 prior += ['uniform'] * (2*numLs+1)
                 parids = ['rho_'+ str(f) for f in p.Ffreqs]
-                parids += [x = ['c_' +str(l) + str(m) for l in range(numLs) \
+                parids += [['c_' +str(l) + str(m) for l in range(numLs) \
                                 for m in range(-numLs,numLs)]]
 
             elif gwbModel=='powerlaw':
