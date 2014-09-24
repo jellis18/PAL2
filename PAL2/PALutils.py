@@ -577,6 +577,15 @@ def exploderMatrix(times, freqs=None, dt=10, flags=None):
     else:
         return avetoas, U
 
+
+def constructSEkernel(times, lam, amp):
+
+    tm = createTimeLags(times, times)
+    K = amp**2 * np.exp(-tm**2/2/lam**2)
+
+    return K    
+
+
 def exploderMatrixNoSingles(times, flags, dt=10):
     isort = np.argsort(times)
     

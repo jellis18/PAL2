@@ -132,7 +132,9 @@ class PTAmodels(object):
             incRedFourierMode=False, incDMFourierMode=False, incGWFourierMode=False, \
             incScattering=False, scatteringModel='powerlaw', \
             incGWB=False, gwbModel='powerlaw', \
-            incBWM=False, \
+            incGWBAni=False, numLs=2, \
+            incBWM=False, incDMX=False,\
+            incDMXKernel=False, DMXKernelModel='linear', \
             incCW=False, incPulsarDistance=False, \
             varyEfac=True, separateEfacs=False, separateEfacsByFreq=False, \
             incEquad=False,separateEquads=False, separateEquadsByFreq=False, \
@@ -624,6 +626,39 @@ class PTAmodels(object):
                     "prior":priors
                     })
                 signals.append(newsignal)
+            
+            if incDMXKernel:
+                if DMXKernelModel == 'constant':
+                    stype = 'DMXconstantKernel'
+                    bvary = [True] 
+                    pmin = [-7.0]
+                    pmax = [-1.0]
+                    pwidth = [0.1]
+                    pstart = [-6.0]
+                    parids = ['DMXconstantKernel_amp']
+                    priors = ['log']
+                elif DMXKernelModel == 'se' or DMXKernelModel == 'SE':
+                    stype = 'DMXseKernel'
+                    bvary = [True] * 2
+                    pmin = [-7.0, 14 ]
+                    pmax = [-1.0, 50]
+                    pwidth = [0.1, 1]
+                    pstart = [-6.0, 30]
+                    parids = ['DMXseKernel_amp', 'DMXseKernel_cts']
+                    priors = ['log', 'linear']
+                newsignal = OrderedDict({
+                    "stype":stype,
+                    "corr":"single",
+                    "pulsarind":ii,
+                    "bvary":bvary,
+                    "pmin":pmin,
+                    "pmax":pmax,
+                    "pwidth":pwidth,
+                    "pstart":pstart,
+                    "parid":parids,
+                    "prior":priors
+                    })
+                signals.append(newsignal)
 
             
             if incTimingModel:
@@ -876,6 +911,55 @@ class PTAmodels(object):
                 "prior":prior
                 })
             signals.append(newsignal)
+        
+        if incGWBAni:
+            if gwbModel=='spectrum':
+                bvary = [True]*(nfreqs + 2*numLs+1)
+                pmin = [-18.0]*nfreqs
+                pmin += [-5] * (2*numLs+1)
+                pmax = [-8.0]*nfreqs
+                pmax += [5] * (2*numLs+1)
+                pstart = [-10.0]*nfreqs
+                pstart += [0.0] * (2*numLs+1)
+                pwidth = [0.1]*nfreqs
+                pwidth += [0.1] * (2*numLs+1)
+                prior = [GWspectrumPrior]*nfreqs
+                prior += ['uniform'] * (2*numLs+1)
+                parids = ['rho_'+ str(f) for f in p.Ffreqs]
+                parids += [x = ['c_' +str(l) + str(m) for l in range(numLs) \
+                                for m in range(-numLs,numLs)]]
+
+            elif gwbModel=='powerlaw':
+                bvary = [True, True, False]
+                bvary += [True] * (2*numLs+1)
+                pmin = [-17.0, 1.02, 1.0e-11]
+                pmin += [-5] * (2*numLs+1)
+                pmax = [-11.0, 6.98, 3.0e-9]
+                pmax += [5] * (2*numLs+1)
+                pstart = [-15.0, 2.01, 1.0e-10]
+                pstart += [0.0] * (2*numLs+1)
+                pwidth = [0.1, 0.1, 5.0e-11]
+                pwidth += [0.1] * (2*numLs+1)
+                prior = [GWAmpPrior, GWSiPrior, 'log']
+                prior += ['uniform'] * (2*numLs+1)
+                parids = ['aGWB-Amplitude', 'aGWB-SpectralIndex', 'fL']
+                parids += [x = ['c_' +str(l) + str(m) for l in range(numLs) \
+                                for m in range(-numLs,numLs)]]
+
+            newsignal = OrderedDict({
+                "stype":gwbModel,
+                "corr":"gr_sph",
+                "pulsarind":-1,
+                "bvary":bvary,
+                "pmin":pmin,
+                "pmax":pmax,
+                "pwidth":pwidth,
+                "pstart":pstart,
+                "parid":parids
+                "prior":prior,
+                "lmax":numLs
+                })
+            signals.append(newsignal)
 
         # The list of signals
         modeldict = OrderedDict({
@@ -888,6 +972,7 @@ class PTAmodels(object):
             "compression":compression,
             "logfrequencies":logf,
             "targetAmp":targetAmp,
+            "incDMX":incDMX,
             "orderFrequencyLines":orderFrequencyLines,
             "evalCompressionComplement":evalCompressionComplement,
             "likfunc":likfunc,
@@ -971,6 +1056,10 @@ class PTAmodels(object):
             # Any time-correlated signal
             self.addSignalTimeCorrelated(signal)
             self.haveStochSources = True
+            if signal['corr'] in ['gr_sph']:
+               psr_locs = [[p.phi, p.theta] for p in psr]
+               lmax = signal['lmax']
+               self.AniBasis = ani.CorrBasis(psr_locs, lmax, nside=32, ephem=False)
 
         elif signal['stype'] in ['dmpowerlaw', 'dmspectrum']:
             # A DM variation signal
@@ -1016,6 +1105,9 @@ class PTAmodels(object):
             self.haveFrequencyLines = True
 
         elif signal['stype'] == 'dmshapeletmarg':
+            self.ptasignals.append(signal)
+        
+        elif signal['stype'] in ['DMXconstantKernel', 'DMXseKernel']:
             self.ptasignals.append(signal)
         
         elif signal['stype'] == 'dmshapelet':
@@ -1460,6 +1552,7 @@ class PTAmodels(object):
         likfunc = fullmodel['likfunc']
         signals = fullmodel['signals']
         targetAmp = fullmodel['targetAmp']
+        incDMX = fullmodel['incDMX']
 
         if len(self.psr) < 1:
             raise IOError, "No pulsars loaded"
@@ -1566,7 +1659,7 @@ class PTAmodels(object):
                                 nSingleDMFreqs=numSingleDMFreqs[pindex], \
                                 likfunc=likfunc, compression=compression, \
                                 write=write, tmpars=tmpars, memsave=memsave, \
-                                         incJitter=incJitter[pindex])
+                                         incJitter=incJitter[pindex], incDMX=incDMX)
 
         # Initialise the ptasignal objects
         self.ptasignals = []
@@ -1647,21 +1740,27 @@ class PTAmodels(object):
                     flagname = 'powerlaw'
 
                     if sig['corr'] == 'gr':
-                        flagvalue = ['GWB-Amplitude', 'GWB-spectral-index', 'low-frequency-cutoff'][jj]
+                        flagvalue = ['GWB-Amplitude', 'GWB-spectral-index', \
+                                     'low-frequency-cutoff'][jj]
                     elif sig['corr'] == 'uniform':
-                        flagvalue = ['CLK-Amplitude', 'CLK-spectral-index', 'low-frequency-cutoff'][jj]
+                        flagvalue = ['CLK-Amplitude', 'CLK-spectral-index', \
+                                     'low-frequency-cutoff'][jj]
                     elif sig['corr'] == 'dipole':
-                        flagvalue = ['DIP-Amplitude', 'DIP-spectral-index', 'low-frequency-cutoff'][jj]
+                        flagvalue = ['DIP-Amplitude', 'DIP-spectral-index', \
+                                     'low-frequency-cutoff'][jj]
                     else:
-                        flagvalue = ['RN-Amplitude', 'RN-spectral-index', 'low-frequency-cutoff'][jj]
+                        flagvalue = ['RN-Amplitude', 'RN-spectral-index', \
+                                     'low-frequency-cutoff'][jj]
 
                 elif sig['stype'] == 'dmpowerlaw':
                     flagname = 'dmpowerlaw'
-                    flagvalue = ['DM-Amplitude', 'DM-spectral-index', 'low-frequency-cutoff'][jj]
+                    flagvalue = ['DM-Amplitude', 'DM-spectral-index', \
+                                 'low-frequency-cutoff'][jj]
 
                 elif sig['stype'] == 'spectralModel':
                     flagname = 'spectralModel'
-                    flagvalue = ['SM-Amplitude', 'SM-spectral-index', 'SM-corner-frequency'][jj]
+                    flagvalue = ['SM-Amplitude', 'SM-spectral-index', \
+                                 'SM-corner-frequency'][jj]
 
                 elif sig['stype'] == 'frequencyline':
                     flagname = 'frequencyline'
@@ -1681,6 +1780,14 @@ class PTAmodels(object):
                     flagvalue = sig['parid'][jj]
                 
                 elif sig['stype'] == 'dmshapelet':
+                    flagname = sig['stype']
+                    flagvalue = sig['parid'][jj]
+                
+                elif sig['corr'] == 'gr_sph':
+                    flagname = sig['stype']
+                    flagvalue = sig['parid'][jj]
+                
+                elif sig['stype'] in ['DMXconstantKernel', 'DMXseKernel']:
                     flagname = sig['stype']
                     flagvalue = sig['parid'][jj]
                 
@@ -1961,6 +2068,20 @@ class PTAmodels(object):
             ret = (np.array(aarray).flatten(), np.array(indices).flatten())
         else:
             ret = np.array(aarray).flatten()
+
+        return ret
+
+    """
+    Construct anisitropic ORF basis functions
+
+    """
+
+    def computeAniORF(self, clms):
+        
+        ncoeff = len(clms)
+        ret = np.zeros((ncoeff, ncoeff))
+        for ii in range(ncoeff):
+            ret += clms[ii] * self.AniBasis[ii]
 
         return ret
 
@@ -2363,6 +2484,8 @@ class PTAmodels(object):
         # Loop over all signals and determine rho (GW signals) and kappa (red + DM signals)
         rho = None
         incDMshapelet = False
+        incDMXconstantKernel = False
+        incDMXseKernel = False
         for ss, sig in enumerate(self.ptasignals):
 
             # short hand
@@ -2394,6 +2517,15 @@ class PTAmodels(object):
                     # correlation matrix
                     self.corrmat = sig['corrmat']
 
+                    # define rho
+                    rho = np.array([sparameters, sparameters]).T.flatten()
+                
+                if sig['corr'] in ['gr_sph']:
+
+                    # correlation matrix
+                    clms = sparameters[2:]
+                    self.corrmat = self.computeAniORF(clms)
+                    
                     # define rho
                     rho = np.array([sparameters, sparameters]).T.flatten()
 
@@ -2439,6 +2571,23 @@ class PTAmodels(object):
 
                     # correlation matrix
                     self.corrmat = sig['corrmat']
+                    
+                    # number of GW frequencies is the max from all pulsars
+                    fgw = self.gwfreqs
+
+                    # get Amplitude and spectral index
+                    Amp = 10**sparameters[0]
+                    gamma = sparameters[1]
+                    
+                    f1yr = 1/3.16e7
+                    rho = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
+                                         fgw**(-gamma)/sig['Tmax'])
+                
+                if sig['corr'] in ['gr_sph']:
+
+                    # correlation matrix
+                    clms = sparameters[2:]
+                    self.corrmat = self.computeAniORF(clms)
                     
                     # number of GW frequencies is the max from all pulsars
                     fgw = self.gwfreqs
@@ -2504,6 +2653,16 @@ class PTAmodels(object):
             if sig['stype'] == 'dmshapeletmarg':
                 incDMshapelet = True
 
+            if sig['stype'] == 'DMXconstantKernel':
+                incDMXconstantKernel = True
+                lDMXkernelAmp = sparameters[0]
+            
+            if sig['stype'] == 'DMXseKernel':
+                incDMXseKernel = True
+                amp = 10**sparameters[0]
+                lam = sparameters[1]
+
+
 
         # now that we have obtained rho and kappa, we can construct Phiinv
         sigdiag = []
@@ -2549,14 +2708,36 @@ class PTAmodels(object):
                         p.kappa_tot = np.concatenate((p.kappa_tot, np.log10(p.Qamp)))
                     if incDMshapelet:
                         p.kappa_tot = np.concatenate((p.kappa_tot, np.ones(p.ndmEventCoeffs)*80))
-
+                    if p.nDMX:
+                        if incDMXconstantKernel:
+                            p.kappa_tot = np.concatenate((p.kappa_tot, \
+                                                          np.ones(p.nDMX)*lDMXkernelAmp*2))
+                        if incDMXseKernel:
+                            K = PALutils.constructSEkernel(p.DMXtimes/86400, lam, amp)
+                        else:
+                            p.kappa_tot = np.concatenate((p.kappa_tot, np.ones(p.nDMX)*80))
+                            p.kappa_tot[-p.nDMX] = -20
+                    
                 sigdiag.append(10**p.kappa_tot)
 
             # convert to array and flatten
             self.Phi = np.array(sigdiag).flatten()
             np.fill_diagonal(self.Phiinv, 1/self.Phi)
-            #self.logdetPhi = np.sum(np.log(self.Phi[-self.npftot[ii]:]))
-            self.logdetPhi = np.sum(np.log(self.Phi[:]))
+            if incDMXseKernel:
+                ndmx = K.shape[0]
+                u, s, v = np.linalg.svd(K)
+                sinv = 1/s
+                sinv[s[0]/s > 1e-16] = 0
+                Kinv = np.dot(u, (sinv*u).T)
+                logdetK = np.sum(np.log(s))
+                #cf = sl.cho_factor(K)
+                #Kinv = sl.cho_solve(cf, np.eye(K.shape[0]))
+                self.Phiinv[-ndmx:, -ndmx:] = Kinv
+                #self.Phiinv[-ndmx, -ndmx] = 1e20
+                #logdetK = np.sum(2*np.log(np.diag(cf[0])))
+                self.logdetPhi = np.sum(np.log(self.Phi[:-ndmx])) + logdetK
+            else:
+                self.logdetPhi = np.sum(np.log(self.Phi[:]))
 
         # Do not include correlations but include GWB in red noise
         if rho is not None and not(incCorrelations):
@@ -4043,6 +4224,7 @@ class PTAmodels(object):
 
         self.updateTmatrix(parameters)
 
+
         # compute the white noise terms in the log likelihood
         TNT = []
         nfref = 0
@@ -4180,7 +4362,7 @@ class PTAmodels(object):
     """
     Zero log likelihood for prior testing purposes
     """
-    def zeroLogLikelihood(self, parameters):
+    def zeroLogLikelihood(self, parameters, kwargs=None):
 
         return 0
     
@@ -4247,7 +4429,8 @@ class PTAmodels(object):
                     cf = sl.cho_factor(Sigma)
                     ml_vals.append(sl.cho_solve(cf, dd))
                     sigma_inv = sl.cho_solve(cf, np.eye(len(dd)))
-                    ml_errs.append(np.sqrt(np.diag(sigma_inv)))
+                    #ml_errs.append(1/np.diag(Sigma))
+                    ml_errs.append(sigma_inv)
                 except np.linalg.LinAlgError:
                     return -np.inf
 
@@ -5294,7 +5477,7 @@ class PTAmodels(object):
                 cov.append(GammaInv)
                 eps.append(np.dot(GammaInv, g))
             
-            p.detresiduals -= np.dot(Mmat, eps[-1])
+            p.detresiduals = p.residuals - np.dot(Mmat, eps[-1])
             if incJitter:
                 d = np.dot(p.Umat.T, p.detresiduals/p.Nvec)
             else:

@@ -64,6 +64,11 @@ parser.add_argument('--nshape', dest='nshape', type=int, action='store', default
                    help='number of coefficients for shapelet event for DM')
 parser.add_argument('--margShapelet', dest='margShapelet', action='store_true', default=False, \
                    help='Analytically marginalize over shapelet coefficients')
+parser.add_argument('--incDMX', dest='incDMX', action='store_true', default=False, \
+                   help='include DMX')
+parser.add_argument('--dmxKernelModel', dest='dmxKernelModel', action='store', type=str, \
+                    default='None',
+                   help='dmx Kernel Model')
 
 parser.add_argument('--incGWB', dest='incGWB', action='store_true',default=False,
                    help='include GWB')
@@ -75,6 +80,9 @@ parser.add_argument('--noCorrelations', dest='noCorrelations', action='store_tru
                     default=False, help='Do not in include GWB correlations')
 parser.add_argument('--GWBAmpPrior', dest='GWBAmpPrior', action='store', type=str, \
                     default='log', help='prior on GWB Amplitude [uniform, log]')
+
+parser.add_argument('--incGWBAni', dest='incGWBAni', action='store_true',default=False,
+                   help='include GWB')
 
 parser.add_argument('--incEquad', dest='incEquad', action='store_true',default=False,
                    help='include Equad')
@@ -213,6 +221,13 @@ if args.margShapelet:
 else:
     dmEventModel = 'shapelet'
 
+if args.dmxKernelModel != 'None':
+    incDMXKernel = True
+    DMXKernelModel = args.dmxKernelModel
+else:
+    incDMXKernel = False
+    DMXKernelModel = args.dmxKernelModel
+
 
 #likfunc= 'mark5'
 print likfunc
@@ -221,6 +236,8 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     incDM=args.incDM, dmModel=args.dmModel, \
                     incDMEvent=args.incDMshapelet, dmEventModel=dmEventModel, \
                     ndmEventCoeffs=args.nshape, \
+                    incDMX=args.incDMX, \
+                    incDMXKernel=incDMXKernel, DMXKernelModel=DMXKernelModel, \
                     separateEfacs=separateEfacs, separateEfacsByFreq=separateEfacsByFreq, \
                     separateEquads=separateEquads, separateEquadsByFreq=separateEquadsByFreq, \
                     separateJitter=separateJitter, separateJitterByFreq=separateJitterByFreq, \
@@ -346,11 +363,12 @@ if args.sampler == 'mcmc':
     if args.noCorrelations or not(args.incGWB):
         print 'Running model with no GWB correlations'
         loglkwargs['incCorrelations'] = False
-    if args.zerologlike:
-        loglkwargs = {}
     if args.incJitterEquad and args.Tmatrix:
         loglkwargs['incJitter'] = True
     
+    if args.zerologlike:
+        loglkwargs = {}
+   
     # get initial parameters for MCMC
     inRange = False
     pstart = False
@@ -365,7 +383,7 @@ if args.sampler == 'mcmc':
         #for ct, nm in enumerate(par_out):
         #    print nm, p0[ct]
         startSpectrumMin = True
-        if logprior(p0) != -np.inf and loglike(p0) != -np.inf:
+        if logprior(p0) != -np.inf and loglike(p0, loglkwargs) != -np.inf:
             inRange = True
 
     cov = model.initJumpCovariance()
@@ -429,7 +447,7 @@ elif args.sampler == 'multinest':
 
             # check prior
             if model.mark3LogPrior(acube) != -np.inf:
-                return model.mark2LogLikelihood(acube)
+                return model.mark6LogLikelihood(acube)
             else:
                 #print 'WARNING: Prior returns -np.inf!!'
                 return -np.inf

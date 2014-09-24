@@ -116,6 +116,7 @@ class Pulsar(object):
         self.GtD = None
         #self.GGtFF = None
         self.GGtD = None
+        self.nDMX = 0
 
 
         self.Qam = 0.0
@@ -729,7 +730,7 @@ class Pulsar(object):
     def createPulsarAuxiliaries(self, h5df, Tmax, nfreqs, ndmfreqs, \
             twoComponent=False, nSingleFreqs=0, nSingleDMFreqs=0, \
             compression='None', likfunc='mark1', write='no', \
-            tmpars=None, memsave=True, incJitter=False):
+            tmpars=None, memsave=True, incJitter=False, incDMX=False):
 
 
 
@@ -934,8 +935,14 @@ class Pulsar(object):
             if incJitter:
                 self.avetoas, self.aveflags, U = PALutils.exploderMatrixNoSingles(self.toas, \
                                                     np.array(self.flags), dt=10)
-                print np.unique(self.aveflags)
                 self.Tmat = np.concatenate((self.Tmat, U), axis=1)
+            
+            if incDMX:
+                (self.DMXtimes, tmpMat) = PALutils.exploderMatrix(self.toas, dt=86400*14)
+                self.DMXDesignMat = (PAL_DMk / (self.freqs**2) * tmpMat.T).T
+                self.nDMX = self.DMXDesignMat.shape[1]
+                print self.nDMX
+                self.Tmat = np.concatenate((self.Tmat, self.DMXDesignMat), axis=1)
 
         # Construct the compression matrix
         self.constructCompressionMatrix(compression, nfmodes=2*nf,
