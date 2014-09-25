@@ -915,37 +915,39 @@ class PTAmodels(object):
         
         if incGWBAni:
             if gwbModel=='spectrum':
-                bvary = [True]*(nfreqs + 2*numLs+1)
+		ncoeff = np.sum(2*np.arange(numLs)+1)
+                bvary = [True]*(nfreqs + ncoeff)
                 pmin = [-18.0]*nfreqs
-                pmin += [-5] * (2*numLs+1)
+                pmin += [-5] * (ncoeff)
                 pmax = [-8.0]*nfreqs
-                pmax += [5] * (2*numLs+1)
+                pmax += [5] * (ncoeff)
                 pstart = [-10.0]*nfreqs
-                pstart += [0.0] * (2*numLs+1)
+                pstart += [0.0] * (ncoeff)
                 pwidth = [0.1]*nfreqs
-                pwidth += [0.1] * (2*numLs+1)
+                pwidth += [0.1] * (ncoeff)
                 prior = [GWspectrumPrior]*nfreqs
-                prior += ['uniform'] * (2*numLs+1)
+                prior += ['uniform'] * (ncoeff)
                 parids = ['rho_'+ str(f) for f in p.Ffreqs]
-                parids += [['c_' +str(l) + str(m) for l in range(numLs) \
-                                for m in range(-numLs,numLs)]]
+                parids += ['c_' +str(l) + str(m) for l in range(numLs) \
+                                for m in range(-l,l+1)]
 
             elif gwbModel=='powerlaw':
+		ncoeff = np.sum(2*np.arange(numLs)+1)
                 bvary = [True, True, False]
-                bvary += [True] * (2*numLs+1)
+                bvary += [True] * (ncoeff)
                 pmin = [-17.0, 1.02, 1.0e-11]
-                pmin += [-5] * (2*numLs+1)
+                pmin += [-5] * (ncoeff)
                 pmax = [-11.0, 6.98, 3.0e-9]
-                pmax += [5] * (2*numLs+1)
+                pmax += [5] * (ncoeff)
                 pstart = [-15.0, 2.01, 1.0e-10]
-                pstart += [0.0] * (2*numLs+1)
+                pstart += [0.0] * (ncoeff)
                 pwidth = [0.1, 0.1, 5.0e-11]
-                pwidth += [0.1] * (2*numLs+1)
+                pwidth += [0.1] * (ncoeff)
                 prior = [GWAmpPrior, GWSiPrior, 'log']
-                prior += ['uniform'] * (2*numLs+1)
+                prior += ['uniform'] * (ncoeff)
                 parids = ['aGWB-Amplitude', 'aGWB-SpectralIndex', 'fL']
-                parids += [['c_' +str(l) + str(m) for l in range(numLs) \
-                                for m in range(-numLs,numLs)]]
+                parids += ['c_' +str(l) + str(m) for l in range(numLs) \
+                                for m in range(-l,l+1)]
 
             newsignal = OrderedDict({
                 "stype":gwbModel,
@@ -1060,7 +1062,7 @@ class PTAmodels(object):
             if signal['corr'] in ['gr_sph']:
                psr_locs = np.array([[p.phi[0], p.theta[0]] for p in self.psr])
                lmax = signal['lmax']
-               self.AniBasis = ani.CorrBasis(psr_locs, lmax)# nside=32, ephem=False)
+               self.AniBasis = ani.CorrBasis(psr_locs, lmax-1)# nside=32, ephem=False)
 
         elif signal['stype'] in ['dmpowerlaw', 'dmspectrum']:
             # A DM variation signal
@@ -2081,7 +2083,7 @@ class PTAmodels(object):
     def computeAniORF(self, clms):
         
         ncoeff = len(clms)
-        ret = np.zeros((ncoeff, ncoeff))
+        ret = np.zeros((self.npsr, self.npsr))
         for ii in range(ncoeff):
             ret += clms[ii] * self.AniBasis[ii]
 
@@ -2525,7 +2527,8 @@ class PTAmodels(object):
                 if sig['corr'] in ['gr_sph']:
 
                     # correlation matrix
-                    clms = sparameters[2:]
+		    nf = int(len(self.psr[psrind].Ffreqs)/2)
+                    clms = sparameters[nf:]
                     self.corrmat = self.computeAniORF(clms)
                     
                     # define rho
@@ -2588,7 +2591,7 @@ class PTAmodels(object):
                 if sig['corr'] in ['gr_sph']:
 
                     # correlation matrix
-                    clms = sparameters[2:]
+                    clms = sparameters[3:]
                     self.corrmat = self.computeAniORF(clms)
                     
                     # number of GW frequencies is the max from all pulsars
