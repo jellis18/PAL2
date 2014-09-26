@@ -5,6 +5,7 @@ import numpy as np
 import PALdatafile
 import PALmodels
 import PALInferencePTMCMC
+from scipy.optimize import minimize
 import PALpsr
 import glob
 import time, os
@@ -290,6 +291,16 @@ if not(args.incRed):
             sig['bvary'][0] = False
             sig['pstart'][0] = -20
 
+######################################
+#                                    #
+#   ONLY FOR 1713 21 YR ANALYSIS     #
+#                                    #
+######################################                                    
+for sig in fullmodel['signals']:
+    if sig['stype'] == 'efac':
+        if np.any([e in sig['flagvalue'] for e in ['M4', 'M3', 'ABPP']]):
+            sig['bvary'] = [False]
+
 memsave = True
 if args.noVaryEfac:
     print 'Not Varying EFAC'
@@ -332,7 +343,7 @@ fout.close()
 
 
 # define likelihood functions
-if args.sampler == 'mcmc':
+if args.sampler == 'mcmc' or args.sampler == 'minimize':
     if args.incJitter or args.incJitterEquad or args.incJitterEpoch:
         loglike = model.mark2LogLikelihood
     elif args.incTimingModel and args.fullmodel and not args.incNonGaussian:
@@ -389,46 +400,60 @@ if args.sampler == 'mcmc':
         if logprior(p0) != -np.inf and loglike(p0, loglkwargs) != -np.inf:
             inRange = True
 
-    cov = model.initJumpCovariance()
+    if args.sampler == 'mimimize':
 
-    # define MCMC sampler
-    sampler = PALInferencePTMCMC.PTSampler(len(p0), loglike, logprior, cov, comm=comm, \
-                                           outDir=args.outDir, loglkwargs=loglkwargs, \
-                                           resume=args.resume)
+        # define function
+        def fun(x):
+            if logprior(x) != -np.inf:
+                ret = -loglike(x, loglkwargs)
+            else:
+                ret = 1e10
 
-    # add jump proposals
-    if incGWB:
-        if args.gwbModel == 'powerlaw':
-            sampler.addProposalToCycle(model.drawFromGWBPrior, 10)
-        elif args.gwbModel == 'spectrum':
-            sampler.addProposalToCycle(model.drawFromGWBSpectrumPrior, 10)
-    if args.incRed and args.redModel=='powerlaw':
-        sampler.addProposalToCycle(model.drawFromRedNoisePrior, 10)
-    if args.incRed and args.redModel=='spectrum':
-        sampler.addProposalToCycle(model.drawFromRedNoiseSpectrumPrior, 10)
-    if args.incEquad:
-        sampler.addProposalToCycle(model.drawFromEquadPrior, 10)
-    if args.incJitterEquad:
-        sampler.addProposalToCycle(model.drawFromJitterEquadPrior, 5)
-    if args.incJitterEpoch:
-        sampler.addProposalToCycle(model.drawFromJitterEpochPrior, 5)
-    if args.incTimingModel:
-        sampler.addProposalToCycle(model.drawFromTMfisherMatrix, 20)
-    if args.incCW:
-        sampler.addProposalToCycle(model.drawFromCWPrior, 3)
-        sampler.addProposalToCycle(model.massDistanceJump, 5)
-        if args.incPdist:
-            sampler.addAuxilaryJump(model.pulsarPhaseFix)
-            sampler.addProposalToCycle(model.pulsarDistanceJump, 5)
+            return ret
 
-    # always include draws from efac
-    if not args.noVaryEfac:
-        sampler.addProposalToCycle(model.drawFromEfacPrior, 2)
 
-    # run MCMC
-    print 'Starting Sampling'
-    sampler.sample(p0, args.niter, covUpdate=1000, AMweight=15, SCAMweight=30, DEweight=20, \
-                   neff=args.neff, KDEweight=0)
+    if args.sampler == 'mcmc':
+
+        cov = model.initJumpCovariance()
+
+        # define MCMC sampler
+        sampler = PALInferencePTMCMC.PTSampler(len(p0), loglike, logprior, cov, comm=comm, \
+                                               outDir=args.outDir, loglkwargs=loglkwargs, \
+                                               resume=args.resume)
+
+        # add jump proposals
+        if incGWB:
+            if args.gwbModel == 'powerlaw':
+                sampler.addProposalToCycle(model.drawFromGWBPrior, 10)
+            elif args.gwbModel == 'spectrum':
+                sampler.addProposalToCycle(model.drawFromGWBSpectrumPrior, 10)
+        if args.incRed and args.redModel=='powerlaw':
+            sampler.addProposalToCycle(model.drawFromRedNoisePrior, 10)
+        if args.incRed and args.redModel=='spectrum':
+            sampler.addProposalToCycle(model.drawFromRedNoiseSpectrumPrior, 10)
+        if args.incEquad:
+            sampler.addProposalToCycle(model.drawFromEquadPrior, 10)
+        if args.incJitterEquad:
+            sampler.addProposalToCycle(model.drawFromJitterEquadPrior, 5)
+        if args.incJitterEpoch:
+            sampler.addProposalToCycle(model.drawFromJitterEpochPrior, 5)
+        if args.incTimingModel:
+            sampler.addProposalToCycle(model.drawFromTMfisherMatrix, 20)
+        if args.incCW:
+            sampler.addProposalToCycle(model.drawFromCWPrior, 3)
+            sampler.addProposalToCycle(model.massDistanceJump, 5)
+            if args.incPdist:
+                sampler.addAuxilaryJump(model.pulsarPhaseFix)
+                sampler.addProposalToCycle(model.pulsarDistanceJump, 5)
+
+        # always include draws from efac
+        if not args.noVaryEfac:
+            sampler.addProposalToCycle(model.drawFromEfacPrior, 2)
+
+        # run MCMC
+        print 'Starting Sampling'
+        sampler.sample(p0, args.niter, covUpdate=1000, AMweight=15, SCAMweight=30, DEweight=20, \
+                       neff=args.neff, KDEweight=0)
 
 
 elif args.sampler == 'multinest':
