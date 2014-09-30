@@ -529,7 +529,7 @@ class DataFile(object):
         psr.ptmpars = np.array(self.getData(psrname, 'tmp_valpost'))
         psr.ptmparerrs = np.array(self.getData(psrname, 'tmp_errpost'))
         psr.flags = map(str, self.getData(psrname, 'efacequad', 'Flags'))
-        #psr.tobsflags = map(float, self.getData(psrname, 'tobs_all', 'Flags'))
+        psr.tobsflags = map(float, self.getData(psrname, 'tobs_all', 'Flags'))
 
         # add this for frequency dependent terms
         #TODO: should eventually change psr.flags to a dictionary

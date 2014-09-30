@@ -173,7 +173,7 @@ class PTAmodels(object):
             else:
                 ndmfreqs = 0
 
-            if incDMEvent:
+            if incDMEvent and dmEventModel == 'shapeletmarg':
                 p.ndmEventCoeffs = ndmEventCoeffs
             else:
                 p.ndmEventCoeffs = 0
@@ -686,7 +686,6 @@ class PTAmodels(object):
                 tmpest = p.ptmpars
                 p.ptmparerrs = tmperrs
                 #tmperrs = p.ptmparerrs
-                print p.ptmparerrs, tmperrs
                 #tmpest2 = np.dot(Sigma, np.dot(p.Mmat.T, w*p.detresiduals))
 
                 # Figure out which parameters we'll keep in the design matrix
@@ -707,7 +706,7 @@ class PTAmodels(object):
                 else:
                     newptmdescription = p.getNewTimingModelParameterList(keep=True, \
                         tmpars=['Offset', 'F0', 'F1', 'RAJ', 'DECJ', 'LAMBDA', \
-                                'ELONG', 'ELAT', \
+                                'ELONG', 'ELAT', 'PMRA', 'PMDEC', 'PX', \
                                 'BETA' ,'DM', 'DM1', 'DM2'] + jumps + dmx + fds)
 
 
@@ -733,7 +732,7 @@ class PTAmodels(object):
                             pmin += [-1.0]
                             pmax += [1.0]
                             pwidth += [tmperrs[jj]]
-                            if tmpest[jj] < -1 or tmpest[jj] > 1:
+                            if tmpest[jj] <= -1.0 or tmpest[jj] >= 1.0:
                                 pstart += [0.99]
                             else:
                                 pstart += [tmpest[jj]]
@@ -791,7 +790,7 @@ class PTAmodels(object):
                             pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
                             pwidth += [tmperrs[jj]]
                             pstart += [tmpest[jj]]
-                        print parid, pmin[-1], pmax[-1], pwidth[-1], pstart[-1]
+                        #print parid, pmin[-1], pmax[-1], pwidth[-1], pstart[-1], tmpest[jj]
 
                 if nonLinear:
                     stype = 'nonlineartimingmodel'
@@ -1860,19 +1859,15 @@ class PTAmodels(object):
         cov = np.diag(cov_diag)
 
         # if we have timing model parameters use fisher matrix
-        #for ct, sig in enumerate(self.ptasignals):
-        #    if 'timingmodel' in sig['stype']:           
-        #        parinds = np.arange(sig['parindex'], sig['parindex']+sig['npars'])
-        #        pulsarind = sig['pulsarind']
-        #        w = 1/self.psr[pulsarind].toaerrs**2
-        #        fishinv = np.dot(self.psr[pulsarind].Mmat.T, \
-        #                        (w * self.psr[pulsarind].Mmat.T).T)
-        #        fisher = np.sqrt(np.linalg.inv(fishinv))
-        #        print np.diag(fisher), sig['pwidth']
-        #        for ct1, ii in enumerate(parinds):
-        #            for ct2, jj in enumerate(parinds):
-        #                cov[ii,jj] = fisher[ct1,ct2]
-
+        for ct, sig in enumerate(self.ptasignals):
+            if 'timingmodel' in sig['stype']:           
+                parinds = np.arange(sig['parindex'], sig['parindex']+sig['npars'])
+                pulsarind = sig['pulsarind']
+                cov[parinds[0]:parinds[-1]+1, parinds[0]:parinds[-1]+1] = \
+                        self.psr[pulsarind].fisher
+                #for ct1, ii in enumerate(parinds):
+                #    for ct2, jj in enumerate(parinds):
+                #        cov[ii,jj] = self.psr[pulsarind].fisher[ct1,ct2]
                     
         return cov
 
@@ -2389,8 +2384,6 @@ class PTAmodels(object):
                     amps = [1 if jj==ii else 0 for jj in range(psr.ndmEventCoeffs)]
                     sig = PALutils.constructShapelet(psr.toas/86400, t0, width, amps) * \
                             4.15e3/psr.freqs**2
-                    #plt.plot(psr.toas/86400, sig/(4.15e3/psr.freqs**2), '.')
-                    #plt.show()
                     sig = sig[...,None]
                     if ii == 0:
                         psr.Ttmat = np.append(psr.Tmat, sig, axis=1)
@@ -2707,7 +2700,7 @@ class PTAmodels(object):
 
                 # append to signal diagonal
                 if incTM:
-                    p.kappa_tot = np.concatenate((np.ones(p.Mmat.shape[1])*80, \
+                    p.kappa_tot = np.concatenate((np.ones(p.Mmat_reduced.shape[1])*80, \
                                                  p.kappa_tot))
                     if incJitter:
                         p.kappa_tot = np.concatenate((p.kappa_tot, np.log10(p.Qamp)))
@@ -2953,7 +2946,7 @@ class PTAmodels(object):
                         pindex += 1
 
                 # residuals = M * pars
-                eps = np.dot(psr.Vmat.T, np.array(offset))*psr.Svec
+                #eps = np.dot(psr.Vmat.T, np.array(offset))*psr.Svec
                 psr.detresiduals -= np.dot(Mmat, np.array(offset))
                 #psr.detresiduals -= np.dot(Mmat, eps)
                 #print  np.dot(Mmat, np.array(offset))
@@ -5272,7 +5265,7 @@ class PTAmodels(object):
                     stype='lineartimingmodel', corr='single')
         
         # current timing model parameters
-        sig = self.ptasignals[signum] 
+        sig = self.ptasignals[signum]
         x = parameters[sig['parindex']:(sig['parindex']+sig['ntotpars'])]
         
         # get parmeters in new diagonalized basis
@@ -5285,7 +5278,8 @@ class PTAmodels(object):
             scale = 10
 
         # make correlated componentwise adaptive jump
-        ind = np.unique(np.random.randint(0, len(x), len(x)))
+        #ind = np.unique(np.random.randint(0, len(x), len(x)))
+        ind = np.arange(0, len(x))
         neff = len(ind)
         sd = 2.4  / np.sqrt(2*neff) * scale
 

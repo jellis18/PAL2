@@ -918,6 +918,7 @@ class Pulsar(object):
         else:
             Mmat = self.Mmat
 
+        self.Mmat_reduced = Mmat
         U, s, Vh = sl.svd(Mmat)
         self.Gmat = U[:, Mmat.shape[1]:].copy()
         self.Gcmat = U[:, :Mmat.shape[1]].copy()
@@ -931,7 +932,7 @@ class Pulsar(object):
 
         # T matrix
         if likfunc == 'mark6':
-            self.Tmat = np.concatenate((self.Mmat, self.Ftot), axis=1)
+            self.Tmat = np.concatenate((Mmat, self.Ftot), axis=1)
             if incJitter:
                 self.avetoas, self.aveflags, U = PALutils.exploderMatrixNoSingles(self.toas, \
                                                     np.array(self.flags), dt=10)

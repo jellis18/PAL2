@@ -400,6 +400,12 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize':
         if logprior(p0) != -np.inf and loglike(p0, loglkwargs) != -np.inf:
             inRange = True
 
+
+    ########################
+    maxpars = np.loadtxt('/Users/jaellis/Work/noise/NANOGrav/1713_21yr/dmx_red_pl_notm/maxpars.txt')
+    npars = len(maxpars)
+    p0[:npars] = maxpars
+
     if args.sampler == 'mimimize':
 
         # define function
@@ -438,7 +444,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize':
         if args.incJitterEpoch:
             sampler.addProposalToCycle(model.drawFromJitterEpochPrior, 5)
         if args.incTimingModel:
-            sampler.addProposalToCycle(model.drawFromTMfisherMatrix, 20)
+            sampler.addProposalToCycle(model.drawFromTMfisherMatrix, 40)
         if args.incCW:
             sampler.addProposalToCycle(model.drawFromCWPrior, 3)
             sampler.addProposalToCycle(model.massDistanceJump, 5)
@@ -452,8 +458,8 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize':
 
         # run MCMC
         print 'Starting Sampling'
-        sampler.sample(p0, args.niter, covUpdate=1000, AMweight=15, SCAMweight=30, DEweight=20, \
-                       neff=args.neff, KDEweight=0)
+        sampler.sample(p0, args.niter, covUpdate=1000, AMweight=15, SCAMweight=30, \
+                       DEweight=20, neff=args.neff, KDEweight=0)
 
 
 elif args.sampler == 'multinest':
