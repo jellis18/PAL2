@@ -4,6 +4,7 @@ import scipy.special as ss
 import scipy.linalg as sl
 import scipy.integrate as si
 import scipy.interpolate as interp
+import numpy.polynomial.hermite as herm
 #import numexpr as ne
 import sys,os
 
@@ -46,6 +47,49 @@ def fpStat(psr, f0):
 
     # return F-statistic
     return fstat
+
+# compute f_e-statistic
+def feStat(psr, gwtheta, gwphi, f0):
+    """ 
+    Computes the F-statistic as defined in Ellis, Siemens, Creighton (2012)
+    
+    @param psr: List of pulsar object instances
+    @param gwtheta: GW polar angle
+    @param gwphi: GW azimuthal angle
+    @param f0: Gravitational wave frequency
+
+    @return: Value of the Fe statistic evaluated at gwtheta, phi, f0
+
+    """
+    
+    npsr = len(psr)
+    N = np.zeros(4)
+    M = np.zeros((4,4))
+    for ii, p in enumerate(psr):
+        fplus, fcross, cosMu = createAntennaPatternFuncs(p, gwtheta, gwphi)
+
+        # define A
+        A = np.zeros((4, len(p.toas)))
+        A[0,:] = fplus/f0**(1./3.) * np.sin(2*np.pi*f0*p.toas)
+        A[1,:] = fplus/f0**(1./3.) * np.cos(2*np.pi*f0*p.toas)
+        A[2,:] = fcross/f0**(1./3.) * np.sin(2*np.pi*f0*p.toas)
+        A[3,:] = fcross/f0**(1./3.) * np.cos(2*np.pi*f0*p.toas)
+
+
+        N += np.array([np.dot(A[0,:], np.dot(p.invCov, p.res)), \
+                        np.dot(A[1,:], np.dot(p.invCov, p.res)), \
+                        np.dot(A[2,:], np.dot(p.invCov, p.res)), \
+                        np.dot(A[3,:], np.dot(p.invCov, p.res))]) 
+
+        M += np.dot(A, np.dot(p.invCov, A.T))
+
+    # inverse of M
+    Minv = np.linalg.pinv(M)
+
+    # Fe-statistic
+    return 0.5 * np.dot(N, np.dot(Minv, N))
+
+
 
 def createAntennaPatternFuncs(psr, gwtheta, gwphi):
     """
@@ -186,7 +230,7 @@ def createResiduals(psr, gwtheta, gwphi, mc, dist, fgw, phase0, psi, inc, pdist=
     return res
 
 def createResidualsFast(psr, gwtheta, gwphi, mc, dist, fgw, phase0, psi, inc, pdist=None, \
-                        pphase=None, psrTerm=True, evolve=True, phase_approx=False):
+                        pphase=None, psrTerm=True, evolve=True, phase_approx=False, tref=0):
     """
     Function to create GW incuced residuals from a SMBMB as 
     defined in Ellis et. al 2012,2013. Trys to be smart about it
@@ -247,9 +291,9 @@ def createResidualsFast(psr, gwtheta, gwphi, mc, dist, fgw, phase0, psi, inc, pd
 
     
         # get values from pulsar object
-        toas = p.toas
+        toas = p.toas.copy() - tref
         if pdist is None and pphase is None:
-            pd = p.dist
+            pd = p.pdist.copy()
         elif pdist is None and pphase is not None:
             pd = pphase[ct]/(2*np.pi*fgw*(1-cosMu)) / 1.0267e11
         else:
@@ -319,6 +363,26 @@ def createResidualsFast(psr, gwtheta, gwphi, mc, dist, fgw, phase0, psi, inc, pd
             res.append(-fplus*rplus - fcross*rcross)
 
     return res
+
+def constructShapelet(times, t0, q, amps):
+    """
+    Construct shapelet.
+
+    @param times: sample times
+    @param t0: event time
+    @param q: width of event
+    @param amps: vector of amplitudes for different components
+    """
+   
+    hermcoeff = []
+    for ii in range(len(amps)):
+        hermcoeff.append(amps[ii] / np.sqrt(2**ii*ss.gamma(ii+1)*np.sqrt(2*np.pi)))
+        
+    # evaluate hermite polynomial sums
+    hermargs = (times-t0)/q
+    hval = herm.hermval(hermargs, np.array(hermcoeff)) * np.exp(-hermargs**2/2)
+    
+    return hval
 
 
 
@@ -512,6 +576,47 @@ def exploderMatrix(times, freqs=None, dt=10, flags=None):
         return avetoas, aveflags, U
     else:
         return avetoas, U
+
+
+def constructSEkernel(times, lam, amp):
+
+    tm = createTimeLags(times, times)
+    K = amp**2 * np.exp(-tm**2/2/lam**2)
+
+    return K    
+
+
+def exploderMatrixNoSingles(times, flags, dt=10):
+    isort = np.argsort(times)
+    
+    bucket_ref = [[times[isort[0]], flags[isort[0]]]]
+    bucket_ind = [[isort[0]]]
+        
+    for i in isort[1:]:
+        if times[i] - bucket_ref[-1][0] < dt and flags[i] == bucket_ref[-1][1]:
+            if 'ABPP-L' in flags[i]:
+                bucket_ref.append([times[i], flags[i]])
+                bucket_ind.append([i])
+            else:
+                bucket_ind[-1].append(i)
+        else:
+            bucket_ref.append([times[i], flags[i]])
+            bucket_ind.append([i])
+        
+
+    # find only epochs with more than 1 TOA
+    bucket_ind2 = [ind for ind in bucket_ind if len(ind) > 1]
+    
+    avetoas = np.array([np.mean(times[l]) for l in bucket_ind2],'d')
+    aveflags = np.array([flags[l[0]] for l in bucket_ind2])
+
+    
+    U = np.zeros((len(times),len(bucket_ind2)),'d')
+    for i,l in enumerate(bucket_ind2):
+        U[l,i] = 1
+        
+    return avetoas, aveflags, U
+
     
 
 def exploderMatrix_slow(toas, freqs=None, dt=1200, flags=None):
@@ -1082,7 +1187,7 @@ def computeNormalizedCovarianceMatrix(cov):
     return cnorm 
 
 
-def createfourierdesignmatrix(t, nmodes, freq=False, Tspan=None):
+def createfourierdesignmatrix(t, nmodes, freq=False, Tspan=None, logf=False):
     """
     Construct fourier design matrix from eq 11 of Lentati et al, 2013
 
@@ -1090,6 +1195,7 @@ def createfourierdesignmatrix(t, nmodes, freq=False, Tspan=None):
     @param nmodes: number of fourier coefficients to use
     @param freq: option to output frequencies
     @param Tspan: option to some other Tspan
+    @param logf: use log frequency spacing
 
     @return: F: fourier design matrix
     @return: f: Sampling frequencies (if freq=True)
@@ -1106,6 +1212,9 @@ def createfourierdesignmatrix(t, nmodes, freq=False, Tspan=None):
 
     # define sampling frequencies
     f = np.linspace(1/T, nmodes/T, nmodes)
+    if logf:
+        f = np.logspace(np.log10(1/T), np.log10(nmodes/T), nmodes)
+        #f = np.logspace(np.log10(1/2/T), np.log10(nmodes/T), nmodes)
     Ffreqs = np.zeros(2*nmodes)
     Ffreqs[0::2] = f
     Ffreqs[1::2] = f
@@ -1122,6 +1231,28 @@ def createfourierdesignmatrix(t, nmodes, freq=False, Tspan=None):
         return F, Ffreqs
     else:
         return F
+
+def singlefourierdesignmatrix(t, freqs):
+    """
+    Construct fourier design matrix from eq 11 of Lentati et al, 2013
+    for a given set of frequencies
+
+    @param t: vector of time series in seconds
+    @param freqs: Frequencies at which to evaluate fourier components
+
+    @return: F: fourier design matrix
+
+    """
+
+    N = len(t)
+    F = np.zeros((N, 2*len(freqs)))
+
+
+    for ii in range(len(freqs)):
+        F[:,2*ii] = np.cos(2*np.pi*freqs[ii]*t)
+        F[:,2*ii+1] = np.sin(2*np.pi*freqs[ii]*t)
+
+    return F
 
 def createGWB(psr, Amp, gam, DM=False, noCorr=False, seed=None, turnover=False, f0=1e-9, \
               beta=1, power=1, interpolate=True):

@@ -18,6 +18,7 @@ import h5py as h5
 import os, sys
 import tempfile
 import PALutils
+import ephem
 
 try:    # If without libstempo, can still read hdf5 files
     import libstempo
@@ -134,7 +135,10 @@ class DataFile(object):
                     raise IOError, "Field {0} not present for pulsar {1}/{2}".format(field, psrname, subgroup)
 
         if field in datGroup:
-            data = np.array(datGroup[field])
+            if field == 'parfile' or field == 'timfile':
+                data = datGroup[field].value
+            else:
+                data = np.array(datGroup[field])
             self.h5file.close()
         else:
             self.h5file.close()
@@ -238,7 +242,10 @@ class DataFile(object):
         os.chdir(dirname)
 
         # Load pulsar data from the libstempo library
-        t2pulsar = t2.tempopulsar(relparfile, reltimfile)
+        try:
+            t2pulsar = t2.tempopulsar(parfile, timfile, maxobs=20000)
+        except TypeError:
+            t2pulsar = t2.tempopulsar(parfile, timfile)
 
         # Load the entire par-file into memory, so that we can save it in the
         # HDF5 file
@@ -270,7 +277,7 @@ class DataFile(object):
 
         # determine whether or not to drop points
         dat = t2pulsar.residuals()/t2pulsar.toaerrs/1e-6
-        t2pulsar.deleted = np.abs(dat) > sigma
+        #t2pulsar.deleted = np.abs(dat) > sigma
         if sigma < 10:
             print 'Deleting {0} points for pulsar {1}'.format(np.sum(t2pulsar.deleted), \
                                                                     t2pulsar.name)
@@ -286,22 +293,38 @@ class DataFile(object):
                        overwrite=overwrite)  # Seconds
         self.writeData(psrGroup, 'toaErr', np.double(1e-6*t2pulsar.toaerrs[t2pulsar.deleted==0]),\
                        overwrite=overwrite)    # Seconds
-        self.writeData(psrGroup, 'freq', np.double(t2pulsar.freqs[t2pulsar.deleted==0]), \
+        self.writeData(psrGroup, 'freq', np.double(t2pulsar.freqsSSB[t2pulsar.deleted==0]/1e6), \
                        overwrite=overwrite)    # MHz
 
         # TODO: writing the design matrix should be done irrespective of the fitting flag
-        desmat = t2pulsar.designmatrix()
+        desmat = t2pulsar.designmatrix(fixunits=True)
         self.writeData(psrGroup, 'designmatrix', desmat[t2pulsar.deleted==0, :], overwrite=overwrite)
 
-        # Write the unit conversions for the design matrix (to timing model
-        # parameters
-        #unitConversion = t2pulsar.getUnitConversion()
-        #self.writeData(psrGroup, 'unitConversion', unitConversion, overwrite=overwrite)
+        # get pulsar distance and uncertainty (need pulsarDistances.txt file for this)
+        try: 
+            fin = open('pulsarDistances.txt', 'r')
+            lines = fin.readlines()
+            found = 0
+            for line in lines:
+                vals = line.split()
+                if t2pulsar.name in vals[0]:
+                    pdist, pdistErr = vals[1], vals[2]
+                    found = True
+            if not(found):
+                print 'WARNING: Could not find pulsar distance for PSR {0}. \
+                        Setting value to 1 with 20% uncertainty'.format(t2pulsar.name)
+                pdist, pdistErr = 1.0, 0.2
 
-        # Do not write the (co)G-matrix anymore
-        # U, s, Vh = sl.svd(desmat)
-        # self.writeData(psrGroup, 'Gmatrix', U[:, desmat.shape[1]:], overwrite=overwrite)
-        # self.writeData(psrGroup, 'coGmatrix', U[:, :desmat.shape[1]], overwrite=overwrite)
+            # close file
+            fin.close()
+        except IOError:
+            print 'WARNING: cannot find pulsarDistances.txt file!, setting all pulsar distances to 1'    
+            pdist, pdistErr = 1.0, 0.2
+
+        # write to file
+        self.writeData(psrGroup, 'pdist', pdist, overwrite=overwrite)
+        self.writeData(psrGroup, 'pdistErr', pdistErr, overwrite=overwrite)
+        
 
         # Now obtain and write the timing model parameters
         tmpname = ['Offset'] + list(t2pulsar.pars)
@@ -311,9 +334,9 @@ class DataFile(object):
         tmperrpost = np.zeros(len(tmpname))
         for i in range(len(t2pulsar.pars)):
             tmpvalpre[i+1] = t2pulsar.prefit[tmpname[i+1]].val
-            tmpvalpost[i+1] = t2pulsar.prefit[tmpname[i+1]].val
+            tmpvalpost[i+1] = t2pulsar[tmpname[i+1]].val
             tmperrpre[i+1] = t2pulsar.prefit[tmpname[i+1]].err
-            tmperrpost[i+1] = t2pulsar.prefit[tmpname[i+1]].err
+            tmperrpost[i+1] = t2pulsar[tmpname[i+1]].err
 
         self.writeData(psrGroup, 'tmp_name', tmpname, overwrite=overwrite)          # TMP name
         self.writeData(psrGroup, 'tmp_valpre', tmpvalpre, overwrite=overwrite)      # TMP pre-fit value
@@ -330,20 +353,20 @@ class DataFile(object):
             self.writeData(flagGroup, flagid, t2pulsar.flags[flagid][t2pulsar.deleted==0], \
                            overwrite=overwrite)
         
-        if not "tobs_all" in flagGroup:
-            # look for tobs flag for integration time
-            tobs = []
-            nobs = len(t2pulsar.toas())
-            pulsarname = map(str, [t2pulsar.name] * nobs)
-            
-            #TODO: fix this to deal on a TOA by TOA basis
-            #if "tobs" in flagGroup:
-            #    tobs = map(float, flagGroup['tobs'])
-            #else:
-            #    print 'No tobs flag for PSR {0}, using 20 mins'.format(t2pulsar.name)
-            tobs = 1200.0*np.ones(nobs)
+        #if not "tobs_all" in flagGroup:
+        #    # look for tobs flag for integration time
+        #    tobs = []
+        #    nobs = len(t2pulsar.toas())
+        #    pulsarname = map(str, [t2pulsar.name] * nobs)
+        #    
+        #    #TODO: fix this to deal on a TOA by TOA basis
+        #    if "tobs" in flagGroup:
+        #        tobs = map(float, flagGroup['tobs'])
+        #    else:
+        #        print 'No tobs flag for PSR {0}, using 20 mins'.format(t2pulsar.name)
+        #    tobs = 1200.0*np.ones(nobs)
 
-            self.writeData(flagGroup, "tobs_all", tobs, overwrite=overwrite)
+        #    self.writeData(flagGroup, "tobs_all", tobs, overwrite=overwrite)
 
         if not "efacequad" in flagGroup:
             # Check if the sys-flag is present in this set. If it is, add an
@@ -381,6 +404,9 @@ class DataFile(object):
                 elif 'sys' in flagGroup and flagGroup['sys'][ii] != '':
                     efacequad_freq.append('-'.join((pulsarname, flagGroup['sys'][ii])))
                 
+                elif 'i' in flagGroup and flagGroup['i'][ii] != '':
+                    efacequad_freq.append('-'.join((pulsarname, flagGroup['i'][ii])))
+                
                 elif 'f' in flagGroup and flagGroup['f'][ii] != '':
                     efacequad_freq.append('-'.join((pulsarname, flagGroup['f'][ii])))
                 
@@ -394,23 +420,24 @@ class DataFile(object):
                             in pulsar {1}'.format(ii, pulsarname)
                     efacequad_freq.append(pulsarname)
             
-
-            
-            # create "f" flag from fe and be flags
-            #if "group" in flagGroup:
-            #    efacequad = map('-'.join, zip(pulsarname, flagGroup['group']))
-            #elif "sys" in flagGroup:
-            #    efacequad = map('-'.join, zip(pulsarname, flagGroup['sys']))
-            #elif "fe" in flagGroup and 'be' in flagGroup:
-            #    fflag = map('-'.join, zip(flagGroup['fe'], flagGroup['be']))
-            #    efacequad_freq = map('-'.join, zip(pulsarname, fflag))
-            #elif "f" in flagGroup:
-            #    efacequad_freq = map('-'.join, zip(pulsarname, flagGroup['f']))
-            #else:
-            #    print 'WARNING: no flags found, using pulsarname as default'
-            #    efacequad_freq = pulsarname
-
             self.writeData(flagGroup, "efacequad_freq", efacequad_freq, overwrite=overwrite)
+        
+        if not "tobs_all" in flagGroup:
+            tobs = []
+            nobs = len(t2pulsar.toas()[t2pulsar.deleted==0])
+            #pulsarname = map(str, [t2pulsar.name] * nobs)
+            pulsarname = t2pulsar.name
+
+
+            for ii in range(nobs):
+
+                if 'tobs' in flagGroup and np.all([flagGroup['tobs'][ii] != '', \
+                                        flagGroup['tobs'][ii]!= 'UNKNOWN']):
+                    tobs.append(float(flagGroup['tobs'][ii]))
+                else:
+                    tobs.append(1200.0)
+
+            self.writeData(flagGroup, "tobs_all", tobs, overwrite=overwrite)
 
         if not "pulsarname" in flagGroup:
             nobs = len(t2pulsar.toas())
@@ -499,8 +526,8 @@ class DataFile(object):
 
         # Read the timing model parameter descriptions
         psr.ptmdescription = map(str, self.getData(psrname, 'tmp_name'))
-        psr.ptmpars = np.array(self.getData(psrname, 'tmp_valpre'))
-        psr.ptmparerrs = np.array(self.getData(psrname, 'tmp_errpre'))
+        psr.ptmpars = np.array(self.getData(psrname, 'tmp_valpost'))
+        psr.ptmparerrs = np.array(self.getData(psrname, 'tmp_errpost'))
         psr.flags = map(str, self.getData(psrname, 'efacequad', 'Flags'))
         psr.tobsflags = map(float, self.getData(psrname, 'tobs_all', 'Flags'))
 
@@ -511,14 +538,45 @@ class DataFile(object):
         # Read the position of the pulsar
         rajind = np.flatnonzero(np.array(psr.ptmdescription) == 'RAJ')
         decjind = np.flatnonzero(np.array(psr.ptmdescription) == 'DECJ')
-        psr.raj = np.array(self.getData(psrname, 'tmp_valpre'))[rajind]
-        psr.decj = np.array(self.getData(psrname, 'tmp_valpre'))[decjind]
+
+        # look for ecliptic coordinates
+        if len(rajind) == 0 and len(decjind) == 0:
+            print 'Could not fine RAJ or DECJ. Looking for ecliptic coords...'
+            elongind = np.flatnonzero(np.array(psr.ptmdescription) == 'ELONG')
+            elatind = np.flatnonzero(np.array(psr.ptmdescription) == 'ELAT')
+            elong = np.array(self.getData(psrname, 'tmp_valpost'))[elongind]
+            elat = np.array(self.getData(psrname, 'tmp_valpost'))[elatind]
+
+            # convert via pyephem
+            ec = ephem.Ecliptic(elong, elat)
+            
+            # check for B name
+            if 'B' in psr.name:
+                epoch = '1950'
+            else:
+                epoch = '2000'
+            eq = ephem.Equatorial(ec, epoch=epoch)
+            psr.raj = np.float(eq.ra)
+            psr.decj = np.float(eq.dec)
+
+        else:
+            psr.raj = np.array(self.getData(psrname, 'tmp_valpost'))[rajind]
+            psr.decj = np.array(self.getData(psrname, 'tmp_valpost'))[decjind]
+
         psr.theta = np.pi/2 - psr.decj
         psr.phi = psr.raj
         
         # period of pulsar
         perind = np.flatnonzero(np.array(psr.ptmdescription) == 'F0')
-        psr.period = 1/np.array(self.getData(psrname, 'tmp_valpre'))[perind]
+        psr.period = 1/np.array(self.getData(psrname, 'tmp_valpost'))[perind]
+
+        # pulsar distance and uncertainty
+        #try:
+        #    psr.pdist = np.double(self.getData(psrname, 'pdist'))
+        #    psr.pdistErr = np.double(self.getData(psrname, 'pdistErr'))
+        #except IOError:
+        psr.pdist = 1.0
+        psr.pdistErr = 0.1
 
         # Obtain residuals, TOAs, etc.
         psr.toas = np.array(self.getData(psrname, 'TOAs'))
@@ -528,7 +586,6 @@ class DataFile(object):
         psr.detresiduals = np.array(self.getData(psrname, 'prefitRes'))
         psr.freqs = np.array(self.getData(psrname, 'freq'))
         psr.Mmat = np.array(self.getData(psrname, 'designmatrix'))
-        #psr.unitconversion = np.array(self.getData(psrname, 'unitConversion', required=False))
         
         # get number of epochs (i.e 10 s window)
         (avetoas, Umat) = PALutils.exploderMatrix(psr.toas, dt=10)

@@ -88,9 +88,11 @@ class PTSampler(object):
         @param SCAMweight: Weight of SCAM jumps in overall jump cycle (default=20)
         @param AMweight: Weight of AM jumps in overall jump cycle (default=20)
         @param DEweight: Weight of DE jumps in overall jump cycle (default=20)
-        @param burn: Burn in time (DE jumps added after this iteration) (default=5000)
-        @param maxIter: Maximum number of iterations for high temperature chains (default=2*Niter)
-        @param thin: Save every thin MCMC samples
+        @param KDEweight: Weight of KDE jumps in overall jump cycle (default=100)
+        @param burn: Burn in time (DE jumps added after this iteration) (default=10000)
+        @param maxIter: Maximum number of iterations for high temperature chains 
+                        (default=2*self.Niter)
+        @param self.thin: Save every self.thin MCMC samples
         @param i0: Iteration to start MCMC (if i0 !=0, do not re-initialize)
 
         """
@@ -153,8 +155,13 @@ class PTSampler(object):
         ### compute lnprob for initial point in chain ###
         self._chain[i0,:] = p0
 
-        # compute prior
-        lp = self.logp(p0)
+        # if resuming, just start with first point in chain
+        if self.resume and self.resumeLength > 0:
+            p0, lnlike0, lnprob0  = self.resumechain[0,:], \
+                    self.resumechain[0,-3], self.resumechain[0,-4]
+        else:
+            # compute prior
+            lp = self.logp(p0)
 
         if lp == float(-np.inf):
 
@@ -284,6 +291,21 @@ class PTSampler(object):
             # randomize cycle
             self.randomizeProposalCycle()
         
+        ### jump proposal ###
+
+        # if resuming, just use previous chain points
+        if self.resume and self.resumeLength > 0 and iter < self.resumeLength:
+            p0, lnlike0, lnprob0 = self.resumechain[iter,:], \
+                    self.resumechain[iter,-3], self.resumechain[iter,-4]
+
+            # update acceptance counter
+            self.naccepted = iter*self.resumechain[iter,-2]
+            accepted = 1
+        else:
+            y, qxy = self._jump(p0, iter)
+
+            # compute prior and likelihood
+            lp = self.logp(y)
         
         # jump proposal
         y, qxy = self._jump(p0, iter)
@@ -424,13 +446,18 @@ class PTSampler(object):
 
         """
 
-        self._chainfile = open(fname, 'a+')
-        for jj in range((iter-isave), iter, thin):
-            ind = int(jj/thin)
-            self._chainfile.write('%e\t %e\t %e\t'%(self._lnprob[ind], self._lnlike[ind],\
-                                                  self.naccepted/iter))
-            self._chainfile.write('\t'.join([str(self._chain[ind,kk]) \
+        self._chainfile = open(self.fname, 'a+')
+        for jj in range((iter-self.isave), iter, self.thin):
+            ind = int(jj/self.thin)
+            pt_acc = 1
+            if self.MPIrank < self.nchain-1 and self.swapProposed != 0:
+                pt_acc = self.nswap_accepted/self.swapProposed
+
+            self._chainfile.write('\t'.join(['%22.22f'%(self._chain[ind,kk]) \
                                             for kk in range(self.ndim)]))
+            self._chainfile.write('\t%f\t %f\t %f\t %f\t'%(self._lnprob[ind], 
+                                                    self._lnlike[ind],\
+                                                    self.naccepted/iter, pt_acc))
             self._chainfile.write('\n')
         self._chainfile.close()
 
