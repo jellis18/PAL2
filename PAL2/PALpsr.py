@@ -19,6 +19,7 @@ import scipy.linalg as sl
 import scipy.special as ss
 import h5py as h5
 import matplotlib.pyplot as plt
+import rankreduced as rr
 import os, sys
 import json
 import tempfile
@@ -737,7 +738,7 @@ class Pulsar(object):
         # For creating the auxiliaries it does not really matter: we are now
         # creating all quantities per default
         self.twoComponentNoise = twoComponent
-        if likfunc=='mark7':
+        if likfunc=='mark7' or likfunc=='mark6':
             self.twoComponentNoise = False
 
 
@@ -812,9 +813,12 @@ class Pulsar(object):
         # Create the Fourier design matrices for noise
         if nf > 0:
             self.incRed = True
-            (self.Fmat, self.Ffreqs) = PALutils.createfourierdesignmatrix(self.toas, \
-                                                            nf, Tspan=Tmax, freq=True, \
-                                                            logf=False)
+            #(self.Fmat, self.Ffreqs) = PALutils.createfourierdesignmatrix(self.toas, \
+            #                                                nf, Tspan=Tmax, freq=True, \
+            #                                                logf=False)
+            #self.Fmat /= np.sqrt(Tmax)
+            self.Ffreqs, self.Fmat = rr.get_rr_rep(self.toas, Tmax, 1/4.7/Tmax, nf, \
+                                            20, simpson=False)
             if useAverage:
                 (self.FAvmat, tmp) = PALutils.createfourierdesignmatrix(self.avetoas, \
                                                                 nf, Tspan=Tmax, freq=True, \
@@ -828,9 +832,11 @@ class Pulsar(object):
         # Create the Fourier design matrices for DM variations
         if ndmf > 0:
             self.incDM = True
-            (self.Fdmmat, self.Fdmfreqs) = PALutils.createfourierdesignmatrix(self.toas, \
-                                                            ndmf, Tspan=Tmax, freq=True, \
-                                                            logf=False)
+            #(self.Fdmmat, self.Fdmfreqs) = PALutils.createfourierdesignmatrix(self.toas, \
+            #                                                ndmf, Tspan=Tmax, freq=True, \
+            #                                                logf=False)
+            self.Fdmfreqs, self.Fdmmat = rr.get_rr_rep(self.toas, Tmax, 1/50/Tmax, nf, \
+                                                20, simpson=False)
             if useAverage:
                 (self.FdmAvmat, tmp) = PALutils.createfourierdesignmatrix(self.avetoas, \
                                                                 ndmf, Tspan=Tmax, freq=True, \
@@ -898,6 +904,10 @@ class Pulsar(object):
             tmpardel = self.getNewTimingModelParameterList(keep=False, tmpars=tmpars)
             print 'Analytically marginalizing over', tmpardel
             self.Mmat, newptmpars, newptmdescription = self.delFromDesignMatrix(tmpardel)
+            
+            if 'KIN' in newptmdescription:
+                ind = newptmdescription.index('KIN')
+                self.Mmat[:,ind] /= np.cos(newptmpars[ind]*np.pi/180)
 
             w = 1.0 / self.toaerrs**2
             Sigi = np.dot(self.Mmat.T, (w * self.Mmat.T).T)

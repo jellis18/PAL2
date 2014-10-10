@@ -404,11 +404,11 @@ class DataFile(object):
                 elif 'sys' in flagGroup and flagGroup['sys'][ii] != '':
                     efacequad_freq.append('-'.join((pulsarname, flagGroup['sys'][ii])))
                 
-                elif 'i' in flagGroup and flagGroup['i'][ii] != '':
-                    efacequad_freq.append('-'.join((pulsarname, flagGroup['i'][ii])))
-                
                 elif 'f' in flagGroup and flagGroup['f'][ii] != '':
                     efacequad_freq.append('-'.join((pulsarname, flagGroup['f'][ii])))
+                
+                elif 'i' in flagGroup and flagGroup['i'][ii] != '':
+                    efacequad_freq.append('-'.join((pulsarname, flagGroup['i'][ii])))
                 
                 elif 'fe' in flagGroup and 'be' in flagGroup and \
                         flagGroup['fe'][ii] != '' and flagGroup['be'] != '':
