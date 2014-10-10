@@ -393,7 +393,9 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize':
         pstart = True
     startSpectrumMin = False
     while not(inRange):
+        #print 'Not in Range'
         p0 = model.initParameters(startEfacAtOne=True, fixpstart=fixpstart)
+        #print p0
         #for ct, nm in enumerate(par_out):
         #    print nm, p0[ct]
         startSpectrumMin = True
@@ -404,7 +406,14 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize':
     ########################
     maxpars = np.loadtxt('/Users/jaellis/Work/noise/NANOGrav/1713_21yr/dmx_red_pl_notm/maxpars.txt')
     npars = len(maxpars)
-    p0[:npars] = maxpars
+    #p0[:npars] = maxpars
+    #p0[-1] = 0
+    #p0[-2] = -0.006
+    #p0[-3] = 6.56695134e+01
+    #p0[-4] = 5.48327088e+04
+    #import matplotlib.pyplot as plt
+    #plt.errorbar(model.psr[0].toas, model.psr[0].residuals, model.psr[0].toaerrs, fmt='.')
+    #plt.show()
 
     if args.sampler == 'mimimize':
 

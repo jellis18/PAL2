@@ -1387,7 +1387,74 @@ def createGWB(psr, Amp, gam, DM=False, noCorr=False, seed=None, turnover=False, 
     return res_gw
 
 
+def real_sph_harm(ll, mm, phi, theta):
+    """
+    The real-valued spherical harmonics
+    ADAPTED FROM vH piccard CODE
+    """
+    if mm>0:
+        ans = (1./np.sqrt(2)) * \
+                (ss.sph_harm(mm, ll, phi, theta) + \
+                ((-1)**mm) * ss.sph_harm(-mm, ll, phi, theta))
+    elif mm==0:
+        ans = ss.sph_harm(0, ll, phi, theta)
+    elif mm<0:
+        ans = (1./(np.sqrt(2)*complex(0.,1))) * \
+                (ss.sph_harm(-mm, ll, phi, theta) - \
+                ((-1)**mm) * ss.sph_harm(mm, ll, phi, theta))
 
+    return ans.real
+
+def SetupPriorSkyGrid(lmax):
+    """
+    Check whether these anisotropy coefficients correspond to a physical
+    angular-distribution of the metric-perturbation quadratic
+    expectation-value.
+    """
+    ngrid_phi = 40
+    ngrid_costheta = 40
+    
+    phi = np.arange(0.0,2.0*np.pi,2.0*np.pi/ngrid_phi)
+    theta = np.arccos(np.arange(-1.0,1.0,2.0/ngrid_costheta))
+
+    xx, yy = np.meshgrid(phi,theta)
+
+    harm_sky_vals = [[0.0]*(2*ll+1) for ll in range(lmax+1)]
+    for ll in range(len(harm_sky_vals)):
+        for mm in range(len(harm_sky_vals[ll])):
+            harm_sky_vals[ll][mm] = real_sph_harm(ll,mm-ll,xx,yy)
+
+    return harm_sky_vals
+
+def PhysPrior(clm,harm_sky_vals):
+    """
+    Check whether these anisotropy coefficients correspond to a physical
+    angular-distribution of the metric-perturbation quadratic
+    expectation-value.
+    """
+    """ngrid_phi = 20
+    ngrid_costheta = 20
+    
+    phi = np.arange(0.0,2.0*np.pi,2.0*np.pi/ngrid_phi)
+    theta = np.arccos(np.arange(-1.0,1.0,2.0/ngrid_costheta))
+
+    xx, yy = np.meshgrid(phi,theta)
+
+    harm_sky_vals = [[0.0]*(2*ll+1) for ll in range(lmax+1)]
+    for ll in range(len(harm_sky_vals)):
+        for mm in range(len(harm_sky_vals[ll])):
+            harm_sky_vals[ll][mm] = real_sph_harm(ll,mm-ll,xx,yy)
+    """
+
+    Pdist=0.
+    for ll in range(len(harm_sky_vals)):
+        for mm in range(len(harm_sky_vals[ll])):
+            Pdist += clm[ ll**2 + mm ] * harm_sky_vals[ll][mm]
+
+    if np.any(Pdist<0.)==True:
+        return -np.inf
+    else:
+        return 0
 
 
 
