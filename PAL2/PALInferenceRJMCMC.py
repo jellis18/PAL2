@@ -56,8 +56,13 @@ class RJMCMCSampler(object):
         
         # initialize counters
         self.nmodels = 0
-        self.naccepted = 0
-        self.TDproposed = 0
+        self.naccepted = []
+        self.TDproposed = []
+        self.tnaccepted = 0
+        self.tTDproposed = 0
+        
+        # initialize proposal cycle
+        self.propCycle = []
 
         # fill in dictionaries
         # TODO for now just use default arguments, later include a
@@ -74,6 +79,14 @@ class RJMCMCSampler(object):
 
             # make TD jump proposals from chains
             self.constructGaussianKDE(model, chain)
+
+        # make acceptance and proposed lists for each transition
+        for ii in range(self.nmodels):
+            for jj in range(self.nmodels):
+                if ii != jj:
+                    self.naccepted.append([1,1])
+                    self.TDproposed.append([1,1])
+
 
     
     def addSampler(self, model, ndim, logl, logp, cov, loglargs=[], loglkwargs={}, \
@@ -135,44 +148,13 @@ class RJMCMCSampler(object):
         self.TDJumpDict[model] = ss.gaussian_kde(chain.T)
 
 
-
-    def gaussianKDEJump(self, x0, m0, iter):
-
-        """
-        Uses gaussian KDE to propose jump in new model parameter space.
-
-        @param x0: parameter vector in current model
-        @param m0: the current model
-        @param iter: iteration of the RJMCMC chain
-
-        @return x1: proposed parameter vector in new model
-        @return m1: proposed model
-        @return qxy: forward-backward jump probability
-
-        """
-
-        # determine which model to propose jump into
-        randind = np.random.randint(0, self.nmodels-1)
-        ind = np.flatnonzero(np.array(self.models) != m0)[randind]
-        m1 = self.models[ind]
-
-        # new parameters
-        x1 = self.TDJumpDict[m1].resample(1).flatten()
-
-        # forward-backward jump probability
-        p0 = self.TDJumpDict[m0].evaluate(x0)
-        p1 = self.TDJumpDict[m1].evaluate(x1)
-        qxy = np.log(p0/p1)
-
-        return x1, m1, qxy
-
-
     def _getModelIndex(self, model):
         """
         Return index of model given model key
 
         """
         return np.flatnonzero(np.array(self.models) == model)[0]
+    
 
     def _updatePriorOdds(self, model0, model1):
         """
@@ -199,7 +181,7 @@ class RJMCMCSampler(object):
         return self.odds[modelindex0, modelindex1]
 
 
-    def sample(self, model0, p0, Niter, burn=100000, \
+    def sample(self, model0, p0, Niter, burn=10000, \
                     adaptiveOdds=False, TDprob=0.5, \
                     thin=1, isave=1000):
 
@@ -257,6 +239,12 @@ class RJMCMCSampler(object):
         # save model
         self._modelchain[0] = self._getModelIndex(model0)
 
+        # add KDE jumps
+        self.addProposalToCycle(self.gaussianKDEJump, 20)
+        
+        # randomize cycle
+        self.randomizeProposalCycle()
+
         # start loop over iterations
         tstart = time.time()
         for ii in range(Niter-1):
@@ -269,11 +257,14 @@ class RJMCMCSampler(object):
                     for nn in range(mm+1, self.nmodels):
                         odds = self._updatePriorOdds(self.models[mm], self.models[nn])
 
-            # propose TD jump (50% of the time)
+            # propose TD jump 
             alpha = np.random.rand()
             if alpha <= TDprob:
-                self.TDproposed += 1
-                newpar, newmod, qxy = self.gaussianKDEJump(p0, model0, self.iterations)
+                self.tTDproposed += 1
+                m0 = self._getModelIndex(model0)
+                newpar, m1, qxy = self._jump(p0, m0, self.iterations)
+                newmod = self.models[m1]
+                self.TDproposed[m0][m1] += 1
 
                 # evaluate likelihood in new model
                 lp = self.logpDict[newmod](newpar)
@@ -292,12 +283,12 @@ class RJMCMCSampler(object):
                 if diff >= np.log(np.random.rand()):
 
                     # accept jump
+                    self.naccepted[m0][m1] += 1
+                    self.tnaccepted += 1
+
                     #print 'Jumping from model {0} to model {1}'.format(model0, newmod)
                     p0, lnlike0, lnprob0, model0 = newpar, newlnlike, newlnprob, newmod
 
-                    # update acceptance counter
-                    self.naccepted += 1
-                
                 # save new values in individual chains
                 self.samplerDict[model0].updateChains(p0, lnlike0, lnprob0, \
                                                     self.iterDict[model0])
@@ -323,7 +314,7 @@ class RJMCMCSampler(object):
                 sys.stdout.write('\r')
                 sys.stdout.write('Finished %2.2f percent in %f s Acceptance rate = %g'\
                                  %(self.iterations/Niter*100, time.time() - tstart, \
-                                   self.naccepted/self.TDproposed))
+                                   self.tnaccepted/self.tTDproposed))
                 sys.stdout.flush()
 
 
@@ -356,10 +347,102 @@ class RJMCMCSampler(object):
         self._chainfile = open(fname, 'a+')
         for jj in range((iter-isave), iter, thin):
             ind = int(jj/thin)
-            self._chainfile.write('%e\t %d\n'%(self.naccepted/self.TDproposed, \
-                                               self._modelchain[jj]))
+            self._chainfile.write('\t'.join(['%22.22f'%(self.naccepted[ii][kk]/\
+                                                        self.TDproposed[ii][kk]) \
+                                            for ii in range(self.nmodels) \
+                                            for kk in range(self.nmodels) if ii!=kk]))
+
+            self._chainfile.write('\t%d\t'%(self._modelchain[jj]))
             self._chainfile.write('\n')
         self._chainfile.close()
+    
+    # add jump proposal distribution functions
+    def addProposalToCycle(self, func, weight):
+        """
+        Add jump proposal distributions to cycle with a given weight.
+
+        @param func: jump proposal function
+        @param weight: jump proposal function weight in cycle
+
+        """
+
+        # get length of cycle so far
+        length = len(self.propCycle)
+
+        # check for 0 weight
+        if weight == 0:
+            print 'ERROR: Can not have 0 weight in proposal cycle!'
+            sys.exit()
+
+        # add proposal to cycle
+        for ii in range(length, length + weight):
+            self.propCycle.append(func)
+
+
+    # randomized proposal cycle
+    def randomizeProposalCycle(self):
+        """
+        Randomize proposal cycle that has already been filled
+
+        """
+
+        # get length of full cycle
+        length = len(self.propCycle)
+
+        # get random integers
+        index = np.random.randint(0, (length-1), length)
+
+        # randomize proposal cycle
+        self.randomizedPropCycle = [self.propCycle[ind] for ind in index]
+
+
+    # call proposal functions from cycle
+    def _jump(self, x, mx, iter):
+        """
+        Call Jump proposals
+
+        """
+
+        # get length of cycle
+        length = len(self.propCycle)
+
+        # call function
+        q, mq, qxy = self.randomizedPropCycle[np.mod(iter, length)](x, mx, iter)
+
+        # increment proposal cycle counter and re-randomize if at end of cycle
+        if iter % length == 0: self.randomizeProposalCycle()
+
+        return q, mq, qxy
+
+
+    def gaussianKDEJump(self, x0, m0, iter):
+
+        """
+        Uses gaussian KDE to propose jump in new model parameter space.
+
+        @param x0: parameter vector in current model
+        @param m0: the current model
+        @param iter: iteration of the RJMCMC chain
+
+        @return x1: proposed parameter vector in new model
+        @return m1: proposed model
+        @return qxy: forward-backward jump probability
+
+        """
+
+        # determine which model to propose jump into
+        randind = np.random.randint(0, self.nmodels-1)
+        m1 = np.flatnonzero(np.array(self.models) != self.models[m0])[randind]
+
+        # new parameters
+        x1 = self.TDJumpDict[self.models[m1]].resample(1).flatten()
+
+        # forward-backward jump probability
+        p0 = self.TDJumpDict[self.models[m0]].evaluate(x0)
+        p1 = self.TDJumpDict[self.models[m1]].evaluate(x1)
+        qxy = np.log(p0/p1)
+
+        return x1, m1, qxy
 
 
 

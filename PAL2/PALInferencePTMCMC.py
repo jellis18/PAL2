@@ -696,20 +696,6 @@ class PTSampler(object):
         q = x.copy()
         qxy = 0
 
-        # number of parameters to update at once 
-        prob = np.random.rand()
-        if prob > (1 - 1/self.ndim):
-            block = self.ndim
-
-        elif prob > (1 - 2/self.ndim):
-            block = np.ceil(self.ndim/2)
-
-        elif prob > 0.8:
-            block = 5
-
-        else:
-            block = 1
-
         # adjust step size
         prob = np.random.rand()
 
@@ -737,7 +723,7 @@ class PTSampler(object):
         y = np.dot(self.U.T, x)
 
         # make correlated componentwise adaptive jump
-        ind = np.unique(np.random.randint(0, self.ndim, block))
+        ind = np.unique(np.random.randint(0, self.ndim, 1))
         neff = len(ind)
         cd = 2.4  / np.sqrt(2*neff) * scale 
 
@@ -787,9 +773,20 @@ class PTSampler(object):
         # adjust scale based on temperature
         if self.temp <= 100:
             scale *= np.sqrt(self.temp)
+        
+        # get parmeters in new diagonalized basis
+        y = np.dot(self.U.T, x)
 
-        cd = 2.4/np.sqrt(2*self.ndim) * np.sqrt(scale)
-        q = np.random.multivariate_normal(x, cd**2*self.cov)
+        # make correlated componentwise adaptive jump
+        ind = np.arange(len(x))
+        neff = len(ind)
+        cd = 2.4  / np.sqrt(2*neff) * scale 
+
+        y[ind] = y[ind] + np.random.randn(neff) * cd * np.sqrt(self.S[ind])
+        q = np.dot(self.U, y)
+
+        #cd = 2.4/np.sqrt(2*self.ndim) * np.sqrt(scale)
+        #q = np.random.multivariate_normal(x, cd**2*self.cov)
 
         return q, qxy
 

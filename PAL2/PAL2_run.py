@@ -393,8 +393,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize':
         pstart = True
     startSpectrumMin = False
     while not(inRange):
-        #print 'Not in Range'
-        p0 = model.initParameters(startEfacAtOne=True, fixpstart=fixpstart)
+        p0 = model.initParameters(startEfacAtOne=True, fixpstart=True)
         #print p0
         #for ct, nm in enumerate(par_out):
         #    print nm, p0[ct]
@@ -443,17 +442,17 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize':
             elif args.gwbModel == 'spectrum':
                 sampler.addProposalToCycle(model.drawFromGWBSpectrumPrior, 10)
         if args.incRed and args.redModel=='powerlaw':
-            sampler.addProposalToCycle(model.drawFromRedNoisePrior, 10)
+            sampler.addProposalToCycle(model.drawFromRedNoisePrior, 5)
         if args.incRed and args.redModel=='spectrum':
             sampler.addProposalToCycle(model.drawFromRedNoiseSpectrumPrior, 10)
         if args.incEquad:
-            sampler.addProposalToCycle(model.drawFromEquadPrior, 10)
+            sampler.addProposalToCycle(model.drawFromEquadPrior, 5)
         if args.incJitterEquad:
             sampler.addProposalToCycle(model.drawFromJitterEquadPrior, 5)
         if args.incJitterEpoch:
             sampler.addProposalToCycle(model.drawFromJitterEpochPrior, 5)
         if args.incTimingModel:
-            sampler.addProposalToCycle(model.drawFromTMfisherMatrix, 40)
+            sampler.addProposalToCycle(model.drawFromTMfisherMatrix, 30)
         if args.incCW:
             sampler.addProposalToCycle(model.drawFromCWPrior, 3)
             sampler.addProposalToCycle(model.massDistanceJump, 5)

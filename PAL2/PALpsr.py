@@ -734,7 +734,6 @@ class Pulsar(object):
             tmpars=None, memsave=True, incJitter=False, incDMX=False):
 
 
-
         # For creating the auxiliaries it does not really matter: we are now
         # creating all quantities per default
         self.twoComponentNoise = twoComponent
@@ -813,12 +812,12 @@ class Pulsar(object):
         # Create the Fourier design matrices for noise
         if nf > 0:
             self.incRed = True
-            #(self.Fmat, self.Ffreqs) = PALutils.createfourierdesignmatrix(self.toas, \
-            #                                                nf, Tspan=Tmax, freq=True, \
-            #                                                logf=False)
-            #self.Fmat /= np.sqrt(Tmax)
-            self.Ffreqs, self.Fmat = rr.get_rr_rep(self.toas, Tmax, 1/4.7/Tmax, nf, \
-                                            20, simpson=False)
+            (self.Fmat, self.Ffreqs) = PALutils.createfourierdesignmatrix(self.toas, \
+                                                            nf, Tspan=Tmax, freq=True, \
+                                                            logf=False)
+            self.Fmat /= np.sqrt(Tmax)
+            #self.Ffreqs, self.Fmat = rr.get_rr_rep(self.toas, Tmax, 1/4.7/Tmax, nf, \
+            #                                20, simpson=False)
             if useAverage:
                 (self.FAvmat, tmp) = PALutils.createfourierdesignmatrix(self.avetoas, \
                                                                 nf, Tspan=Tmax, freq=True, \
@@ -905,12 +904,11 @@ class Pulsar(object):
             print 'Analytically marginalizing over', tmpardel
             self.Mmat, newptmpars, newptmdescription = self.delFromDesignMatrix(tmpardel)
             
-            if 'KIN' in newptmdescription:
-                ind = newptmdescription.index('KIN')
-                self.Mmat[:,ind] /= np.cos(newptmpars[ind]*np.pi/180)
-
             w = 1.0 / self.toaerrs**2
-            Sigi = np.dot(self.Mmat.T, (w * self.Mmat.T).T)
+            Mm = self.Mmat.copy()
+            self.norm = np.sqrt(np.sum(Mm**2, axis=0))
+            Mm /= self.norm
+            Sigi = np.dot(Mm.T, (w * Mm.T).T)
             #try:
             #    cf = sl.cho_factor(Sigi)
             #    Sigma = sl.cho_solve(cf, np.eye(Sigi.shape[0]))
@@ -929,16 +927,10 @@ class Pulsar(object):
             Mmat = self.Mmat
 
         self.Mmat_reduced = Mmat
-        U, s, Vh = sl.svd(Mmat)
-        self.Gmat = U[:, Mmat.shape[1]:].copy()
-        self.Gcmat = U[:, :Mmat.shape[1]].copy()
-
-
-        ########
-        M, S, V = np.linalg.svd(Mmat, full_matrices=False)
-        #self.Mmat = M
-        self.Svec = S
-        self.Vmat = V.T
+        #U, s, Vh = sl.svd(Mmat)
+        #self.Gmat = U[:, Mmat.shape[1]:].copy()
+        #self.Gcmat = U[:, :Mmat.shape[1]].copy()
+        
 
         # T matrix
         if likfunc == 'mark6':
@@ -956,8 +948,8 @@ class Pulsar(object):
                 self.Tmat = np.concatenate((self.Tmat, self.DMXDesignMat), axis=1)
 
         # Construct the compression matrix
-        self.constructCompressionMatrix(compression, nfmodes=2*nf,
-                ndmodes=2*ndmf, threshold=threshold)
+        #self.constructCompressionMatrix(compression, nfmodes=2*nf,
+        #        ndmodes=2*ndmf, threshold=threshold)
 
         if write != 'no':
             if memsave == False:
@@ -984,9 +976,9 @@ class Pulsar(object):
                 h5df.addData(self.name, 'aveflags', self.aveflags)
 
         # basic quantities
-        self.Gr = np.dot(self.Hmat.T, self.residuals)
-        self.GGr = np.dot(self.Hmat, self.Gr)
-        GtF = np.dot(self.Hmat.T, self.Ftot)
+        #self.Gr = np.dot(self.Hmat.T, self.residuals)
+        #self.GGr = np.dot(self.Hmat, self.Gr)
+        #GtF = np.dot(self.Hmat.T, self.Ftot)
         
         if useAverage:
             GtU = np.dot(self.Hmat.T, self.Umat)
@@ -1050,8 +1042,8 @@ class Pulsar(object):
                     h5df.addData(self.name, 'AoGU', self.AoGU)
 
        
-        self.nbasis = self.Hmat.shape[1]
-        self.nobasis = self.Homat.shape[1]
+        #self.nbasis = self.Hmat.shape[1]
+        #self.nobasis = self.Homat.shape[1]
 
         if write != 'no':
             h5df.addData(self.name, 'nbasis', self.nbasis)
@@ -1061,7 +1053,7 @@ class Pulsar(object):
             # clear out G and Gc matrices
             self.Gmat = None
             self.Gcmat = None
-            self.Hocmat
+            self.Hocmat = None
             self.Hmat = None
             self.Amat = None
 

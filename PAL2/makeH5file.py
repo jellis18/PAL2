@@ -33,5 +33,6 @@ print parFiles, timFiles
 
 df = PALdatafile.DataFile(args.h5file)
 for t,p in zip(timFiles, parFiles):
+    print t, p
     df.addTempoPulsar(p, t, iterations=3, sigma=10000)
 

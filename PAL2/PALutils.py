@@ -640,6 +640,7 @@ def exploderMatrix_slow(toas, freqs=None, dt=1200, flags=None):
     while not np.all(processed):
         npindex = np.where(processed == False)[0]
         ind = npindex[0]
+        print ind
         satmin = toas[ind] - dt
         satmax = toas[ind] + dt
 
