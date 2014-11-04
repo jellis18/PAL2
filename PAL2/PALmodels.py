@@ -141,6 +141,7 @@ class PTAmodels(object):
             incEquad=False,separateEquads=False, separateEquadsByFreq=False, \
             incJitter=False, separateJitter=False, separateJitterByFreq=False, \
             incTimingModel=False, nonLinear=False, fulltimingmodel=False,\
+            addPars=None, subPars=None, \
             incJitterEpoch=False, nepoch=None, \
             incNonGaussian=False, nnongaussian=3, \
             incJitterEquad=False, separateJitterEquad=False, separateJitterEquadByFreq=False, \
@@ -432,6 +433,14 @@ class PTAmodels(object):
                     pwidth = [0.1, 0.1, 5.0e-11]
                     prior = [DMAmpPrior, DMSiPrior, 'log']
                     DMModel = 'dmpowerlaw'
+                elif dmModel=='se':
+                    bvary = [True, True]
+                    pmin = [-12.0, 14.0]
+                    pmax = [-5.0, (p.toas.max()-p.toas.min())/2]
+                    pstart = [-7.0, 36.0]
+                    pwidth = [0.5, 10.0]
+                    prior = ['log', 'linear']
+                    DMModel = 'dmse'
 
                 newsignal = OrderedDict({
                     "stype":DMModel,
@@ -601,6 +610,66 @@ class PTAmodels(object):
                     # libstempo object
                     p.initLibsTempoObject()
 
+                    # add or subtract pars
+                    if addPars is not None:
+                        for key in addPars:
+                            if key == 'DMX':
+                                dmxs = np.array([par for par in p.ptmdescription \
+                                                   if 'DMX' in par])
+                                for dmx in dmxs:
+                                    print 'Turning on fit for {0}'.format(dmx)
+                                    p.t2psr[dmx].fit = True
+                            elif key == 'ORTHO':
+                                print 'Using orthometric parameterization!'
+                                if p.t2psr.binarymodel == 'DD':
+                                    p.t2psr.binarymodel = 'DDH'
+                                if p.t2psr.binarymodel == 'ELL1':
+                                    p.t2psr.binarymodel = 'ELL1H'
+                                sini = p.t2psr['SINI'].val
+                                zeta = sini / (1+np.cos(np.arcsin(sini)))
+                                h3val = 4.9e-6 * p.t2psr['M2'].val * zeta**3
+                                stigval = zeta
+                                p.t2psr['M2'].fit = False
+                                p.t2psr['SINI'].fit = False
+                                p.t2psr['M2'].val = 0.0
+                                p.t2psr['SINI'].val = 0.0
+                                p.t2psr['H3'].fit = True
+                                p.t2psr['H3'].val = h3val
+                                p.t2psr['STIG'].fit = True
+                                p.t2psr['STIG'].val = stigval
+                            else:
+                                print 'Turning on fit for {0}'.format(key)
+                                p.t2psr[key].fit = True
+                                if key == 'SINI':
+                                    p.t2psr[key].val = 0.99
+                                if key == 'M2':
+                                    p.t2psr[key].val = 0.3
+                        p.t2psr.fit(iters=1)   
+                        p.ptmdescription = ['Offset'] + list(p.t2psr.fitpars)
+                        p.ptmpars = np.array([0] + list(p.t2psr.fitvals))
+                        p.ptmparerrs = np.array([0]+ list(p.t2psr.fiterrs))
+                        #p.residuals = p.t2psr.residuals()
+                        p.Mmat = p.t2psr.designmatrix(fixunits=True)
+
+                    
+                    if subPars is not None:
+                        for key in subPars:
+                            if key == 'DMX':
+                                dmxs = np.array([par for par in p.ptmdescription \
+                                                   if 'DMX' in par])
+                                for dmx in dmxs:
+                                    print 'Turning off fit for {0}'.format(dmx)
+                                    p.t2psr[dmx].fit = False
+                                    p.t2psr[dmx].val = 0.0
+                            else:
+                                print 'Turning off fit for {0}'.format(key)
+                                p.t2psr[key].fit = False
+                        p.t2psr.fit(iters=1)
+                        p.ptmdescription = ['Offset'] + list(p.t2psr.fitpars)
+                        p.ptmpars = np.array([0] + list(p.t2psr.fitvals))
+                        p.ptmparerrs = np.array([0]+ list(p.t2psr.fiterrs))
+                        #p.residuals = p.t2psr.residuals()
+                        p.Mmat = p.t2psr.designmatrix(fixunits=True)
 
                 # Just do the timing-model fit ourselves here, in order to set
                 # the prior.
@@ -1768,6 +1837,10 @@ class PTAmodels(object):
                     flagname = 'dmpowerlaw'
                     flagvalue = ['DM-Amplitude', 'DM-spectral-index', \
                                  'low-frequency-cutoff'][jj]
+                
+                elif sig['stype'] == 'dmse':
+                    flagname = 'dmse'
+                    flagvalue = ['DM-Amplitude', 'DM-tau'][jj]
 
                 elif sig['stype'] == 'spectralModel':
                     flagname = 'spectralModel'
@@ -1920,8 +1993,8 @@ class PTAmodels(object):
 
             # noise vectors
             p.Nvec = np.zeros(len(p.toas))
-            #p.Nwvec = np.zeros(p.nbasis)
-            #p.Nwovec = np.zeros(p.nobasis)
+            p.Nwvec = np.zeros(p.nbasis)
+            p.Nwovec = np.zeros(p.nobasis)
 
         # number of GW frequencies
         self.ngwf = np.max(self.npf)
@@ -2595,7 +2668,7 @@ class PTAmodels(object):
                     
                     f1yr = 1/3.16e7
                     rho = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
-                                         fgw**(-gamma)/sig['Tmax'])
+                                         fgw**(-gamma))
                 
                 if sig['corr'] in ['gr_sph']:
 
@@ -2644,6 +2717,23 @@ class PTAmodels(object):
                     #                     freqpy**(-gamma)/sig['Tmax'])
                     pcdoubled = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
                                          freqpy**(-gamma))
+
+                    # fill in kappa
+                    self.psr[psrind].kappadm = pcdoubled
+            
+            # squared exponential DM spectrum
+            if sig['stype'] == 'dmse':
+
+                # pulsar independend red noise powerlaw
+                if sig['corr'] == 'single':
+
+                    # get Amplitude and tau
+                    Amp = 10**sparameters[0]
+                    tau = sparameters[1] * 86400
+                    
+                    freqpy = self.psr[psrind].Fdmfreqs
+                    pcdoubled = np.log10(Amp * np.sqrt((2*np.pi*tau**2))*\
+                            np.exp(-2*np.pi*tau**2*freqpy**2))
 
                     # fill in kappa
                     self.psr[psrind].kappadm = pcdoubled
@@ -4749,13 +4839,13 @@ class PTAmodels(object):
                     prior += np.log(sini/np.sqrt(1-sini**2))
 
                 # prior on pulsar mass [0,3]
-                if sini and pb and m2 and a1:
-                    Pb = pb*86400
-                    X = a1*299.79e6/3e8
-                    M2 = m2*4.9e-6
-                    mp = ((sini*(Pb/2/np.pi)**(2./3)*M2/X)**(3./2) - M2)/4.9e-6
-                    ms = 1.4 * np.sqrt(2)
-                    prior += np.log(mp/ms) - (mp/ms)**2
+                #if sini and pb and m2 and a1:
+                #    Pb = pb*86400
+                #    X = a1*299.79e6/3e8
+                #    M2 = m2*4.9e-6
+                #    mp = ((sini*(Pb/2/np.pi)**(2./3)*M2/X)**(3./2) - M2)/4.9e-6
+                #    ms = 1.4 * np.sqrt(2)
+                #    prior += np.log(mp/ms) - (mp/ms)**2
 
 
             # CW parameters

@@ -122,6 +122,10 @@ parser.add_argument('--fullmodel', dest='fullmodel', action='store_true', \
                     help='Use full timing model, no marginalization')
 parser.add_argument('--noMarg', dest='noMarg', action='store_true',default=False,
                    help='No analytic marginalization')
+parser.add_argument('--addpars', dest='addpars', action='store', nargs='+', \
+                    type=str, required=False, help='Extra parameters to add to timing model')
+parser.add_argument('--delpars', dest='delpars', action='store', nargs='+', \
+                    type=str, required=False, help='parameters to remove from timing model')
 
 parser.add_argument('--incNonGaussian', dest='incNonGaussian', action='store_true', \
                     default=False, \
@@ -251,6 +255,7 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     incGWFourierMode=incGWFourierMode, \
                     incEquad=args.incEquad, incJitter=args.incJitter, \
                     incTimingModel=args.incTimingModel, nonLinear=args.tmmodel=='nonlinear', \
+                    addPars=args.addpars, subPars=args.delpars, \
                     fulltimingmodel=args.fullmodel, incNonGaussian=args.incNonGaussian, \
                     nnongaussian=args.nnongauss, \
                     incCW=args.incCW, incPulsarDistance=args.incPdist, \
@@ -464,6 +469,35 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize':
         if not args.noVaryEfac:
             sampler.addProposalToCycle(model.drawFromEfacPrior, 2)
 
+        ##################### Importance Sampling Jumps ###################
+
+        # read in chains
+        chaindirs = glob.glob('/Users/jaellis/Work/noise/NANOGrav/gwb_sims/*/chain_1.txt')
+
+        chains = [np.loadtxt(c) for c in chaindirs]
+
+        for ii in range(len(chains)):
+            burn = 0.25 * chains[ii].shape[0]
+            chains[ii] = chains[ii][burn:,:-4]
+
+        def ISJumps(x, iter, beta):
+
+            q = x.copy()
+
+            npar = len(chains)
+            
+            newpar = []
+            for c in chains:
+                ind = np.random.randint(0, c.shape[0])
+                newpar.append(c[ind,:])
+            
+            q[:npar] = np.array(newpar).flatten()
+
+            return q, 0
+            
+        #sampler.addProposalToCycle(ISJumps, 60)
+
+
         # run MCMC
         print 'Starting Sampling'
         sampler.sample(p0, args.niter, covUpdate=1000, AMweight=15, SCAMweight=30, \
@@ -489,7 +523,7 @@ elif args.sampler == 'multinest':
 
             # check prior
             if model.mark3LogPrior(acube) != -np.inf:
-                return model.mark6LogLikelihood(acube)
+                return model.mark6LogLikelihood(acube, incJitter=True)
             else:
                 #print 'WARNING: Prior returns -np.inf!!'
                 return -np.inf
