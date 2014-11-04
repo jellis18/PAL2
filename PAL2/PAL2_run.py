@@ -435,10 +435,13 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize':
 
         cov = model.initJumpCovariance()
 
+        ind = np.array([ct for ct, par in enumerate(par_out) if 'efac' in par or \
+                'equad' in par or 'jitter' in par or 'RN' in par or 'DM' in par])
+
         # define MCMC sampler
         sampler = PALInferencePTMCMC.PTSampler(len(p0), loglike, logprior, cov, comm=comm, \
                                                outDir=args.outDir, loglkwargs=loglkwargs, \
-                                               resume=args.resume)
+                                               resume=args.resume, covinds=ind)
 
         # add jump proposals
         if incGWB:
@@ -457,7 +460,8 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize':
         if args.incJitterEpoch:
             sampler.addProposalToCycle(model.drawFromJitterEpochPrior, 5)
         if args.incTimingModel:
-            sampler.addProposalToCycle(model.drawFromTMfisherMatrix, 30)
+            sampler.addProposalToCycle(model.drawFromTMfisherMatrix, 50)
+            sampler.addProposalToCycle(model.drawFromTMPrior, 5)
         if args.incCW:
             sampler.addProposalToCycle(model.drawFromCWPrior, 3)
             sampler.addProposalToCycle(model.massDistanceJump, 5)

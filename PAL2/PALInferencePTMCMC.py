@@ -37,6 +37,7 @@ class PTSampler(object):
     @param logl: log-likelihood function
     @param logp: log prior function (must be normalized for evidence evaluation)
     @param cov: Initial covariance matrix of model parameters for jump proposals
+    @param covinds: Indices of parameters for which to perform adaptive jumps
     @param loglargs: any additional arguments (apart from the parameter vector) for 
     log likelihood
     @param loglkwargs: any additional keyword arguments (apart from the parameter vector) 
@@ -51,7 +52,7 @@ class PTSampler(object):
 
     """
 
-    def __init__(self, ndim, logl, logp, cov, loglargs=[], loglkwargs={}, \
+    def __init__(self, ndim, logl, logp, cov, covinds=None, loglargs=[], loglkwargs={}, \
                  logpargs=[], logpkwargs={}, comm=MPI.COMM_WORLD, \
                  outDir='./chains', verbose=True, resume=False):
 
@@ -74,11 +75,18 @@ class PTSampler(object):
             except OSError:
                 pass
 
+        # find indices for which to perform adaptive jumps
+        if covinds is None:
+            covinds = np.arange(0, self.ndim)
+        self.covinds = np.array(covinds)
+
         # set up covariance matrix
-        self.cov = cov
+        ndim = len(self.covinds)
+        self.cov = cov[self.covinds.min():self.covinds.max()+1, \
+                       self.covinds.min():self.covinds.max()+1]
         self.U, self.S, v = np.linalg.svd(self.cov)
-        self.M2 = np.zeros((self.ndim, self.ndim))
-        self.mu = np.zeros(self.ndim)
+        self.M2 = np.zeros((ndim, ndim))
+        self.mu = np.zeros(ndim)
 
         # initialize proposal cycle
         self.propCycle = []
@@ -602,20 +610,21 @@ class PTSampler(object):
         """
 
         it = iter - mem
+        ndim = len(self.covinds)
 
         if it == 0:
-            self.M2 = np.zeros((self.ndim, self.ndim))
-            self.mu = np.zeros(self.ndim)
+            self.M2 = np.zeros((ndim, ndim))
+            self.mu = np.zeros(ndim)
 
         for ii in range(mem):
-            diff = np.zeros(self.ndim)
+            diff = np.zeros(ndim)
             it += 1
-            for jj in range(self.ndim):
+            for jj, ind in enumerate(self.covinds):
                 
-                diff[jj] = self._AMbuffer[iter-mem+ii,jj] - self.mu[jj]
+                diff[jj] = self._AMbuffer[iter-mem+ii, ind] - self.mu[jj]
                 self.mu[jj] += diff[jj]/it
 
-            self.M2 += np.outer(diff, (self._AMbuffer[iter-mem+ii,:]-self.mu))
+            self.M2 += np.outer(diff, (self._AMbuffer[iter-mem+ii,self.covinds]-self.mu))
 
         self.cov = self.M2/(it-1)  
 
@@ -695,6 +704,7 @@ class PTSampler(object):
 
         q = x.copy()
         qxy = 0
+        ndim = len(self.covinds)
 
         # adjust step size
         prob = np.random.rand()
@@ -720,15 +730,15 @@ class PTSampler(object):
             scale *= np.sqrt(self.temp)
 
         # get parmeters in new diagonalized basis
-        y = np.dot(self.U.T, x)
+        y = np.dot(self.U.T, x[self.covinds])
 
         # make correlated componentwise adaptive jump
-        ind = np.unique(np.random.randint(0, self.ndim, 1))
+        ind = np.unique(np.random.randint(0, ndim, 1))
         neff = len(ind)
         cd = 2.4  / np.sqrt(2*neff) * scale 
 
         y[ind] = y[ind] + np.random.randn(neff) * cd * np.sqrt(self.S[ind])
-        q = np.dot(self.U, y)
+        q[self.covinds] = np.dot(self.U, y)
 
         return q, qxy
     
@@ -750,6 +760,7 @@ class PTSampler(object):
 
         q = x.copy()
         qxy = 0
+        ndim = len(self.covinds)
 
         # adjust step size
         prob = np.random.rand()
@@ -775,15 +786,15 @@ class PTSampler(object):
             scale *= np.sqrt(self.temp)
         
         # get parmeters in new diagonalized basis
-        y = np.dot(self.U.T, x)
+        y = np.dot(self.U.T, x[self.covinds])
 
         # make correlated componentwise adaptive jump
-        ind = np.arange(len(x))
+        ind = np.arange(len(self.covinds))
         neff = len(ind)
         cd = 2.4  / np.sqrt(2*neff) * scale 
 
         y[ind] = y[ind] + np.random.randn(neff) * cd * np.sqrt(self.S[ind])
-        q = np.dot(self.U, y)
+        q[self.covinds] = np.dot(self.U, y)
 
         #cd = 2.4/np.sqrt(2*self.ndim) * np.sqrt(scale)
         #q = np.random.multivariate_normal(x, cd**2*self.cov)

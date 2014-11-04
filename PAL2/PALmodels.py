@@ -646,7 +646,7 @@ class PTAmodels(object):
                                     p.t2psr[key].val = 0.99
                                 if key == 'M2' and p.t2psr['M2'].val==0:
                                     p.t2psr[key].val = 0.3
-                        p.t2psr.fit(iters=1)   
+                        #p.t2psr.fit(iters=1)   
                         p.ptmdescription = ['Offset'] + list(p.t2psr.fitpars)
                         p.ptmpars = np.array([0] + list(p.t2psr.fitvals))
                         p.ptmparerrs = np.array([0]+ list(p.t2psr.fiterrs))
@@ -666,7 +666,7 @@ class PTAmodels(object):
                             else:
                                 print 'Turning off fit for {0}'.format(key)
                                 p.t2psr[key].fit = False
-                        p.t2psr.fit(iters=1)
+                        #p.t2psr.fit(iters=1)
                         p.ptmdescription = ['Offset'] + list(p.t2psr.fitpars)
                         p.ptmpars = np.array([0] + list(p.t2psr.fitvals))
                         p.ptmparerrs = np.array([0]+ list(p.t2psr.fiterrs))
@@ -745,7 +745,7 @@ class PTAmodels(object):
                                 pstart += [0.99]
                             else:
                                 pstart += [tmpest[jj]]
-                        if parid == 'STIG':
+                        elif parid == 'STIG':
                             pmin += [-1.0]
                             pmax += [1.0]
                             pwidth += [tmperrs[jj]]
@@ -753,7 +753,7 @@ class PTAmodels(object):
                                 pstart += [0.5]
                             else:
                                 pstart += [tmpest[jj]]
-                        elif parid == 'ECC':
+                        elif parid == 'ECC' or parid == 'E':
                             pmin += [0.0]
                             pmax += [1.0]
                             pwidth += [tmperrs[jj]]
@@ -4825,7 +4825,7 @@ class PTAmodels(object):
                             t0 = sparameters[pindex]
                         elif sig['parid'][jj] == 'EDOT':
                             edot = sparameters[pindex]
-                        elif sig['parid'][jj] == 'SINI':
+                       elif sig['parid'][jj] == 'SINI':
                             sini = sparameters[pindex]
                         elif sig['parid'][jj] == 'A1':
                             a1 = sparameters[pindex]
@@ -5532,7 +5532,42 @@ class PTAmodels(object):
         self.fisher = fisher
         self.fisherU = U
         self.fisherS = s
+        
+    # draws from timing model parameter prior
+    def drawFromTMPrior(self, parameters, iter, beta):
+        
+        # post-jump parameters
+        q = parameters.copy()
 
+        # transition probability
+        qxy = 0
+
+        # find number of signals
+        nsigs = np.sum(self.getNumberOfSignalsFromDict(self.ptasignals, \
+                                    stype='nonlineartimingmodel', corr='single'))
+        signum = self.getSignalNumbersFromDict(self.ptasignals, stype='nonlineartimingmodel', \
+                                               corr='single')
+
+        # which parameters to jump
+        ind = np.unique(np.random.randint(0, nsigs, 1))
+
+        # draw params from prior
+        for ii in ind:
+
+            # get signal
+            sig = self.ptasignals[signum[ii]]
+            parind = sig['parindex']
+            npars = sig['npars']
+
+            # jump in amplitude if varying
+            for jj in range(npars):
+                if sig['bvary'][jj]:
+
+                    # prior
+                    q[parind+jj] = np.random.uniform(self.pmin[parind+jj], \
+                                                     self.pmax[parind+jj])
+        
+        return q, qxy
 
 
     # draws from timing model fisher matrix
