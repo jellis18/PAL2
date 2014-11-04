@@ -629,6 +629,8 @@ class PTAmodels(object):
                                 zeta = sini / (1+np.cos(np.arcsin(sini)))
                                 h3val = 4.9e-6 * p.t2psr['M2'].val * zeta**3
                                 stigval = zeta
+                                if h3val == 0 or stigval == 0:
+                                    h3val, stigval = 1e-8, 0.6
                                 p.t2psr['M2'].fit = False
                                 p.t2psr['SINI'].fit = False
                                 p.t2psr['M2'].val = 0.0
@@ -640,9 +642,9 @@ class PTAmodels(object):
                             else:
                                 print 'Turning on fit for {0}'.format(key)
                                 p.t2psr[key].fit = True
-                                if key == 'SINI':
+                                if key == 'SINI' and p.t2psr['SINI'].val==0:
                                     p.t2psr[key].val = 0.99
-                                if key == 'M2':
+                                if key == 'M2' and p.t2psr['M2'].val==0:
                                     p.t2psr[key].val = 0.3
                         p.t2psr.fit(iters=1)   
                         p.ptmdescription = ['Offset'] + list(p.t2psr.fitpars)
@@ -741,6 +743,14 @@ class PTAmodels(object):
                             pwidth += [tmperrs[jj]]
                             if tmpest[jj] <= -1.0 or tmpest[jj] >= 1.0:
                                 pstart += [0.99]
+                            else:
+                                pstart += [tmpest[jj]]
+                        if parid == 'STIG':
+                            pmin += [-1.0]
+                            pmax += [1.0]
+                            pwidth += [tmperrs[jj]]
+                            if tmpest[jj] <= -1.0 or tmpest[jj] >= 1.0:
+                                pstart += [0.5]
                             else:
                                 pstart += [tmpest[jj]]
                         elif parid == 'ECC':
