@@ -8,6 +8,7 @@ import PALInferencePTMCMC
 from scipy.optimize import minimize
 import PALpsr
 import glob
+import pyswarm
 import time, os
 
 try:
@@ -153,6 +154,8 @@ parser.add_argument('--resume', dest='resume', action='store_true', \
 
 parser.add_argument('--Tmatrix', dest='Tmatrix', action='store_true', \
                     default=False, help='Use T matrix formalism')
+parser.add_argument('--mark8', dest='mark8', action='store_true', \
+                    default=False, help='Use mark8 likelihoodk')
 
 # parse arguments
 args = parser.parse_args()
@@ -222,6 +225,8 @@ if args.noMarg:
 
 if args.Tmatrix or args.margShapelet:
     likfunc = 'mark6'
+if args.mark8:
+    likfunc = 'mark8'
 
 if args.margShapelet:
     dmEventModel = 'shapeletmarg'
@@ -306,6 +311,11 @@ for sig in fullmodel['signals']:
         if np.any([e in sig['flagvalue'] for e in ['M4', 'M3', 'ABPP']]):
             sig['bvary'] = [False]
 
+#for sig in fullmodel['signals']:
+#    if sig['stype'] == 'jitter_equad':
+#        if np.any([e in sig['flagvalue'] for e in ['L-wide_ASP']]):
+#            sig['bvary'] = [False]
+
 memsave = True
 if args.noVaryEfac:
     print 'Not Varying EFAC'
@@ -362,6 +372,8 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize':
         loglike = model.mark6LogLikelihood
     if args.noMarg:
         loglike = model.mark7LogLikelihood
+    if args.mark8:
+        loglike = model.mark8LogLikelihood
                                 
 
     #loglike = model.mark5LogLikelihood
@@ -419,7 +431,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize':
     #plt.errorbar(model.psr[0].toas, model.psr[0].residuals, model.psr[0].toaerrs, fmt='.')
     #plt.show()
 
-    if args.sampler == 'mimimize':
+    if args.sampler == 'minimize':
 
         # define function
         def fun(x):
@@ -430,18 +442,30 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize':
 
             return ret
 
+        pyswarm.pso(fun, lb=model.pmin, ub=model.pmax, swarmsize=1000, \
+                    maxiter=1000, minfunc=1e-4, minstep=1e-4, debug=True)
+
 
     if args.sampler == 'mcmc':
 
         cov = model.initJumpCovariance()
 
         ind = np.array([ct for ct, par in enumerate(par_out) if 'efac' in par or \
-                'equad' in par or 'jitter' in par or 'RN' in par or 'DM' in par])
+                'equad' in par or 'jitter' in par or 'RN' in par or 'DM' in par \
+                or 'red_' in par or 'dm_' in par])
+
+        ##########################
+        chain = np.loadtxt('/Users/jaellis/Work/noise/NANOGrav/ppta_dr1/noise/J1713+0747/chain_1.0.txt')
+        burn = 0.25 * chain.shape[0]
+        import PALInferenceJumpProposals as jump
+        kernel = jump.KDEJumps(chain[burn:,:-4], ind)
 
         # define MCMC sampler
         sampler = PALInferencePTMCMC.PTSampler(len(p0), loglike, logprior, cov, comm=comm, \
                                                outDir=args.outDir, loglkwargs=loglkwargs, \
                                                resume=args.resume, covinds=ind)
+
+        #sampler.addProposalToCycle(kernel, 50)
 
         # add jump proposals
         if incGWB:
@@ -461,7 +485,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize':
             sampler.addProposalToCycle(model.drawFromJitterEpochPrior, 5)
         if args.incTimingModel:
             sampler.addProposalToCycle(model.drawFromTMfisherMatrix, 50)
-            sampler.addProposalToCycle(model.drawFromTMPrior, 5)
+            #sampler.addProposalToCycle(model.drawFromTMPrior, 5)
         if args.incCW:
             sampler.addProposalToCycle(model.drawFromCWPrior, 3)
             sampler.addProposalToCycle(model.massDistanceJump, 5)
@@ -476,28 +500,28 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize':
         ##################### Importance Sampling Jumps ###################
 
         # read in chains
-        chaindirs = glob.glob('/Users/jaellis/Work/noise/NANOGrav/gwb_sims/*/chain_1.txt')
+        #chaindirs = glob.glob('/Users/jaellis/Work/noise/NANOGrav/gwb_sims/*/chain_1.txt')
 
-        chains = [np.loadtxt(c) for c in chaindirs]
+        #chains = [np.loadtxt(c) for c in chaindirs]
 
-        for ii in range(len(chains)):
-            burn = 0.25 * chains[ii].shape[0]
-            chains[ii] = chains[ii][burn:,:-4]
+        #for ii in range(len(chains)):
+        #    burn = 0.25 * chains[ii].shape[0]
+        #    chains[ii] = chains[ii][burn:,:-4]
 
-        def ISJumps(x, iter, beta):
+        #def ISJumps(x, iter, beta):
 
-            q = x.copy()
+        #    q = x.copy()
 
-            npar = len(chains)
-            
-            newpar = []
-            for c in chains:
-                ind = np.random.randint(0, c.shape[0])
-                newpar.append(c[ind,:])
-            
-            q[:npar] = np.array(newpar).flatten()
+        #    npar = len(chains)
+        #    
+        #    newpar = []
+        #    for c in chains:
+        #        ind = np.random.randint(0, c.shape[0])
+        #        newpar.append(c[ind,:])
+        #    
+        #    q[:npar] = np.array(newpar).flatten()
 
-            return q, 0
+        #    return q, 0
             
         #sampler.addProposalToCycle(ISJumps, 60)
 
@@ -569,10 +593,10 @@ elif args.sampler == 'multinest':
 
     # run MultiNest
     pymultinest.run(myloglike, myprior, n_params, resume = False, \
-                    verbose = True, sampling_efficiency = 0.02, \
+                    verbose = True, sampling_efficiency = 0.2, \
                     outputfiles_basename =  args.outDir+'/mn'+'-', \
                     n_iter_before_update=5, n_live_points=nlive, \
-                    const_efficiency_mode=True, importance_nested_sampling=True, \
+                    const_efficiency_mode=False, importance_nested_sampling=False, \
                     n_clustering_params=n_params, init_MPI=False)
 
 

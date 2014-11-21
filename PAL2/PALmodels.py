@@ -24,7 +24,6 @@ except ImportError:
 
 import matplotlib.pyplot as plt
 
-
 """
 
 PALmodels.py
@@ -639,6 +638,16 @@ class PTAmodels(object):
                                 p.t2psr['H3'].val = h3val
                                 p.t2psr['STIG'].fit = True
                                 p.t2psr['STIG'].val = stigval
+                            elif key == 'MTOT':
+                                p.t2psr.binarymodel == 'DDGR'
+                                p.t2psr[key].fit = True
+                            elif key == 'SHAPMAX':
+                                sini = p.t2psr['SINI'].val
+                                p.t2psr['SINI'].fit = False
+                                p.t2psr[key].fit = True
+                                p.t2psr[key].val = -np.log(1-sini)
+                                p.t2psr.binarymodel = 'T2'
+
                             else:
                                 print 'Turning on fit for {0}'.format(key)
                                 p.t2psr[key].fit = True
@@ -666,6 +675,7 @@ class PTAmodels(object):
                             else:
                                 print 'Turning off fit for {0}'.format(key)
                                 p.t2psr[key].fit = False
+                                p.t2psr[key].val = 0.0
                         #p.t2psr.fit(iters=1)
                         p.ptmdescription = ['Offset'] + list(p.t2psr.fitpars)
                         p.ptmpars = np.array([0] + list(p.t2psr.fitvals))
@@ -710,7 +720,7 @@ class PTAmodels(object):
                 else:
                     newptmdescription = p.getNewTimingModelParameterList(keep=True, \
                         tmpars=['Offset', 'F0', 'F1', 'RAJ', 'DECJ', 'LAMBDA', \
-                                'ELONG', 'ELAT', 'PMRA', 'PMDEC', 'PX', \
+                                'ELONG', 'ELAT', 'PMRA', 'PMDEC', \
                                 'BETA', 'PMELONG', 'PMELAT','DM', 'DM1', \
                                 'DM2'] + jumps + dmx + fds)
                     #newptmdescription = p.getNewTimingModelParameterList(keep=True, \
@@ -782,6 +792,11 @@ class PTAmodels(object):
                             pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
                             pwidth += [tmperrs[jj]]
                             pstart += [tmpest[jj]]
+                        elif parid == 'SHAPMAX':
+                            pmin += [0.0]
+                            pmax += [50]
+                            pstart += [tmpest[jj]]
+                            pwidth += [tmperrs[jj]]
                         #elif parid == 'EDOT':
                         #    pmin += [-500.0 * tmperrs[jj] + tmpest[jj]]
                         #    pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
@@ -1680,6 +1695,7 @@ class PTAmodels(object):
             self.compression = compression
         elif compression == 'None':
             self.evallikcomp = False
+            self.compression = compression
         else:
             self.evallikcomp = True
             self.compression = compression
@@ -1996,7 +2012,7 @@ class PTAmodels(object):
                     p.nSingleFreqs*2 + p.nSingleDMFreqs*2
             self.ntmpars += len(p.ptmdescription)
 
-            if self.likfunc == 'mark6':
+            if self.likfunc == 'mark6' or self.likfunc == 'mark8':
                 p.Ttmat = p.Tmat.copy()
                 nphiTmat += p.Tmat.shape[1] + p.nSingleFreqs*2 + p.nSingleDMFreqs*2 + \
                         p.ndmEventCoeffs
@@ -2603,7 +2619,7 @@ class PTAmodels(object):
                     pcdoubled = np.array([sparameters, sparameters]).T.flatten()
 
                     # fill in kappa
-                    self.psr[psrind].kappa = pcdoubled
+                    self.psr[psrind].kappa = pcdoubled  + np.log10(sig['Tmax'])
 
                 # correlated signals
                 if sig['corr'] in ['gr', 'uniform', 'dipole']:
@@ -2708,7 +2724,7 @@ class PTAmodels(object):
                     pcdoubled = np.array([sparameters, sparameters]).T.flatten()
 
                     # fill in kappa
-                    self.psr[psrind].kappadm = pcdoubled
+                    self.psr[psrind].kappadm = pcdoubled + np.log10(sig['Tmax'])
 
 
             # powerlaw DM spectrum
@@ -2744,6 +2760,8 @@ class PTAmodels(object):
                     freqpy = self.psr[psrind].Fdmfreqs
                     pcdoubled = np.log10(Amp * np.sqrt((2*np.pi*tau**2))*\
                             np.exp(-2*np.pi*tau**2*freqpy**2))
+                    pcdoubled[np.isinf(pcdoubled)]  = -100
+                    pcdoubled[np.isnan(pcdoubled)]  = -100
 
                     # fill in kappa
                     self.psr[psrind].kappadm = pcdoubled
@@ -3551,6 +3569,27 @@ class PTAmodels(object):
 
                 # triple product in likelihood function
                 rGGNGGr = np.sum(p.AGr**2/p.Nwvec)
+
+            #elif not(p.twoComponentNoise) and self.compression == 'average':
+            #    
+            #    GNG = np.dot(p.Hmat.T/p.Nvec, p.Hmat)
+            #    cf = sl.cho_factor(GNG)
+            #    logdet_N = 2*np.sum(np.log(np.diag(cf[0])))
+            #    GNGG = sl.cho_solve(cf, p.H.T)
+            #    GGNGG = np.dot(p.Hmat, GNGG)
+            #    GNGGdt = np.dot(GNGG, p.detresiduals)
+
+            #    if ct == 0:
+            #        d = np.dot(p.FFtot.T, GNGGdt)
+            #    else:
+            #        d = np.append(d, np.dot(p.FFtot.T, GNGGdt))
+
+            #    FGGNGGF.append(np.dot(p.FFtot.T, np.dot(GGNGG, p.FFtot)))
+
+            #    rGGNGGr = np.dot(p.detresiduals, np.dot(GGNGG, p.detresiduals)
+
+                
+                    
             
             else:   
 
@@ -4471,9 +4510,64 @@ class PTAmodels(object):
 
         return loglike
 
+    
+    def mark8LogLikelihood(self, parameters, incCorrelations=False, incJitter=False):
+        """
+        Test likelihood only including timing model and no noise
+        """
+
+        loglike = 0
+        print self.mark8Gradient(parameters)
+
+        # set pulsar white noise parameters
+        self.setPsrNoise(parameters, incJitter=False)
+
+        # set deterministic sources
+        if self.haveDetSources:
+            self.updateDetSources(parameters)
+
+        self.updateTmatrix(parameters)
 
 
+        # compute the white noise terms in the log likelihood
+        for ct, p in enumerate(self.psr):
 
+            # check for nans or infs
+            if np.any(np.isnan(p.detresiduals)) or np.any(np.isinf(p.detresiduals)):
+                return -np.inf
+                
+            d = np.dot(p.Tmat.T, p.detresiduals/p.Nvec)
+
+            loglike += -np.dot(p.detresiduals**2, 1/p.Nvec)
+            loglike += np.dot(d, np.dot(p.TNTinv, d))
+
+        return loglike
+
+    def mark8Gradient(self, parameters):
+        
+        # set pulsar white noise parameters
+        self.setPsrNoise(parameters, incJitter=False)
+
+        # set deterministic sources
+        if self.haveDetSources:
+            self.updateDetSources(parameters)
+
+        self.updateTmatrix(parameters)
+
+        for ct, p in enumerate(self.psr):
+
+            # check for nans or infs
+            if np.any(np.isnan(p.detresiduals)) or np.any(np.isinf(p.detresiduals)):
+                return -np.inf
+                
+            d = np.dot(p.Tmat.T, p.detresiduals/p.Nvec)
+            
+            M = p.Mmat/p.norm
+            term1 = np.dot(M.T, p.detresiduals/p.Nvec)
+            TNTinvd = np.dot(p.TNTinv, d)
+            term2 = np.dot(M.T/p.Nvec, np.dot(p.Tmat, TNTinvd))
+
+        return (term1-term2) * p.norm
     
     """
     Zero log likelihood for prior testing purposes
@@ -4825,7 +4919,7 @@ class PTAmodels(object):
                             t0 = sparameters[pindex]
                         elif sig['parid'][jj] == 'EDOT':
                             edot = sparameters[pindex]
-                       elif sig['parid'][jj] == 'SINI':
+                        elif sig['parid'][jj] == 'SINI':
                             sini = sparameters[pindex]
                         elif sig['parid'][jj] == 'A1':
                             a1 = sparameters[pindex]
@@ -4849,13 +4943,13 @@ class PTAmodels(object):
                     prior += np.log(sini/np.sqrt(1-sini**2))
 
                 # prior on pulsar mass [0,3]
-                #if sini and pb and m2 and a1:
-                #    Pb = pb*86400
-                #    X = a1*299.79e6/3e8
-                #    M2 = m2*4.9e-6
-                #    mp = ((sini*(Pb/2/np.pi)**(2./3)*M2/X)**(3./2) - M2)/4.9e-6
-                #    ms = 1.4 * np.sqrt(2)
-                #    prior += np.log(mp/ms) - (mp/ms)**2
+               # if sini and pb and m2 and a1:
+               #     Pb = pb*86400
+               #     X = a1*299.79e6/3e8
+               #     M2 = m2*4.9e-6
+               #     mp = ((sini*(Pb/2/np.pi)**(2./3)*M2/X)**(3./2) - M2)/4.9e-6
+               #     ms = 1.4 * np.sqrt(2)
+               #     prior += np.log(mp/ms) - (mp/ms)**2
 
 
             # CW parameters
@@ -5573,7 +5667,7 @@ class PTAmodels(object):
     # draws from timing model fisher matrix
     def drawFromTMfisherMatrix(self, parameters, iter, beta):
 
-        if (iter-1) % 5000 == 0 and (iter-1) != 0:
+        if (iter-1) % 5000 == 0 and (iter-1) != 0 and self.likfunc != 'mark8':
             self.updateFisher(parameters)
         
         # post-jump parameters
@@ -5597,17 +5691,19 @@ class PTAmodels(object):
         x = parameters[sig['parindex']:(sig['parindex']+sig['ntotpars'])]
         
         # get parmeters in new diagonalized basis
-        y = np.dot(self.psr[0].fisherU.T, x*self.psr[0].norm)
+        #y = np.dot(self.psr[0].fisherU.T, x*self.psr[0].norm)
         
         # get scale of jump
-        alpha = np.random.rand()
-        scale = 1
-        if alpha < 0.1:
-            scale = 50
-        if alpha < 0.5:
-            scale = 25
-        if alpha < 0.25:
-            scale = 10
+        #scale = np.random.uniform(1, 50)
+        #alpha = np.random.rand()
+        #scale = 1
+        #if alpha < 0.1:
+        #    scale = 50
+        #if alpha < 0.5:
+        #    scale = 25
+        #if alpha < 0.25:
+        #    scale = 10
+        scale = np.random.uniform(1, 50)
 
         # make correlated componentwise adaptive jump
         ind = np.unique(np.random.randint(0, len(x), 1))
@@ -5615,9 +5711,14 @@ class PTAmodels(object):
         neff = len(ind)
         sd = 2.4  / np.sqrt(2*neff) * scale / np.sqrt(beta)
 
-        y[ind] = y[ind] + np.random.randn(neff) * sd * np.sqrt(1/self.psr[0].fisherS[ind])
-        q[sig['parindex']:(sig['parindex']+sig['ntotpars'])] = \
-                np.dot(self.psr[0].fisherU, y)/self.psr[0].norm
+        q[sig['parindex']:(sig['parindex']+sig['ntotpars'])] += \
+                np.random.randn() / np.sqrt(self.psr[0].fisherS[ind]) \
+                * self.psr[0].fisherU[:,ind].flatten() * scale / self.psr[0].norm
+
+
+        #y[ind] = y[ind] + np.random.randn(neff) * sd * np.sqrt(1/self.psr[0].fisherS[ind])
+        #q[sig['parindex']:(sig['parindex']+sig['ntotpars'])] = \
+        #        np.dot(self.psr[0].fisherU, y)/self.psr[0].norm
 
         return q, qxy
 

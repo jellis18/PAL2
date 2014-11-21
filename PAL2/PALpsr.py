@@ -934,7 +934,7 @@ class Pulsar(object):
         
 
         # T matrix
-        if likfunc == 'mark6':
+        if likfunc == 'mark6' or likfunc == 'mark8':
             self.Tmat = np.concatenate((Mmat, self.Ftot), axis=1)
             if incJitter:
                 self.avetoas, self.aveflags, U = PALutils.exploderMatrixNoSingles(self.toas, \
@@ -950,6 +950,12 @@ class Pulsar(object):
                 self.nDMX = self.DMXDesignMat.shape[1]
                 print self.nDMX
                 self.Tmat = np.concatenate((self.Tmat, self.DMXDesignMat), axis=1)
+        
+        if likfunc == 'mark8':
+            N = self.toaerrs**2
+            TNT = np.dot(self.Tmat.T/N, self.Tmat)
+            self.TNTinv = np.linalg.inv(TNT)
+
 
         # Construct the compression matrix
         self.constructCompressionMatrix(compression, nfmodes=2*nf,

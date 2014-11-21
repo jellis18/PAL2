@@ -354,7 +354,6 @@ class PTSampler(object):
         # check for sent covariance matrix from T = 0 chain
         getCovariance = self.comm.Iprobe(source=0, tag=111)
         time.sleep(0.000001) 
-
         if getCovariance and self.MPIrank > 0:
             self.cov = self.comm.recv(source=0, tag=111)
             self.U, self.S, v = np.linalg.svd(self.cov)
@@ -397,6 +396,8 @@ class PTSampler(object):
 
         # after burn in, add DE jumps
         if (iter-1) == self.burn and self.MPIrank == 0:
+            if self.verbose:
+                print 'Adding DE jump with weight {0}'.format(self.DEweight)
             self.addProposalToCycle(self.DEJump, self.DEweight)
             
             # randomize cycle
@@ -725,20 +726,24 @@ class PTSampler(object):
         else:
             scale = 1.0
 
+        #scale = np.random.uniform(0.5, 10)
+
         # adjust scale based on temperature
         if self.temp <= 100:
             scale *= np.sqrt(self.temp)
 
         # get parmeters in new diagonalized basis
-        y = np.dot(self.U.T, x[self.covinds])
+        #y = np.dot(self.U.T, x[self.covinds])
 
         # make correlated componentwise adaptive jump
         ind = np.unique(np.random.randint(0, ndim, 1))
         neff = len(ind)
         cd = 2.4  / np.sqrt(2*neff) * scale 
 
-        y[ind] = y[ind] + np.random.randn(neff) * cd * np.sqrt(self.S[ind])
-        q[self.covinds] = np.dot(self.U, y)
+        #y[ind] = y[ind] + np.random.randn(neff) * cd * np.sqrt(self.S[ind])
+        #q[self.covinds] = np.dot(self.U, y)
+        q[self.covinds] += np.random.randn() * cd * np.sqrt(self.S[ind]) * \
+                self.U[:,ind].flatten()
 
         return q, qxy
     
