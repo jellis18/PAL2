@@ -420,8 +420,8 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize':
 
 
     ########################
-    maxpars = np.loadtxt('/Users/jaellis/Work/noise/NANOGrav/1713_21yr/dmx_red_pl_notm/maxpars.txt')
-    npars = len(maxpars)
+    #maxpars = np.loadtxt('/Users/jaellis/Work/noise/NANOGrav/1713_21yr/dmx_red_pl_notm/maxpars.txt')
+    #npars = len(maxpars)
     #p0[:npars] = maxpars
     #p0[-1] = 0
     #p0[-2] = -0.006
