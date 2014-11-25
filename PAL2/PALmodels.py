@@ -1684,10 +1684,10 @@ class PTAmodels(object):
         self.Tmax = Tmax
         self.Tref = Tstart
 
-        print 'WARNING: Using seperate Tmax for each pulsar'
+        #print 'WARNING: Using seperate Tmax for each pulsar'
         for p in self.psr:
-            p.Tmax = p.toas.max() - p.toas.min()
-            #p.Tmax = self.Tmax
+            #p.Tmax = p.toas.max() - p.toas.min()
+            p.Tmax = self.Tmax
 
         # If the compressionComplement is defined, overwrite the default
         if evalCompressionComplement != 'None':

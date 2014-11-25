@@ -332,7 +332,7 @@ if args.incCW or args.incTimingModel or args.incSingleRed or args.incSingleDM:
                 stype='efac', corr='single')
         memsave = np.any(numEfacs > 1)
 
-if args.compression != 'None':
+if args.compression != 'None' and args.separateEfacs == 'frequencies':
     memsave = False
 
 # initialize model
