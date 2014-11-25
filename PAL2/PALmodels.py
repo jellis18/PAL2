@@ -3570,26 +3570,23 @@ class PTAmodels(object):
                 # triple product in likelihood function
                 rGGNGGr = np.sum(p.AGr**2/p.Nwvec)
 
-            #elif not(p.twoComponentNoise) and self.compression == 'average':
-            #    
-            #    GNG = np.dot(p.Hmat.T/p.Nvec, p.Hmat)
-            #    cf = sl.cho_factor(GNG)
-            #    logdet_N = 2*np.sum(np.log(np.diag(cf[0])))
-            #    GNGG = sl.cho_solve(cf, p.H.T)
-            #    GGNGG = np.dot(p.Hmat, GNGG)
-            #    GNGGdt = np.dot(GNGG, p.detresiduals)
-
-            #    if ct == 0:
-            #        d = np.dot(p.FFtot.T, GNGGdt)
-            #    else:
-            #        d = np.append(d, np.dot(p.FFtot.T, GNGGdt))
-
-            #    FGGNGGF.append(np.dot(p.FFtot.T, np.dot(GGNGG, p.FFtot)))
-
-            #    rGGNGGr = np.dot(p.detresiduals, np.dot(GGNGG, p.detresiduals)
-
+            elif not(p.twoComponentNoise) and self.compression == 'average':
                 
-                    
+                GNG = np.dot(p.Hmat.T*p.Nvec, p.Hmat)
+                cf = sl.cho_factor(GNG)
+                logdet_N = 2*np.sum(np.log(np.diag(cf[0])))
+                GNGGdt = sl.cho_solve(cf, np.dot(p.Hmat.T, p.detresiduals))
+
+                if ct == 0:
+                    d = np.dot(p.GtF.T, GNGGdt)
+                else:
+                    d = np.append(d, np.dot(p.GtF.T, GNGGdt))
+                
+                GNGGF = sl.cho_solve(cf, p.GtF)
+                FGGNGGF.append(np.dot(p.GtF.T, GNGGF))
+
+                rGGNGGr = np.dot(p.detresiduals, np.dot(p.Hmat, GNGGdt))
+
             
             else:   
 

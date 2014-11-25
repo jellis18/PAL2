@@ -332,6 +332,9 @@ if args.incCW or args.incTimingModel or args.incSingleRed or args.incSingleDM:
                 stype='efac', corr='single')
         memsave = np.any(numEfacs > 1)
 
+if args.compression != 'None':
+    memsave = False
+
 # initialize model
 if args.fromFile:
     write = True

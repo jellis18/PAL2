@@ -988,7 +988,7 @@ class Pulsar(object):
         # basic quantities
         self.Gr = np.dot(self.Hmat.T, self.residuals)
         self.GGr = np.dot(self.Hmat, self.Gr)
-        GtF = np.dot(self.Hmat.T, self.Ftot)
+        self.GtF = np.dot(self.Hmat.T, self.Ftot)
         
         if useAverage:
             GtU = np.dot(self.Hmat.T, self.Umat)
@@ -1010,7 +1010,7 @@ class Pulsar(object):
             #self.Wvec, self.Amat = sl.eigh(GNG) 
 
             self.AGr = np.dot(self.Amat.T, self.Gr)
-            self.AGF = np.dot(self.Amat.T, GtF)
+            self.AGF = np.dot(self.Amat.T, self.GtF)
             if useAverage:
                 self.AGU = np.dot(self.Amat.T, GtU)
 
