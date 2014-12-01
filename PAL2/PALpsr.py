@@ -938,7 +938,7 @@ class Pulsar(object):
             self.Tmat = np.concatenate((Mmat, self.Ftot), axis=1)
             if incJitter:
                 self.avetoas, self.aveflags, U = PALutils.exploderMatrixNoSingles(self.toas, \
-                                                    np.array(self.flags), dt=10)
+                                                    np.array(self.flags), dt=1)
                 #self.avetoas, aveerr, self.aveflags, U = PALutils.dailyAveMatrix(self.toas, \
                 #                                    self.toaerrs, flags=np.array(self.flags),\
                 #                                                                 dt=10)
@@ -1110,8 +1110,8 @@ class Pulsar(object):
         except IOError:
             print 'Assuming compression is None!'
             file_compression = 'None'
-        if file_compression != compression:
-            raise ValueError('ERROR: compression argument does not match one in hdf5 file! Must re-compute everything :(')
+        #if file_compression != compression:
+        #    raise ValueError('ERROR: compression argument does not match one in hdf5 file! Must re-compute everything :(')
 
         if compression == 'red':
             threshold = 0.99

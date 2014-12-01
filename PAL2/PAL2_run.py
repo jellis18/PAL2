@@ -319,12 +319,13 @@ for sig in fullmodel['signals']:
 memsave = True
 if args.noVaryEfac:
     print 'Not Varying EFAC'
-    args.fromFile = False
-    memsave = False
+    #args.fromFile = False
+    #memsave = False
     for sig in fullmodel['signals']:
         if sig['corr'] == 'single' and sig['stype'] == 'efac':
             sig['bvary'][0] = False
             sig['pstart'][0] = 1
+
 # check for single efacs
 if args.incCW or args.incTimingModel or args.incSingleRed or args.incSingleDM:
     for p in model.psr:
@@ -455,13 +456,13 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize':
 
         ind = np.array([ct for ct, par in enumerate(par_out) if 'efac' in par or \
                 'equad' in par or 'jitter' in par or 'RN' in par or 'DM' in par \
-                or 'red_' in par or 'dm_' in par])
+                or 'red_' in par or 'dm_' in par or 'GWB' in par])
 
         ##########################
-        chain = np.loadtxt('/Users/jaellis/Work/noise/NANOGrav/ppta_dr1/noise/J1713+0747/chain_1.0.txt')
-        burn = 0.25 * chain.shape[0]
-        import PALInferenceJumpProposals as jump
-        kernel = jump.KDEJumps(chain[burn:,:-4], ind)
+        #chain = np.loadtxt('/Users/jaellis/Work/noise/NANOGrav/ppta_dr1/noise/J1713+0747/chain_1.0.txt')
+        #burn = 0.25 * chain.shape[0]
+        #import PALInferenceJumpProposals as jump
+        #kernel = jump.KDEJumps(chain[burn:,:-4], ind)
 
         # define MCMC sampler
         sampler = PALInferencePTMCMC.PTSampler(len(p0), loglike, logprior, cov, comm=comm, \
@@ -527,6 +528,10 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize':
         #    return q, 0
             
         #sampler.addProposalToCycle(ISJumps, 60)
+
+        #################################
+        #p0[-1] = -18
+        #################################
 
 
         # run MCMC

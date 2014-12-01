@@ -2576,7 +2576,7 @@ class PTAmodels(object):
                     GtF = np.dot(p.Hmat.T, Ftemp)
                     p.AGFF = np.dot(p.Amat.T, GtF)
             else:
-                p.FFtot = p.Ftot.copy()
+                p.FFtot = p.Ftot
                 if p.twoComponentNoise:
                     p.AGFF = p.AGF
 
@@ -2928,7 +2928,7 @@ class PTAmodels(object):
             # convert to array and flatten
             self.Phi = np.array(sigdiag).flatten()
             np.fill_diagonal(self.Phiinv, 1/self.Phi)
-            self.logdetPhi = np.sum(np.log(self.Phi[-self.npftot[ii]:]))
+            #self.logdetPhi = np.sum(np.log(self.Phi[-self.npftot[ii]:]))
             self.logdetPhi = np.sum(np.log(self.Phi))
 
 

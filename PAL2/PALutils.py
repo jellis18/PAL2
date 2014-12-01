@@ -605,7 +605,7 @@ def exploderMatrixNoSingles(times, flags, dt=10):
         
 
     # find only epochs with more than 1 TOA
-    bucket_ind2 = [ind for ind in bucket_ind if len(ind) > 1]
+    bucket_ind2 = [ind for ind in bucket_ind if len(ind) > 4]
     
     avetoas = np.array([np.mean(times[l]) for l in bucket_ind2],'d')
     aveflags = np.array([flags[l[0]] for l in bucket_ind2])
