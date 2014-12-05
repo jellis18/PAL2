@@ -605,7 +605,7 @@ def exploderMatrixNoSingles(times, flags, dt=10):
         
 
     # find only epochs with more than 1 TOA
-    bucket_ind2 = [ind for ind in bucket_ind if len(ind) > 1]
+    bucket_ind2 = [ind for ind in bucket_ind if len(ind) > 4]
     
     avetoas = np.array([np.mean(times[l]) for l in bucket_ind2],'d')
     aveflags = np.array([flags[l[0]] for l in bucket_ind2])
@@ -640,6 +640,7 @@ def exploderMatrix_slow(toas, freqs=None, dt=1200, flags=None):
     while not np.all(processed):
         npindex = np.where(processed == False)[0]
         ind = npindex[0]
+        print ind
         satmin = toas[ind] - dt
         satmax = toas[ind] + dt
 

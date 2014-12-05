@@ -293,7 +293,7 @@ class DataFile(object):
                        overwrite=overwrite)  # Seconds
         self.writeData(psrGroup, 'toaErr', np.double(1e-6*t2pulsar.toaerrs[t2pulsar.deleted==0]),\
                        overwrite=overwrite)    # Seconds
-        self.writeData(psrGroup, 'freq', np.double(t2pulsar.freqsSSB[t2pulsar.deleted==0]/1e6), \
+        self.writeData(psrGroup, 'freq', np.double(t2pulsar.ssbfreqs[t2pulsar.deleted==0]), \
                        overwrite=overwrite)    # MHz
 
         # TODO: writing the design matrix should be done irrespective of the fitting flag
@@ -404,11 +404,11 @@ class DataFile(object):
                 elif 'sys' in flagGroup and flagGroup['sys'][ii] != '':
                     efacequad_freq.append('-'.join((pulsarname, flagGroup['sys'][ii])))
                 
-                elif 'f' in flagGroup and flagGroup['f'][ii] != '':
-                    efacequad_freq.append('-'.join((pulsarname, flagGroup['f'][ii])))
-                
                 elif 'i' in flagGroup and flagGroup['i'][ii] != '':
                     efacequad_freq.append('-'.join((pulsarname, flagGroup['i'][ii])))
+                
+                elif 'f' in flagGroup and flagGroup['f'][ii] != '':
+                    efacequad_freq.append('-'.join((pulsarname, flagGroup['f'][ii])))
                 
                 elif 'fe' in flagGroup and 'be' in flagGroup and \
                         flagGroup['fe'][ii] != '' and flagGroup['be'] != '':

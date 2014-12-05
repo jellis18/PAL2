@@ -734,7 +734,6 @@ class Pulsar(object):
             tmpars=None, memsave=True, incJitter=False, incDMX=False):
 
 
-
         # For creating the auxiliaries it does not really matter: we are now
         # creating all quantities per default
         self.twoComponentNoise = twoComponent
@@ -813,12 +812,12 @@ class Pulsar(object):
         # Create the Fourier design matrices for noise
         if nf > 0:
             self.incRed = True
-            #(self.Fmat, self.Ffreqs) = PALutils.createfourierdesignmatrix(self.toas, \
-            #                                                nf, Tspan=Tmax, freq=True, \
-            #                                                logf=False)
-            #self.Fmat /= np.sqrt(Tmax)
-            self.Ffreqs, self.Fmat = rr.get_rr_rep(self.toas, Tmax, 1/4.7/Tmax, nf, \
-                                            20, simpson=False)
+            (self.Fmat, self.Ffreqs) = PALutils.createfourierdesignmatrix(self.toas, \
+                                                            nf, Tspan=Tmax, freq=True, \
+                                                            logf=False)
+            self.Fmat /= np.sqrt(Tmax)
+            #self.Ffreqs, self.Fmat = rr.get_rr_rep(self.toas, Tmax, 1/4.7/Tmax, nf, \
+            #                                20, simpson=False)
             if useAverage:
                 (self.FAvmat, tmp) = PALutils.createfourierdesignmatrix(self.avetoas, \
                                                                 nf, Tspan=Tmax, freq=True, \
@@ -832,11 +831,12 @@ class Pulsar(object):
         # Create the Fourier design matrices for DM variations
         if ndmf > 0:
             self.incDM = True
-            #(self.Fdmmat, self.Fdmfreqs) = PALutils.createfourierdesignmatrix(self.toas, \
-            #                                                ndmf, Tspan=Tmax, freq=True, \
-            #                                                logf=False)
-            self.Fdmfreqs, self.Fdmmat = rr.get_rr_rep(self.toas, Tmax, 1/50/Tmax, nf, \
-                                                20, simpson=False)
+            (self.Fdmmat, self.Fdmfreqs) = PALutils.createfourierdesignmatrix(self.toas, \
+                                                            ndmf, Tspan=Tmax, freq=True, \
+                                                            logf=False)
+            self.Fdmmat /= np.sqrt(Tmax)
+            #self.Fdmfreqs, self.Fdmmat = rr.get_rr_rep(self.toas, Tmax, 1/1000/Tmax, nf, \
+            #                                    50, simpson=False)
             if useAverage:
                 (self.FdmAvmat, tmp) = PALutils.createfourierdesignmatrix(self.avetoas, \
                                                                 ndmf, Tspan=Tmax, freq=True, \
@@ -905,12 +905,11 @@ class Pulsar(object):
             print 'Analytically marginalizing over', tmpardel
             self.Mmat, newptmpars, newptmdescription = self.delFromDesignMatrix(tmpardel)
             
-            if 'KIN' in newptmdescription:
-                ind = newptmdescription.index('KIN')
-                self.Mmat[:,ind] /= np.cos(newptmpars[ind]*np.pi/180)
-
             w = 1.0 / self.toaerrs**2
-            Sigi = np.dot(self.Mmat.T, (w * self.Mmat.T).T)
+            Mm = self.Mmat.copy()
+            self.norm = np.sqrt(np.sum(Mm**2, axis=0))
+            Mm /= self.norm
+            Sigi = np.dot(Mm.T, (w * Mm.T).T)
             #try:
             #    cf = sl.cho_factor(Sigi)
             #    Sigma = sl.cho_solve(cf, np.eye(Sigi.shape[0]))
@@ -932,20 +931,17 @@ class Pulsar(object):
         U, s, Vh = sl.svd(Mmat)
         self.Gmat = U[:, Mmat.shape[1]:].copy()
         self.Gcmat = U[:, :Mmat.shape[1]].copy()
-
-
-        ########
-        M, S, V = np.linalg.svd(Mmat, full_matrices=False)
-        #self.Mmat = M
-        self.Svec = S
-        self.Vmat = V.T
+        
 
         # T matrix
-        if likfunc == 'mark6':
+        if likfunc == 'mark6' or likfunc == 'mark8':
             self.Tmat = np.concatenate((Mmat, self.Ftot), axis=1)
             if incJitter:
                 self.avetoas, self.aveflags, U = PALutils.exploderMatrixNoSingles(self.toas, \
-                                                    np.array(self.flags), dt=10)
+                                                    np.array(self.flags), dt=1)
+                #self.avetoas, aveerr, self.aveflags, U = PALutils.dailyAveMatrix(self.toas, \
+                #                                    self.toaerrs, flags=np.array(self.flags),\
+                #                                                                 dt=10)
                 self.Tmat = np.concatenate((self.Tmat, U), axis=1)
             
             if incDMX:
@@ -954,6 +950,12 @@ class Pulsar(object):
                 self.nDMX = self.DMXDesignMat.shape[1]
                 print self.nDMX
                 self.Tmat = np.concatenate((self.Tmat, self.DMXDesignMat), axis=1)
+        
+        if likfunc == 'mark8':
+            N = self.toaerrs**2
+            TNT = np.dot(self.Tmat.T/N, self.Tmat)
+            self.TNTinv = np.linalg.inv(TNT)
+
 
         # Construct the compression matrix
         self.constructCompressionMatrix(compression, nfmodes=2*nf,
@@ -986,7 +988,7 @@ class Pulsar(object):
         # basic quantities
         self.Gr = np.dot(self.Hmat.T, self.residuals)
         self.GGr = np.dot(self.Hmat, self.Gr)
-        GtF = np.dot(self.Hmat.T, self.Ftot)
+        self.GtF = np.dot(self.Hmat.T, self.Ftot)
         
         if useAverage:
             GtU = np.dot(self.Hmat.T, self.Umat)
@@ -1008,7 +1010,7 @@ class Pulsar(object):
             #self.Wvec, self.Amat = sl.eigh(GNG) 
 
             self.AGr = np.dot(self.Amat.T, self.Gr)
-            self.AGF = np.dot(self.Amat.T, GtF)
+            self.AGF = np.dot(self.Amat.T, self.GtF)
             if useAverage:
                 self.AGU = np.dot(self.Amat.T, GtU)
 
@@ -1061,7 +1063,7 @@ class Pulsar(object):
             # clear out G and Gc matrices
             self.Gmat = None
             self.Gcmat = None
-            self.Hocmat
+            self.Hocmat = None
             self.Hmat = None
             self.Amat = None
 
@@ -1108,8 +1110,8 @@ class Pulsar(object):
         except IOError:
             print 'Assuming compression is None!'
             file_compression = 'None'
-        if file_compression != compression:
-            raise ValueError('ERROR: compression argument does not match one in hdf5 file! Must re-compute everything :(')
+        #if file_compression != compression:
+        #    raise ValueError('ERROR: compression argument does not match one in hdf5 file! Must re-compute everything :(')
 
         if compression == 'red':
             threshold = 0.99

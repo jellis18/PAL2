@@ -30,13 +30,23 @@ class PTSampler(object):
     @param logl: log-likelihood function
     @param logp: log prior function (must be normalized for evidence evaluation)
     @param cov: Initial covariance matrix of model parameters for jump proposals
+    @param covinds: Indices of parameters for which to perform adaptive jumps
+    @param loglargs: any additional arguments (apart from the parameter vector) for 
+    log likelihood
+    @param loglkwargs: any additional keyword arguments (apart from the parameter vector) 
+    for log likelihood
+    @param logpargs: any additional arguments (apart from the parameter vector) for 
+    log like prior
+    @param logpkwargs: any additional keyword arguments (apart from the parameter vector) 
+    for log prior
     @param outDir: Full path to output directory for chain files (default = ./chains)
     @param verbose: Update current run-status to the screen (default=True)
 
     """
 
-    def __init__(self, ndim, logl, logp, cov, comm=MPI.COMM_WORLD, \
-                 outDir='./chains', verbose=True):
+    def __init__(self, ndim, logl, logp, cov, covinds=None, loglargs=[], loglkwargs={}, \
+                 logpargs=[], logpkwargs={}, comm=MPI.COMM_WORLD, \
+                 outDir='./chains', verbose=True, resume=False):
 
         # MPI initialization
         self.comm = comm
@@ -56,11 +66,18 @@ class PTSampler(object):
             except OSError:
                 pass
 
+        # find indices for which to perform adaptive jumps
+        if covinds is None:
+            covinds = np.arange(0, self.ndim)
+        self.covinds = np.array(covinds)
+
         # set up covariance matrix
-        self.cov = cov
+        ndim = len(self.covinds)
+        self.cov = cov[self.covinds.min():self.covinds.max()+1, \
+                       self.covinds.min():self.covinds.max()+1]
         self.U, self.S, v = np.linalg.svd(self.cov)
-        self.M2 = np.zeros((self.ndim, self.ndim))
-        self.mu = np.zeros(self.ndim)
+        self.M2 = np.zeros((ndim, ndim))
+        self.mu = np.zeros(ndim)
 
         # initialize proposal cycle
         self.propCycle = []
@@ -157,7 +174,7 @@ class PTSampler(object):
 
         # if resuming, just start with first point in chain
         if self.resume and self.resumeLength > 0:
-            p0, lnlike0, lnprob0  = self.resumechain[0,:], \
+            p0, lnlike0, lnprob0  = self.resumechain[0,:-4], \
                     self.resumechain[0,-3], self.resumechain[0,-4]
         else:
             # compute prior
@@ -259,7 +276,6 @@ class PTSampler(object):
         # check for sent covariance matrix from T = 0 chain
         getCovariance = self.comm.Iprobe(source=0, tag=111)
         time.sleep(0.000001) 
-
         if getCovariance and self.MPIrank > 0:
             self.cov = self.comm.recv(source=0, tag=111)
             getCovariance = 0
@@ -286,6 +302,8 @@ class PTSampler(object):
 
         # after burn in, add DE jumps
         if (iter-1) == self.burn and self.MPIrank == 0:
+            if self.verbose:
+                print 'Adding DE jump with weight {0}'.format(self.DEweight)
             self.addProposalToCycle(self.DEJump, self.DEweight)
             
             # randomize cycle
@@ -295,7 +313,7 @@ class PTSampler(object):
 
         # if resuming, just use previous chain points
         if self.resume and self.resumeLength > 0 and iter < self.resumeLength:
-            p0, lnlike0, lnprob0 = self.resumechain[iter,:], \
+            p0, lnlike0, lnprob0 = self.resumechain[iter,:-4], \
                     self.resumechain[iter,-3], self.resumechain[iter,-4]
 
             # update acceptance counter
@@ -474,20 +492,21 @@ class PTSampler(object):
         """
 
         it = iter - mem
+        ndim = len(self.covinds)
 
         if it == 0:
-            self.M2 = np.zeros((self.ndim, self.ndim))
-            self.mu = np.zeros(self.ndim)
+            self.M2 = np.zeros((ndim, ndim))
+            self.mu = np.zeros(ndim)
 
         for ii in range(mem):
-            diff = np.zeros(self.ndim)
+            diff = np.zeros(ndim)
             it += 1
-            for jj in range(self.ndim):
+            for jj, ind in enumerate(self.covinds):
                 
-                diff[jj] = self._AMbuffer[iter-mem+ii,jj] - self.mu[jj]
+                diff[jj] = self._AMbuffer[iter-mem+ii, ind] - self.mu[jj]
                 self.mu[jj] += diff[jj]/it
 
-            self.M2 += np.outer(diff, (self._AMbuffer[iter-mem+ii,:]-self.mu))
+            self.M2 += np.outer(diff, (self._AMbuffer[iter-mem+ii,self.covinds]-self.mu))
 
         self.cov = self.M2/(it-1)  
 
@@ -527,20 +546,7 @@ class PTSampler(object):
 
         q = x.copy()
         qxy = 0
-
-        # number of parameters to update at once 
-        prob = np.random.rand()
-        if prob > (1 - 1/self.ndim):
-            block = self.ndim
-
-        elif prob > (1 - 2/self.ndim):
-            block = np.ceil(self.ndim/2)
-
-        elif prob > 0.8:
-            block = 5
-
-        else:
-            block = 1
+        ndim = len(self.covinds)
 
         # adjust step size
         prob = np.random.rand()
@@ -561,20 +567,24 @@ class PTSampler(object):
         else:
             scale = 1.0
 
+        #scale = np.random.uniform(0.5, 10)
+
         # adjust scale based on temperature
         if self.temp <= 100:
             scale *= np.sqrt(self.temp)
 
         # get parmeters in new diagonalized basis
-        y = np.dot(self.U.T, x)
+        #y = np.dot(self.U.T, x[self.covinds])
 
         # make correlated componentwise adaptive jump
-        ind = np.unique(np.random.randint(0, self.ndim, block))
+        ind = np.unique(np.random.randint(0, ndim, 1))
         neff = len(ind)
         cd = 2.4  / np.sqrt(2*neff) * scale 
 
-        y[ind] = y[ind] + np.random.randn(neff) * cd * np.sqrt(self.S[ind])
-        q = np.dot(self.U, y)
+        #y[ind] = y[ind] + np.random.randn(neff) * cd * np.sqrt(self.S[ind])
+        #q[self.covinds] = np.dot(self.U, y)
+        q[self.covinds] += np.random.randn() * cd * np.sqrt(self.S[ind]) * \
+                self.U[:,ind].flatten()
 
         return q, qxy
     
@@ -596,6 +606,7 @@ class PTSampler(object):
 
         q = x.copy()
         qxy = 0
+        ndim = len(self.covinds)
 
         # adjust step size
         prob = np.random.rand()
@@ -619,9 +630,20 @@ class PTSampler(object):
         # adjust scale based on temperature
         if self.temp <= 100:
             scale *= np.sqrt(self.temp)
+        
+        # get parmeters in new diagonalized basis
+        y = np.dot(self.U.T, x[self.covinds])
 
-        cd = 2.4/np.sqrt(2*self.ndim) * np.sqrt(scale)
-        q = np.random.multivariate_normal(x, cd**2*self.cov)
+        # make correlated componentwise adaptive jump
+        ind = np.arange(len(self.covinds))
+        neff = len(ind)
+        cd = 2.4  / np.sqrt(2*neff) * scale 
+
+        y[ind] = y[ind] + np.random.randn(neff) * cd * np.sqrt(self.S[ind])
+        q[self.covinds] = np.dot(self.U, y)
+
+        #cd = 2.4/np.sqrt(2*self.ndim) * np.sqrt(scale)
+        #q = np.random.multivariate_normal(x, cd**2*self.cov)
 
         return q, qxy
 
