@@ -309,7 +309,7 @@ class DataFile(object):
             for line in lines:
                 vals = line.split()
                 if t2pulsar.name in vals[0]:
-                    pdist, pdistErr = vals[1], vals[2]
+                    pdist, pdistErr = np.double(vals[1]), np.double(vals[2])
                     found = True
             if not(found):
                 print 'WARNING: Could not find pulsar distance for PSR {0}. \
