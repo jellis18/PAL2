@@ -82,6 +82,7 @@ class PTSampler(object):
 
         # set up covariance matrix
         ndim = len(self.covinds)
+        #TODO: this doesn't work unless parameters are in blocks
         self.cov = cov[self.covinds.min():self.covinds.max()+1, \
                        self.covinds.min():self.covinds.max()+1]
         self.U, self.S, v = np.linalg.svd(self.cov)
@@ -301,7 +302,7 @@ class PTSampler(object):
                 try:
                     Neff = iter/np.max([acor.acor(self._AMbuffer[self.burn:(iter-1),ii])[0] \
                                         for ii in range(self.ndim)])
-                    print '\n {0} effective samples'.format(Neff)
+                    #print '\n {0} effective samples'.format(Neff)
                 except NameError:
                     Neff = 0
                     pass

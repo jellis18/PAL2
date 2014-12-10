@@ -19,6 +19,7 @@ import os, sys
 import tempfile
 import PALutils
 import ephem
+import os
 
 try:    # If without libstempo, can still read hdf5 files
     import libstempo
@@ -302,7 +303,7 @@ class DataFile(object):
 
         # get pulsar distance and uncertainty (need pulsarDistances.txt file for this)
         try: 
-            fin = open('pulsarDistances.txt', 'r')
+            fin = open(os.environ['PAL2']+'/pulsarDistances.txt', 'r')
             lines = fin.readlines()
             found = 0
             for line in lines:
@@ -528,12 +529,12 @@ class DataFile(object):
         psr.ptmdescription = map(str, self.getData(psrname, 'tmp_name'))
         psr.ptmpars = np.array(self.getData(psrname, 'tmp_valpost'))
         psr.ptmparerrs = np.array(self.getData(psrname, 'tmp_errpost'))
-        psr.flags = map(str, self.getData(psrname, 'efacequad', 'Flags'))
+        psr.flags = np.array(map(str, self.getData(psrname, 'efacequad', 'Flags')))
         psr.tobsflags = map(float, self.getData(psrname, 'tobs_all', 'Flags'))
 
         # add this for frequency dependent terms
         #TODO: should eventually change psr.flags to a dictionary
-        psr.fflags = map(str, self.getData(psrname, 'efacequad_freq', 'Flags'))
+        psr.fflags = np.array(map(str, self.getData(psrname, 'efacequad_freq', 'Flags')))
 
         # Read the position of the pulsar
         rajind = np.flatnonzero(np.array(psr.ptmdescription) == 'RAJ')
@@ -541,7 +542,7 @@ class DataFile(object):
 
         # look for ecliptic coordinates
         if len(rajind) == 0 and len(decjind) == 0:
-            print 'Could not fine RAJ or DECJ. Looking for ecliptic coords...'
+            #print 'Could not fine RAJ or DECJ. Looking for ecliptic coords...'
             elongind = np.flatnonzero(np.array(psr.ptmdescription) == 'ELONG')
             elatind = np.flatnonzero(np.array(psr.ptmdescription) == 'ELAT')
             elong = np.array(self.getData(psrname, 'tmp_valpost'))[elongind]
@@ -571,12 +572,9 @@ class DataFile(object):
         psr.period = 1/np.array(self.getData(psrname, 'tmp_valpost'))[perind]
 
         # pulsar distance and uncertainty
-        #try:
-        #    psr.pdist = np.double(self.getData(psrname, 'pdist'))
-        #    psr.pdistErr = np.double(self.getData(psrname, 'pdistErr'))
-        #except IOError:
-        psr.pdist = 1.0
-        psr.pdistErr = 0.1
+        psr.pdist = np.double(self.getData(psrname, 'pdist'))
+        psr.pdistErr = np.double(self.getData(psrname, 'pdistErr'))
+
 
         # Obtain residuals, TOAs, etc.
         psr.toas = np.array(self.getData(psrname, 'TOAs'))

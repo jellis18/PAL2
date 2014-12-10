@@ -88,6 +88,7 @@ class Pulsar(object):
         self.Gmat = None                # pulsar G matrix
         self.Gcmat = None               # pulsar compementary G matrix
         self.Mmat = None                # pulsar design matrix
+        self.Mmat_reduced = None                # pulsar design matrix
         self.ptmpars = []               # pulsar timing model parameters    
         self.ptmparerrs = []            # pulsar timing model parameter uncertainties
         self.ptmdescription = []        # pulsr timing model names
@@ -558,6 +559,9 @@ class Pulsar(object):
             #print "cumrms: ", cumrms
             #print "totrms: ", totrms
             inds = (cumrms/totrms) >= threshold
+            print 'Threshold:', threshold
+            print 'cumrms/totrms:', cumrms/totrms
+            print np.sum(inds)
             if np.sum(inds) > 0:
                 # We can compress
                 l = np.flatnonzero( inds )[0] + 1
@@ -737,8 +741,24 @@ class Pulsar(object):
         # For creating the auxiliaries it does not really matter: we are now
         # creating all quantities per default
         self.twoComponentNoise = twoComponent
-        if likfunc=='mark7' or likfunc=='mark6':
+        if likfunc=='mark7' or likfunc=='mark6' or likfunc=='mark9':
             self.twoComponentNoise = False
+
+
+        if likfunc == 'mark9':
+            # get sorted indices
+            self.isort, self.iisort = PALutils.argsortTOAs(self.toas, self.flags, \
+                                            which='jitterext', dt=1.0)
+
+            # sort data
+            self.toas = self.toas[self.isort]
+            self.toaerrs = self.toaerrs[self.isort] 
+            self.prefitresiduals = self.prefitresiduals[self.isort]
+            self.residuals = self.residuals[self.isort]
+            self.freqs = self.freqs[self.isort]
+            self.flags = self.flags[self.isort]
+            self.fflags = self.fflags[self.isort]
+            self.Mmat = self.Mmat[self.isort,:]
 
 
         # get Tmax
@@ -822,6 +842,7 @@ class Pulsar(object):
                 (self.FAvmat, tmp) = PALutils.createfourierdesignmatrix(self.avetoas, \
                                                                 nf, Tspan=Tmax, freq=True, \
                                                                 logf=False)
+                self.FAvmat /= np.sqrt(Tmax)
             self.kappa = np.zeros(2*nf)
         else:
             self.Fmat = np.zeros((len(self.toas), 0))
@@ -934,7 +955,7 @@ class Pulsar(object):
         
 
         # T matrix
-        if likfunc == 'mark6' or likfunc == 'mark8':
+        if likfunc == 'mark6' or likfunc == 'mark8' or likfunc == 'mark9':
             self.Tmat = np.concatenate((Mmat, self.Ftot), axis=1)
             if incJitter:
                 self.avetoas, self.aveflags, U = PALutils.exploderMatrixNoSingles(self.toas, \
@@ -956,6 +977,24 @@ class Pulsar(object):
             TNT = np.dot(self.Tmat.T/N, self.Tmat)
             self.TNTinv = np.linalg.inv(TNT)
 
+        # set up jitter stuff for mark9 likelihood
+        if likfunc == 'mark9':
+
+            # get quantization matrix
+            avetoas, Umat, Ui = PALutils.quantize_split(self.toas, self.flags, dt=1.0, \
+                                                                  calci=True)
+
+            # get only epochs that need jitter/ecorr
+            self.Umat, self.avetoas, aveflags = PALutils.quantreduce(Umat, \
+                                                            avetoas, self.flags)
+
+            # get quantization indices
+            self.Uinds = PALutils.quant2ind(self.Umat)
+            self.aveflags = self.flags[self.Uinds[:,0]]
+
+            print PALutils.checkTOAsort(self.toas, self.flags, which='jitterext', dt=1.0)
+            print PALutils.checkquant(self.Umat, self.flags, uflagvals=aveflags)
+
 
         # Construct the compression matrix
         self.constructCompressionMatrix(compression, nfmodes=2*nf,
@@ -966,8 +1005,8 @@ class Pulsar(object):
                 h5df.addData(self.name, 'Gmat', self.Gmat)
                 h5df.addData(self.name, 'Gcmat', self.Gcmat)
                 h5df.addData(self.name, 'Hmat', self.Hmat)
-                h5df.addData(self.name, 'Homat', self.Homat)
-                h5df.addData(self.name, 'Hocmat', self.Hocmat)
+                #h5df.addData(self.name, 'Homat', self.Homat)
+                #h5df.addData(self.name, 'Hocmat', self.Hocmat)
 
 
             # write Hcmat if compression is none
@@ -984,6 +1023,15 @@ class Pulsar(object):
                 h5df.addData(self.name, 'Tmat', self.Tmat)
                 h5df.addData(self.name, 'avetoas', self.avetoas)
                 h5df.addData(self.name, 'aveflags', self.aveflags)
+                h5df.addData(self.name, 'Mmat_reduced', self.Mmat_reduced)
+            
+            if likfunc == 'mark9':
+                h5df.addData(self.name, 'Tmat', self.Tmat)
+                h5df.addData(self.name, 'avetoas', self.avetoas)
+                h5df.addData(self.name, 'aveflags', self.aveflags)
+                h5df.addData(self.name, 'Mmat_reduced', self.Mmat_reduced)
+                h5df.addData(self.name, 'Umat', self.Umat)
+                h5df.addData(self.name, 'Uinds', self.Uinds)
 
         # basic quantities
         self.Gr = np.dot(self.Hmat.T, self.residuals)
@@ -1097,6 +1145,8 @@ class Pulsar(object):
         # For creating the auxiliaries it does not really matter: we are now
         # creating all quantities per default
         self.twoComponentNoise = twoComponent
+        if likfunc=='mark7' or likfunc=='mark6' or likfunc=='mark9':
+            self.twoComponentNoise = False
 
         # get Tmax
         self.Tmax = Tmax
@@ -1162,7 +1212,7 @@ class Pulsar(object):
 
             if len(self.Ffreqs) != 2*nf:
                 recomputeF = True
-                print 'WARNING: different number of frequencies in file! Recomputing F matrix'
+                raise ValueError('ERROR: Different number of frequencies!!')
                 (self.Fmat, self.Ffreqs) = PALutils.createfourierdesignmatrix(self.toas, \
                                                             nf, Tspan=Tmax, freq=True, \
                                                             logf=False)
@@ -1170,7 +1220,7 @@ class Pulsar(object):
                 self.FAvmat = h5df.getData(self.name, 'FAvmat')
                 if len(self.Ffreqs) != 2*nf:
                     reComputeF = True
-                    print 'WARNING: different number of frequencies in file! Recomputing F matrix'
+                    raise ValueError('ERROR: Different number of frequencies!!')
                     (self.FAvmat, tmp) = PALutils.createfourierdesignmatrix(self.avetoas, \
                                                                 nf, Tspan=Tmax, freq=True,
                                                                 logf=False)
@@ -1188,7 +1238,7 @@ class Pulsar(object):
             self.Fdmfreqs = h5df.getData(self.name, 'Fdmfreqs')
             if len(self.Fdmfreqs) != 2*ndmf:
                 reComputeFDM = True
-                print 'WARNING: different number of frequencies in file! Recomputing DM F matrix'
+                raise ValueError('ERROR: Different number of frequencies!!')
                 (self.Fdmmat, self.Fdmfreqs) = PALutils.createfourierdesignmatrix(self.toas, \
                                                         ndmf, Tspan=Tmax, freq=True, \
                                                         logf=False)
@@ -1199,7 +1249,7 @@ class Pulsar(object):
                 self.DFAv = h5df.getData(self.name, 'DFAv')
                 if len(self.Fdmfreqs) != 2*ndmf:
                     reComputeFDM = True
-                    print 'WARNING: different number of frequencies in file! Recomputing DM F matrix'
+                    raise ValueError('ERROR: Different number of frequencies!!')
                     (self.FdmAvmat, tmp) = PALutils.createfourierdesignmatrix(self.avetoas, \
                                                                 ndmf, Tspan=Tmax, freq=True, \
                                                                 logf=False)
@@ -1227,6 +1277,20 @@ class Pulsar(object):
             self.Ftot = self.Fmat
             if useAverage:
                 self.FtotAv = self.FAvmat
+        
+        if likfunc == 'mark9':
+            # get sorted indices
+            self.isort, self.iisort = PALutils.argsortTOAs(self.toas, self.flags, \
+                                            which='jitterext', dt=1.0)
+
+            # sort data
+            self.toas = self.toas[self.isort]
+            self.toaerrs = self.toaerrs[self.isort] 
+            self.prefitresiduals = self.prefitresiduals[self.isort]
+            self.residuals = self.residuals[self.isort]
+            self.freqs = self.freqs[self.isort]
+            self.flags = self.flags[self.isort]
+            self.Mmat = self.Mmat[self.isort,:]
 
 
         # Next we'll need the G-matrices, and the compression matrices.
@@ -1241,8 +1305,8 @@ class Pulsar(object):
 
         if memsave == False:
             self.Hmat = h5df.getData(self.name, 'Hmat')
-            self.Homat = h5df.getData(self.name, 'Homat')
-            self.Hocmat = h5df.getData(self.name, 'Hocmat')
+            #self.Homat = h5df.getData(self.name, 'Homat')
+            #self.Hocmat = h5df.getData(self.name, 'Hocmat')
         
         if tmpars is not None:
             self.Mmat = h5df.getData(self.name, 'Mmat')
@@ -1254,6 +1318,15 @@ class Pulsar(object):
             self.Tmat = h5df.getData(self.name, 'Tmat')
             self.avetoas = h5df.getData(self.name, 'avetoas')
             self.aveflags = h5df.getData(self.name, 'aveflags')
+            self.Mmat_reduced = h5df.getData(self.name, 'Mmat_reduced')
+            
+        if likfunc == 'mark9':
+            self.Tmat = h5df.getData(self.name, 'Tmat')
+            self.avetoas = h5df.getData(self.name, 'avetoas')
+            self.aveflags = h5df.getData(self.name, 'aveflags')
+            self.Mmat_reduced = h5df.getData(self.name, 'Mmat_reduced')
+            self.Umat = h5df.getData(self.name, 'Umat')
+            self.Uinds = h5df.getData(self.name, 'Uinds')
 
 
         # basic quantities

@@ -132,10 +132,10 @@ class PTAmodels(object):
             incRedFourierMode=False, incDMFourierMode=False, incGWFourierMode=False, \
             incScattering=False, scatteringModel='powerlaw', \
             incGWB=False, gwbModel='powerlaw', \
-            incGWBAni=False, numLs=2, \
+            incGWBAni=False, lmax=2, \
             incBWM=False, incDMX=False,\
             incDMXKernel=False, DMXKernelModel='linear', \
-            incCW=False, incPulsarDistance=False, \
+            incCW=False, incPulsarDistance=False, CWupperLimit=False, \
             varyEfac=True, separateEfacs=False, separateEfacsByFreq=False, \
             incEquad=False,separateEquads=False, separateEquadsByFreq=False, \
             incJitter=False, separateJitter=False, separateJitterByFreq=False, \
@@ -962,7 +962,7 @@ class PTAmodels(object):
                 signals.append(newsignal)
 
 
-        if incCW:
+        if incCW and not CWupperLimit:
             bvary = [True] * 8
             pmin = [0, 0, 7, 0.1, -9, 0, 0, 0]
             pmax = [np.pi, 2*np.pi, 10, 3, -7, np.pi, np.pi, np.pi]
@@ -970,6 +970,16 @@ class PTAmodels(object):
             pwidth = [0.1, 0.1, 0.1, 0.1, 0.001, 0.1, 0.1, 0.1]
             prior = ['cos', 'uniform', 'log', 'log', 'log', 'uniform', 'uniform', 'cos']
             parids = ['theta', 'phi', 'logmc', 'logd', 'logf', 'phase', 'pol', 'inc']
+
+        elif incCW and CWupperLimit:
+            bvary = [True] * 8
+            pmin = [0, 0, 7, -17, -9, 0, 0, 0]
+            pmax = [np.pi, 2*np.pi, 10, -12, -7, np.pi, np.pi, np.pi]
+            pstart = [np.pi/2, np.pi/2, 8, -14, -8, np.pi, np.pi, np.pi/2]
+            pwidth = [0.1, 0.1, 0.1, 0.1, 0.001, 0.1, 0.1, 0.1]
+            prior = ['cos', 'uniform', 'log', 'uniform', 'log', 'uniform', 'uniform', 'cos']
+            parids = ['theta', 'phi', 'logmc', 'logh', 'logf', 'phase', 'pol', 'inc']
+
             
             newsignal = OrderedDict({
                 "stype":"cw",
@@ -981,7 +991,8 @@ class PTAmodels(object):
                 "pwidth":pwidth,
                 "pstart":pstart,
                 "parid":parids,
-                "prior":prior
+                "prior":prior,
+                "upperlimit":CWupperLimit
                 })
             signals.append(newsignal)
 
@@ -996,7 +1007,7 @@ class PTAmodels(object):
                 prior = [GWspectrumPrior]*nfreqs
             elif gwbModel=='powerlaw':
                 bvary = [True, True, False]
-                pmin = [-17.0, 1.02, 1.0e-11]
+                pmin = [-18.0, 1.02, 1.0e-11]
                 pmax = [-11.0, 6.98, 3.0e-9]
                 pstart = [-15.0, 2.01, 1.0e-10]
                 pwidth = [0.1, 0.1, 5.0e-11]
@@ -1017,7 +1028,7 @@ class PTAmodels(object):
         
         if incGWBAni:
             if gwbModel=='spectrum':
-                ncoeff = np.sum(2*np.arange(numLs)+1)
+                ncoeff = (lmax + 1)**2 - 1
                 bvary = [True]*(nfreqs + ncoeff)
                 pmin = [-18.0]*nfreqs
                 pmin += [-5] * (ncoeff)
@@ -1030,17 +1041,17 @@ class PTAmodels(object):
                 prior = [GWspectrumPrior]*nfreqs
                 prior += ['uniform'] * (ncoeff)
                 parids = ['rho_'+ str(f) for f in p.Ffreqs]
-                parids += ['c_' +str(l) + str(m) for l in range(numLs) \
+                parids += ['c_' +str(l) + str(m) for l in range(1,lmax) \
                                 for m in range(-l,l+1)]
 
             elif gwbModel=='powerlaw':
-                ncoeff = np.sum(2*np.arange(numLs)+1)
+                ncoeff = (lmax + 1)**2 - 1
                 bvary = [True, True, False]
                 bvary += [True] * (ncoeff)
                 pmin = [-17.0, 1.02, 1.0e-11]
-                pmin += [-5] * (ncoeff)
+                pmin += [-10] * (ncoeff)
                 pmax = [-11.0, 6.98, 3.0e-9]
-                pmax += [5] * (ncoeff)
+                pmax += [10] * (ncoeff)
                 pstart = [-15.0, 2.01, 1.0e-10]
                 pstart += [0.0] * (ncoeff)
                 pwidth = [0.1, 0.1, 5.0e-11]
@@ -1048,8 +1059,9 @@ class PTAmodels(object):
                 prior = [GWAmpPrior, GWSiPrior, 'log']
                 prior += ['uniform'] * (ncoeff)
                 parids = ['aGWB-Amplitude', 'aGWB-SpectralIndex', 'fL']
-                parids += ['c_' +str(l) + str(m) for l in range(numLs) \
-                                for m in range(-l,l+1)]
+                parids += ['c_' +str(l) + str(m) for l in range(lmax+1) \
+                                for m in range(-l,l+1) if l !=0]
+                print len(parids), np.sum(bvary)
 
             newsignal = OrderedDict({
                 "stype":gwbModel,
@@ -1062,7 +1074,7 @@ class PTAmodels(object):
                 "pstart":pstart,
                 "parid":parids,
                 "prior":prior,
-                "lmax":numLs
+                "lmax":lmax
                 })
             signals.append(newsignal)
 
@@ -1164,8 +1176,8 @@ class PTAmodels(object):
             if signal['corr'] in ['gr_sph']:
                psr_locs = np.array([[p.phi[0], p.theta[0]] for p in self.psr])
                lmax = signal['lmax']
-               self.harm_sky_vals = PALutils.SetupPriorSkyGrid(lmax-1)
-               self.AniBasis = ani.CorrBasis(psr_locs, lmax-1)# nside=32, ephem=False)
+               self.harm_sky_vals = PALutils.SetupPriorSkyGrid(lmax)
+               self.AniBasis = ani.CorrBasis(psr_locs, lmax)
 
         elif signal['stype'] in ['dmpowerlaw', 'dmspectrum']:
             # A DM variation signal
@@ -1686,8 +1698,8 @@ class PTAmodels(object):
 
         #print 'WARNING: Using seperate Tmax for each pulsar'
         for p in self.psr:
-            #p.Tmax = p.toas.max() - p.toas.min()
-            p.Tmax = self.Tmax
+            p.Tmax = p.toas.max() - p.toas.min()
+            #p.Tmax = self.Tmax
 
         # If the compressionComplement is defined, overwrite the default
         if evalCompressionComplement != 'None':
@@ -1715,6 +1727,8 @@ class PTAmodels(object):
         numJitter = self.getNumberOfSignalsFromDict(signals, \
                 stype='jitter_equad', corr='single')
         incJitter = np.array(numJitter) > 0
+        if self.likfunc == 'mark9':
+            incJitter = [False]*numJitter
         separateEfacs = np.logical_or(numEfacs > 1, numEquads > 1)
         
 
@@ -2001,6 +2015,7 @@ class PTAmodels(object):
         self.gradient = np.zeros(self.dimensions)
         self.ntmpars = 0
         nphiTmat = 0
+        self.logdet_Sigma = 0
         
         for ii, p in enumerate(self.psr):
 
@@ -2012,7 +2027,7 @@ class PTAmodels(object):
                     p.nSingleFreqs*2 + p.nSingleDMFreqs*2
             self.ntmpars += len(p.ptmdescription)
 
-            if self.likfunc == 'mark6' or self.likfunc == 'mark8':
+            if self.likfunc == 'mark6' or self.likfunc == 'mark8' or self.likfunc=='mark9':
                 p.Ttmat = p.Tmat.copy()
                 nphiTmat += p.Tmat.shape[1] + p.nSingleFreqs*2 + p.nSingleDMFreqs*2 + \
                         p.ndmEventCoeffs
@@ -2026,12 +2041,14 @@ class PTAmodels(object):
         self.ngwf = np.max(self.npf)
         self.gwfreqs = self.psr[np.argmax(self.npf)].Ffreqs
         nftot = np.max(self.npftot)
-        if self.likfunc == 'mark6':
+        if self.likfunc == 'mark6' or self.likfunc=='mark9':
             self.Phiinv = np.zeros((nphiTmat, nphiTmat))
             self.Phi = np.zeros((nphiTmat, nphiTmat))
+            self.Sigma = np.zeros((nphiTmat, nphiTmat))
         else:
             self.Phiinv = np.zeros((nftot*self.npsr, nftot*self.npsr))
             self.Phi = np.zeros((nftot*self.npsr, nftot*self.npsr))
+            self.Sigma = np.zeros((nftot*self.npsr, nftot*self.npsr))
 
         #for ii in range(self.npsr):
         #    if not self.likfunc in ['mark2']:
@@ -2634,11 +2651,12 @@ class PTAmodels(object):
 
                     # correlation matrix
                     nf = int(len(self.psr[psrind].Ffreqs)/2)
-                    clms = sparameters[nf:]
+                    clms = np.append(2*np.sqrt(np.pi), sparameters[nf:])
                     self.corrmat = self.computeAniORF(clms)
                     
                     # define rho
-                    rho = np.array([sparameters, sparameters]).T.flatten()
+                    rho = np.array([sparameters, sparameters]).T.flatten() \
+                            + np.log10(sig['Tmax'])
 
             # spectral Model
             if sig['stype'] == 'spectralModel':
@@ -2699,7 +2717,7 @@ class PTAmodels(object):
                 if sig['corr'] in ['gr_sph']:
 
                     # correlation matrix
-                    clms = sparameters[3:]
+                    clms = np.append(2*np.sqrt(np.pi), sparameters[3:])
                     self.corrmat = self.computeAniORF(clms)
                     
                     # number of GW frequencies is the max from all pulsars
@@ -2711,7 +2729,7 @@ class PTAmodels(object):
                     
                     f1yr = 1/3.16e7
                     rho = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
-                                         fgw**(-gamma)/sig['Tmax'])
+                                         fgw**(-gamma))
 
 
           # DM spectrum
@@ -2851,11 +2869,11 @@ class PTAmodels(object):
                         else:
                             p.kappa_tot = np.concatenate((p.kappa_tot, np.ones(p.nDMX)*80))
                             p.kappa_tot[-p.nDMX] = -20
-                    
+
                 sigdiag.append(10**p.kappa_tot)
 
             # convert to array and flatten
-            self.Phi = np.array(sigdiag).flatten()
+            self.Phi = np.hstack(sigdiag)
             np.fill_diagonal(self.Phiinv, 1/self.Phi)
             if incDMXseKernel:
                 ndmx = K.shape[0]
@@ -3140,7 +3158,6 @@ class PTAmodels(object):
 
                 psr.detresiduals -= sig
 
-
         
             # continuous wave signal
             elif sig['stype'] == 'cw':
@@ -3171,9 +3188,17 @@ class PTAmodels(object):
                     incPterm = False
                     pdist = None
 
+                # upper limit (h=2M^{5/3}(\pi f)^{2/3}/d_L)
+                if sig['upperlimit']:
+                    dist = 2 * (10**sparameters[2] * 4.9e-6)**(5/3) \
+                            * (np.pi*10**sparameters[4])**(2/3) / 10**sparameters[3]
+                    dist /= 1.0267e14
+                else:
+                    dist = 10**sparameters[3] 
+
                 # construct CW signal
                 cwsig = PALutils.createResidualsFast(self.psr, sparameters[0], \
-                            sparameters[1], 10**sparameters[2], 10**sparameters[3], \
+                            sparameters[1], 10**sparameters[2], dist, \
                             10**sparameters[4], sparameters[5], sparameters[6], \
                             sparameters[7], pdist=pdist, psrTerm=incPterm, 
                             phase_approx=True, evolve=False, tref=self.Tref)
@@ -3355,7 +3380,7 @@ class PTAmodels(object):
                 
                 f1yr = 1/3.16e7
                 pcdoubled = Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
-                                     fgw**(-gamma)/self.Tmax
+                                     fgw**(-gamma)
 
                 phiIJ =  0.5 * np.concatenate((pcdoubled, \
                                     np.zeros(len(self.psr[ii].Fdmfreqs))))
@@ -3487,14 +3512,14 @@ class PTAmodels(object):
                 gamma = 13/3
                 
                 f1yr = 1/3.16e7
-                pcdoubled = 0.5 * Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
-                                     fgw**(-gamma)/self.Tmax
+                pcdoubled = Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
+                                     fgw**(-gamma)
                     
                 Phi = np.zeros(nf+nfdm)
                 #di = np.diag_indices(nf)
                 Phi[:nf] = pcdoubled
         
-                phiIJ = np.dot(self.psr[ii].UtF, (Phi * self.psr[jj].UtF).T)
+                phiIJ = 0.5 * np.dot(self.psr[ii].UtF, (Phi * self.psr[jj].UtF).T)
         
                 top = np.dot(Y[ii], np.dot(phiIJ, Y[jj]))
                 bot = np.trace(np.dot(Z[ii], np.dot(phiIJ, np.dot(Z[jj], phiIJ.T))))
@@ -3502,8 +3527,11 @@ class PTAmodels(object):
                 # cross correlation and uncertainty
                 rho.append(top/bot)
                 sig.append(1/np.sqrt(bot))
-                xi.append(PALutils.angularSeparation(self.psr[ii].theta[0], self.psr[ii].phi[0] \
-                                                  , self.psr[jj].theta[0], self.psr[jj].phi[0]))
+                xi.append(PALutils.angularSeparation(self.psr[ii].theta, self.psr[ii].phi \
+                                                  , self.psr[jj].theta, self.psr[jj].phi))
+                
+                if np.isnan(sig[-1]):
+                    print self.psr[ii].name, self.psr[jj].name, rho[-1], sig[-1]
 
         # return Opt, sigma, snr
 
@@ -3536,7 +3564,10 @@ class PTAmodels(object):
         self.updateSpectralLines(parameters)
 
         # set red noise, DM and GW parameters
-        self.constructPhiMatrix(parameters, incCorrelations=incCorrelations)
+        try:
+            self.constructPhiMatrix(parameters, incCorrelations=incCorrelations)
+        except np.linalg.LinAlgError:
+                return -np.inf
 
         # set deterministic sources
         if self.haveDetSources:
@@ -4359,27 +4390,35 @@ class PTAmodels(object):
 
     """
 
-    def mark6LogLikelihood(self, parameters, incCorrelations=False, incJitter=False):
+    def mark6LogLikelihood(self, parameters, incCorrelations=False, \
+                           incJitter=False, varyNoise=True):
 
         loglike = 0
 
-        # set pulsar white noise parameters
-        self.setPsrNoise(parameters, incJitter=False)
+        if varyNoise:
 
-        # set red noise, DM and GW parameters
-        self.constructPhiMatrix(parameters, incCorrelations=incCorrelations, \
-                                incTM=True, incJitter=incJitter)
+            # set pulsar white noise parameters
+            self.setPsrNoise(parameters, incJitter=False)
+
+            # set red noise, DM and GW parameters
+            try:
+                self.constructPhiMatrix(parameters, incCorrelations=incCorrelations, \
+                                    incTM=True, incJitter=incJitter)
+            except np.linalg.LinAlgError:
+                    return -np.inf
+        
+            self.updateTmatrix(parameters)
 
         # set deterministic sources
         if self.haveDetSources:
             self.updateDetSources(parameters)
 
-        self.updateTmatrix(parameters)
-
 
         # compute the white noise terms in the log likelihood
         TNT = []
         nfref = 0
+        if varyNoise:
+            self.logdet_Sigma = 0
         for ct, p in enumerate(self.psr):
 
             # check for nans or infs
@@ -4392,10 +4431,11 @@ class PTAmodels(object):
                 d = np.dot(p.Ttmat.T, p.detresiduals/p.Nvec)
             else:
                 d = np.append(d, np.dot(p.Ttmat.T, p.detresiduals/p.Nvec))
-
-            # compute T^T N^{-1} T
-            right = ((1/p.Nvec) * p.Ttmat.T).T
-            TNT.append(np.dot(p.Ttmat.T, right))
+            
+            if varyNoise:
+                # compute T^T N^{-1} T
+                right = ((1/p.Nvec) * p.Ttmat.T).T
+                TNT.append(np.dot(p.Ttmat.T, right))
 
             # log determinant of G^TNG
             logdet_N = np.sum(np.log(p.Nvec))
@@ -4410,47 +4450,53 @@ class PTAmodels(object):
             if not incCorrelations:
 
                 # compute sigma
-                logdet_Sigma = 0
                 nf = p.Ttmat.shape[1]
-                Sigma = TNT[ct] + self.Phiinv[nfref:(nfref+nf), nfref:(nfref+nf)]
                 dd = d[nfref:(nfref+nf)]
+
+                if varyNoise:
+                    self.Sigma[nfref:(nfref+nf), nfref:(nfref+nf)] = \
+                            TNT[ct] + self.Phiinv[nfref:(nfref+nf), nfref:(nfref+nf)]
 
                 # cholesky decomp for maximum likelihood fourier components
                 try:
-                    cf = sl.cho_factor(Sigma)
+                    cf = sl.cho_factor(self.Sigma[nfref:(nfref+nf), nfref:(nfref+nf)])
                     expval2 = sl.cho_solve(cf, dd)
-                    logdet_Sigma += np.sum(2*np.log(np.diag(cf[0])))
+                    if varyNoise:
+                        self.logdet_Sigma += np.sum(2*np.log(np.diag(cf[0])))
                 except np.linalg.LinAlgError:
                     return -np.inf
                     raise ValueError("ERROR: Sigma singular according to SVD")
 
-                loglike += -0.5 * logdet_Sigma + 0.5 * (np.dot(dd, expval2))
+                loglike += 0.5 * (np.dot(dd, expval2))
 
                 # increment frequency counter
                 nfref += nf
         
         if not incCorrelations:
-            loglike += -0.5 * self.logdetPhi
+            loglike += -0.5 * (self.logdetPhi + self.logdet_Sigma)
 
         # compute the red noise, DMV and GWB terms in the log likelihood
         if incCorrelations: 
-            # compute sigma
-            Sigma = sl.block_diag(*TNT) + self.Phiinv
+
+            if varyNoise:
+                # compute sigma
+                self.Sigma = sl.block_diag(*TNT) + self.Phiinv
 
             # cholesky decomp for second term in exponential
             try:
-                cf = sl.cho_factor(Sigma)
+                cf = sl.cho_factor(self.Sigma)
                 expval2 = sl.cho_solve(cf, d)
-                logdet_Sigma = np.sum(2*np.log(np.diag(cf[0])))
+                if varyNoise:
+                    self.logdet_Sigma = np.sum(2*np.log(np.diag(cf[0])))
             except np.linalg.LinAlgError:
-                U, s, Vh = sl.svd(Sigma)
+                U, s, Vh = sl.svd(self.Sigma)
                 if not np.all(s > 0):
                     raise ValueError("ERROR: Sigma singular according to SVD")
-                logdet_Sigma = np.sum(np.log(s))
                 expval2 = np.dot(Vh.T, np.dot(np.diag(1.0/s), np.dot(U.T, d)))
+                if varyNoise:
+                    self.logdet_Sigma = np.sum(np.log(s))
 
-
-            loglike += -0.5 * (self.logdetPhi + logdet_Sigma) + 0.5 * (np.dot(d, expval2)) 
+            loglike += -0.5 * (self.logdetPhi + self.logdet_Sigma) + 0.5 * (np.dot(d, expval2)) 
 
         return loglike
 
@@ -4539,6 +4585,176 @@ class PTAmodels(object):
             loglike += np.dot(d, np.dot(p.TNTinv, d))
 
         return loglike
+
+    """
+    mark 9 log likelihood. Note that this is not the same as mark6 in piccard
+
+    EFAC + EQUAD + Red noise + DMV + GWs
+
+    Puts jitter parameter into noise vector
+
+    Uses Woodbury lemma and "T" matrix formalism
+
+    """
+
+    def mark9LogLikelihood(self, parameters, incCorrelations=False, varyNoise=True):
+
+        loglike = 0
+
+        if varyNoise:
+
+            # set pulsar white noise parameters
+            self.setPsrNoise(parameters, incJitter=False)
+
+            # set red noise, DM and GW parameters
+            self.constructPhiMatrix(parameters, incCorrelations=incCorrelations, \
+                                    incTM=True, incJitter=False)
+        
+            self.updateTmatrix(parameters)
+
+        # set deterministic sources
+        if self.haveDetSources:
+            self.updateDetSources(parameters)
+
+
+        # compute the white noise terms in the log likelihood
+        TNT = []
+        nfref = 0
+        if varyNoise:
+            self.logdet_Sigma = 0
+        for ct, p in enumerate(self.psr):
+
+            # check for nans or infs
+            if np.any(np.isnan(p.detresiduals)) or np.any(np.isinf(p.detresiduals)):
+                return -np.inf
+                        
+                
+            # equivalent to T^T N^{-1} \delta t
+            if ct == 0:
+                d = np.dot(p.Ttmat.T, PALutils.python_block_shermor_0D(\
+                                p.detresiduals, p.Nvec, p.Qamp, p.Uinds))
+            else:
+                d = np.append(d, np.dot(p.Ttmat.T, PALutils.python_block_shermor_0D(\
+                                p.detresiduals, p.Nvec, p.Qamp, p.Uinds)))
+
+            
+            if varyNoise:
+                # compute T^T N^{-1} T
+                TNT.append(PALutils.python_block_shermor_2D(p.Ttmat, p.Nvec, p.Qamp, p.Uinds))
+
+            # triple product in likelihood function
+            logdet_N, rNr = PALutils.python_block_shermor_1D(p.detresiduals, \
+                                                    p.Nvec, p.Qamp, p.Uinds)
+            
+            # first component of likelihood function
+            loglike += -0.5 * (logdet_N + rNr)
+            
+            # calculate red noise piece
+            if not incCorrelations:
+
+                # compute sigma
+                nf = p.Ttmat.shape[1]
+                dd = d[nfref:(nfref+nf)]
+
+                if varyNoise:
+                    self.Sigma[nfref:(nfref+nf), nfref:(nfref+nf)] = \
+                            TNT[ct] + self.Phiinv[nfref:(nfref+nf), nfref:(nfref+nf)]
+
+                # cholesky decomp for maximum likelihood fourier components
+                try:
+                    cf = sl.cho_factor(self.Sigma[nfref:(nfref+nf), nfref:(nfref+nf)])
+                    expval2 = sl.cho_solve(cf, dd)
+                    if varyNoise:
+                        self.logdet_Sigma += np.sum(2*np.log(np.diag(cf[0])))
+                except np.linalg.LinAlgError:
+                    return -np.inf
+                    raise ValueError("ERROR: Sigma singular according to SVD")
+
+                loglike += 0.5 * (np.dot(dd, expval2))
+
+                # increment frequency counter
+                nfref += nf
+        
+        if not incCorrelations:
+            loglike += -0.5 * (self.logdetPhi + self.logdet_Sigma)
+
+        # compute the red noise, DMV and GWB terms in the log likelihood
+        if incCorrelations: 
+
+            if varyNoise:
+                # compute sigma
+                self.Sigma = sl.block_diag(*TNT) + self.Phiinv
+
+            # cholesky decomp for second term in exponential
+            try:
+                cf = sl.cho_factor(self.Sigma)
+                expval2 = sl.cho_solve(cf, d)
+                if varyNoise:
+                    self.logdet_Sigma = np.sum(2*np.log(np.diag(cf[0])))
+            except np.linalg.LinAlgError:
+                U, s, Vh = sl.svd(self.Sigma)
+                if not np.all(s > 0):
+                    raise ValueError("ERROR: Sigma singular according to SVD")
+                expval2 = np.dot(Vh.T, np.dot(np.diag(1.0/s), np.dot(U.T, d)))
+                if varyNoise:
+                    self.logdet_Sigma = np.sum(np.log(s))
+
+            loglike += -0.5 * (self.logdetPhi + self.logdet_Sigma) + 0.5 * (np.dot(d, expval2)) 
+
+        return loglike
+
+    # compute F_p statistic
+    def fpStat(self, f0):
+        """ 
+        Computes the Fp-statistic as defined in Ellis, Siemens, Creighton (2012)
+        Assumes that noise values have already been set
+        
+        @param psr: List of pulsar object instances
+        @param f0: Gravitational wave frequency
+
+        @return: Value of the Fp statistic evaluated at f0
+
+        """
+
+        fstat=0
+
+        # define N vectors from Ellis et al, 2012 N_i=(x|A_i) for each pulsar
+        N = np.zeros(2)
+        M = np.zeros((2, 2))
+        nfref = 0 
+        TNA = []
+        for ii,p in enumerate(self.psr):
+            nf = p.Ttmat.shape[1]
+            ntoa = len(p.toas)
+
+            # Define A vector
+            A = np.zeros((2, ntoa))
+            A[0,:] = 1/f0**(1/3) * np.sin(2*np.pi*f0*p.toas)
+            A[1,:] = 1/f0**(1/3) * np.cos(2*np.pi*f0*p.toas)
+
+            Sigma = self.Sigma[nfref:(nfref+nf), nfref:(nfref+nf)]
+            ip1 = PALutils.innerProduct_rr(A[0,:], p.residuals, \
+                                           p.Nvec, p.Tmat, Sigma)
+            ip2 = PALutils.innerProduct_rr(A[1,:], p.residuals, \
+                                           p.Nvec, p.Tmat, Sigma)
+            N = np.array([ip1, ip2])
+            
+            # define M matrix M_ij=(A_i|A_j)
+            for jj in range(2):
+                for kk in range(2):
+                    M[jj, kk] = PALutils.innerProduct_rr(A[jj,:], A[kk,:], \
+                                                    p.Nvec, p.Tmat, Sigma)
+            
+            # take inverse of M
+            Minv = np.linalg.inv(M)
+            fstat += 0.5 * np.dot(N, np.dot(Minv, N))
+
+            nfref += nf
+
+        # return F-statistic
+        return fstat
+
+
 
     def mark8Gradient(self, parameters):
         
@@ -4641,20 +4857,20 @@ class PTAmodels(object):
                 except np.linalg.LinAlgError:
                     return -np.inf
 
-                detresiduals = p.detresiduals - np.dot(p.Ttmat, ml_vals[-1])
-                d = np.dot(p.Ttmat.T, detresiduals/p.Nvec)
+                #detresiduals = p.detresiduals - np.dot(p.Ttmat, ml_vals[-1])
+                #d = np.dot(p.Ttmat.T, detresiduals/p.Nvec)
 
-                expval2 = sl.cho_solve(cf, d)
+                #expval2 = sl.cho_solve(cf, d)
 
-                # triple product
-                rNr = np.dot(detresiduals, detresiduals/p.Nvec)
+                ## triple product
+                #rNr = np.dot(detresiduals, detresiduals/p.Nvec)
 
-                chisq.append(rNr - np.dot(d, expval2))
+                #chisq.append(rNr - np.dot(d, expval2))
 
                 # increment frequency counter
                 nfref += nf
 
-        return ml_vals, ml_errs, chisq
+        return ml_vals, ml_errs
     
     """
     Reconstruct ML signal from Tmatrix
@@ -4898,9 +5114,8 @@ class PTAmodels(object):
                     prior += -np.inf
 
             if sig['corr'] in ['gr_sph']:
-                clms = sparameters[3:]
-                print len(clms), len(self.harm_sky_vals)
-                prior += PALutils.PhysPrior(clms, self.harm_sky_vals)
+                clms = np.append(2*np.sqrt(np.pi),sparameters[3:])
+                #prior += PALutils.PhysPrior(clms, self.harm_sky_vals)
 
             # prior on ECC, EDOT and T0
             if sig['stype'] == 'lineartimingmodel' or sig['stype'] == 'nonlineartimingmodel':
@@ -4957,6 +5172,8 @@ class PTAmodels(object):
 
                         if sig['prior'][jj] == 'cos':
                             prior += np.log(np.abs(np.sin(sparameters[pindex])))
+                        if sig['prior'][jj] == 'uniform' and sig['parid'][jj] == 'logh':
+                            prior += np.log(10**sparameters[pindex])
 
                         pindex += 1
 
@@ -5217,12 +5434,20 @@ class PTAmodels(object):
                         parind = sig['parindex']
 
                         if sig['prior'][jj] == 'cos':
-                            q[parind+jj] = np.arccos(np.random.uniform(-1, 1))
-                            qxy += np.log(np.sin(parameters[parind+jj])/np.sin(q[parind+jj]))
+                            q[parind+pindex] = np.arccos(np.random.uniform(-1, 1))
+                            qxy += \
+                            np.log(np.sin(parameters[parind+pindex])/np.sin(q[parind+pindex]))
+                        elif sig['prior'][jj] == 'uniform' and sig['parid'][jj] == 'logh':
+                            q[parind+pindex] = \
+                                    np.log10(np.random.uniform(10**self.pmin[parind+pindex], \
+                                                            10**self.pmax[parind+jj]))
+                            qxy += np.log(10**parameters[parind+pindex]/10**q[parind+pindex])
 
                         else:
-                            q[parind+jj] = np.random.uniform(self.pmin[parind+jj], \
-                                                             self.pmax[parind+jj])
+                            q[parind+pindex] = np.random.uniform(self.pmin[parind+pindex], \
+                                                             self.pmax[parind+pindex])
+
+                        pindex += 1
 
         
         return q, qxy

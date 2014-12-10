@@ -9,6 +9,7 @@ from scipy.optimize import minimize
 import PALpsr
 import glob
 import pyswarm
+import PALutils
 import time, os
 
 try:
@@ -108,6 +109,10 @@ parser.add_argument('--incJitterEquad', dest='incJitterEquad', action='store_tru
 parser.add_argument('--separateJitterEquad', dest='separateJitterEquad', action='store', \
                     type=str, default='frequencies', \
                     help='separate Jitter Equad [None, backend, frequencies]')
+parser.add_argument('--fixNoise', dest='fixNoise', action='store_true',\
+                    default=False, help='fix Noise values')
+parser.add_argument('--noisedir', dest='noisedir', action='store', type=str,
+                   help='Full path to directory containting maximum likeihood noise values')
 
 
 parser.add_argument('--incJitterEpoch', dest='incJitterEpoch', action='store_true',\
@@ -138,6 +143,11 @@ parser.add_argument('--incCW', dest='incCW', action='store_true', \
                     default=False, help='Include CW signal in run')
 parser.add_argument('--incPdist', dest='incPdist', action='store_true', \
                     default=False, help='Include pulsar distances for CW signal in run')
+parser.add_argument('--CWupperLimit', dest='CWupperLimit', action='store_true', \
+                    default=False, help='Calculate CW upper limit (use h not d_L)')
+parser.add_argument('--fixf', dest='fixf', action='store', type=float, default=0.0,
+                   help='value of GW frequency for upper limits')
+
 
 parser.add_argument('--niter', dest='niter', action='store', type=int, default=1000000,
                    help='number MCMC iterations (default=1000000)')
@@ -154,8 +164,8 @@ parser.add_argument('--resume', dest='resume', action='store_true', \
 
 parser.add_argument('--Tmatrix', dest='Tmatrix', action='store_true', \
                     default=False, help='Use T matrix formalism')
-parser.add_argument('--mark8', dest='mark8', action='store_true', \
-                    default=False, help='Use mark8 likelihoodk')
+parser.add_argument('--mark9', dest='mark9', action='store_true', \
+                    default=False, help='Use mark9 likelihoodk')
 
 # parse arguments
 args = parser.parse_args()
@@ -225,8 +235,8 @@ if args.noMarg:
 
 if args.Tmatrix or args.margShapelet:
     likfunc = 'mark6'
-if args.mark8:
-    likfunc = 'mark8'
+if args.mark9:
+    likfunc = 'mark9'
 
 if args.margShapelet:
     dmEventModel = 'shapeletmarg'
@@ -249,7 +259,7 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     incDMEvent=args.incDMshapelet, dmEventModel=dmEventModel, \
                     ndmEventCoeffs=args.nshape, \
                     incDMX=args.incDMX, \
-                    incGWBAni=args.incGWBAni, numLs=args.nls,\
+                    incGWBAni=args.incGWBAni, lmax=args.nls,\
                     incDMXKernel=incDMXKernel, DMXKernelModel=DMXKernelModel, \
                     separateEfacs=separateEfacs, separateEfacsByFreq=separateEfacsByFreq, \
                     separateEquads=separateEquads, separateEquadsByFreq=separateEquadsByFreq, \
@@ -264,6 +274,7 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     fulltimingmodel=args.fullmodel, incNonGaussian=args.incNonGaussian, \
                     nnongaussian=args.nnongauss, \
                     incCW=args.incCW, incPulsarDistance=args.incPdist, \
+                    CWupperLimit=args.CWupperLimit, \
                     incJitterEquad=args.incJitterEquad, \
                     incJitterEpoch=args.incJitterEpoch, nepoch=nepoch, \
                     redAmpPrior=args.redAmpPrior, GWAmpPrior=args.GWBAmpPrior, \
@@ -301,6 +312,13 @@ if not(args.incRed):
             sig['bvary'][0] = False
             sig['pstart'][0] = -20
 
+if args.fixf != 0.0:
+    print 'Warning: Fixing CW frequency to {0}'.format(args.fixf) 
+    for sig in fullmodel['signals']:
+        if sig['stype'] == 'cw':
+            sig['bvary'][4] = False
+            sig['pstart'][4] = np.log10(args.fixf)
+
 ######################################
 #                                    #
 #   ONLY FOR 1713 21 YR ANALYSIS     #
@@ -326,6 +344,17 @@ if args.noVaryEfac:
             sig['bvary'][0] = False
             sig['pstart'][0] = 1
 
+
+if args.fixNoise:
+    #noisedir = '/Users/jaellis/Work/pulsars/NANOGrav/9yr/noisefiles/'
+    noisedir = args.noisedir
+    for ct, p in enumerate(model.psr):
+        d = np.genfromtxt(noisedir + p.name + '_noise.txt', dtype='S42')
+        pars = d[:,0]
+        vals = np.array([float(d[ii,1]) for ii in range(d.shape[0])])
+        sigs = [psig for psig in fullmodel['signals'] if psig['pulsarind'] == ct]
+        sigs = PALutils.fixNoiseValues(sigs, vals, pars, bvary=False, verbose=True)
+
 # check for single efacs
 if args.incCW or args.incTimingModel or args.incSingleRed or args.incSingleDM:
     for p in model.psr:
@@ -342,6 +371,7 @@ if args.fromFile:
 else:
     write = 'no'
 model.initModel(fullmodel, memsave=memsave, fromFile=args.fromFile, verbose=True, write=write)
+
 
 pardes = model.getModelParameterList()
 par_names = [p['id'] for p in pardes if p['index'] != -1]
@@ -376,11 +406,9 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize':
         loglike = model.mark6LogLikelihood
     if args.noMarg:
         loglike = model.mark7LogLikelihood
-    if args.mark8:
-        loglike = model.mark8LogLikelihood
+    if args.mark9:
+        loglike = model.mark9LogLikelihood
                                 
-
-    #loglike = model.mark5LogLikelihood
 
     # if zero log-likeihood
     if args.zerologlike:
@@ -398,8 +426,13 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize':
     if args.noCorrelations or not(np.any([args.incGWB, args.incGWBAni])):
         print 'Running model with no GWB correlations'
         loglkwargs['incCorrelations'] = False
+    else:
+        loglkwargs['incCorrelations'] = True
+        print 'Running model with GWB correlations'
     if args.incJitterEquad and args.Tmatrix:
         loglkwargs['incJitter'] = True
+    if args.fixNoise:
+        loglkwargs['varyNoise'] = False
     
     if args.zerologlike:
         loglkwargs = {}
@@ -414,26 +447,14 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize':
         pstart = True
     startSpectrumMin = False
     while not(inRange):
-        p0 = model.initParameters(startEfacAtOne=True, fixpstart=True)
-        #print p0
-        #for ct, nm in enumerate(par_out):
-        #    print nm, p0[ct]
+        p0 = model.initParameters(startEfacAtOne=True, fixpstart=fixpstart)
         startSpectrumMin = True
         if logprior(p0) != -np.inf and loglike(p0, loglkwargs) != -np.inf:
             inRange = True
 
-
-    ########################
-    #maxpars = np.loadtxt('/Users/jaellis/Work/noise/NANOGrav/1713_21yr/dmx_red_pl_notm/maxpars.txt')
-    #npars = len(maxpars)
-    #p0[:npars] = maxpars
-    #p0[-1] = 0
-    #p0[-2] = -0.006
-    #p0[-3] = 6.56695134e+01
-    #p0[-4] = 5.48327088e+04
-    #import matplotlib.pyplot as plt
-    #plt.errorbar(model.psr[0].toas, model.psr[0].residuals, model.psr[0].toaerrs, fmt='.')
-    #plt.show()
+    # if fixed noise, must call likelihood once to initialize matrices
+    if args.fixNoise:
+        loglike(p0, incCorrelations=False)
 
     if args.sampler == 'minimize':
 
@@ -453,23 +474,21 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize':
     if args.sampler == 'mcmc':
 
         cov = model.initJumpCovariance()
-
-        ind = np.array([ct for ct, par in enumerate(par_out) if 'efac' in par or \
-                'equad' in par or 'jitter' in par or 'RN' in par or 'DM' in par \
-                or 'red_' in par or 'dm_' in par or 'GWB' in par])
-
-        ##########################
-        #chain = np.loadtxt('/Users/jaellis/Work/noise/NANOGrav/ppta_dr1/noise/J1713+0747/chain_1.0.txt')
-        #burn = 0.25 * chain.shape[0]
-        #import PALInferenceJumpProposals as jump
-        #kernel = jump.KDEJumps(chain[burn:,:-4], ind)
+        
+        if args.incTimingModel:
+            ind = np.array([ct for ct, par in enumerate(par_out) if 'efac' in par or \
+                    'equad' in par or 'jitter' in par or 'RN' in par or 'DM' in par \
+                    or 'red_' in par or 'dm_' in par or 'GWB' in par])
+        elif args.incCW:
+            ind = np.array([ct for ct, par in enumerate(par_out) if 'pdist' not in par])
+        else:
+            ind = None
+        ind = None
 
         # define MCMC sampler
         sampler = PALInferencePTMCMC.PTSampler(len(p0), loglike, logprior, cov, comm=comm, \
                                                outDir=args.outDir, loglkwargs=loglkwargs, \
                                                resume=args.resume, covinds=ind)
-
-        #sampler.addProposalToCycle(kernel, 50)
 
         # add jump proposals
         if incGWB:
@@ -491,47 +510,15 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize':
             sampler.addProposalToCycle(model.drawFromTMfisherMatrix, 50)
             #sampler.addProposalToCycle(model.drawFromTMPrior, 5)
         if args.incCW:
-            sampler.addProposalToCycle(model.drawFromCWPrior, 3)
+            sampler.addProposalToCycle(model.drawFromCWPrior, 5)
             sampler.addProposalToCycle(model.massDistanceJump, 5)
             if args.incPdist:
                 sampler.addAuxilaryJump(model.pulsarPhaseFix)
-                sampler.addProposalToCycle(model.pulsarDistanceJump, 5)
+                sampler.addProposalToCycle(model.pulsarDistanceJump, 10)
 
         # always include draws from efac
         if not args.noVaryEfac:
             sampler.addProposalToCycle(model.drawFromEfacPrior, 2)
-
-        ##################### Importance Sampling Jumps ###################
-
-        # read in chains
-        #chaindirs = glob.glob('/Users/jaellis/Work/noise/NANOGrav/gwb_sims/*/chain_1.txt')
-
-        #chains = [np.loadtxt(c) for c in chaindirs]
-
-        #for ii in range(len(chains)):
-        #    burn = 0.25 * chains[ii].shape[0]
-        #    chains[ii] = chains[ii][burn:,:-4]
-
-        #def ISJumps(x, iter, beta):
-
-        #    q = x.copy()
-
-        #    npar = len(chains)
-        #    
-        #    newpar = []
-        #    for c in chains:
-        #        ind = np.random.randint(0, c.shape[0])
-        #        newpar.append(c[ind,:])
-        #    
-        #    q[:npar] = np.array(newpar).flatten()
-
-        #    return q, 0
-            
-        #sampler.addProposalToCycle(ISJumps, 60)
-
-        #################################
-        #p0[-1] = -18
-        #################################
 
 
         # run MCMC

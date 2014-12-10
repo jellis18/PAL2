@@ -8,6 +8,39 @@ import numpy.polynomial.hermite as herm
 #import numexpr as ne
 import sys,os
 
+def innerProduct_rr(x, y, Nvec, Tmat, Sigma, TNx=None, TNy=None):
+    """
+    Compute inner product using rank-reduced
+    approximations for red noise/jitter 
+
+    Compute: x^T N^{-1} y - x^T N^{-1} T \Sigma^{-1} T^T N^{-1} y
+
+    @param x: vector timeseries 1
+    @param y: vector timeseries 2
+    @param Nvec: vector of white noise values
+    @param Tmat: Modified design matrix including red noise/jitter
+    @param Sigma: Sigma matrix (\varphi^{-1} + T^T N^{-1} T)
+    @param TNx: T^T N^{-1} x precomputed
+    @param TNy: T^T N^{-1} y precomputed
+
+    @return: inner product (x|y)
+
+    """
+
+    # white noise term
+    Ni = 1/Nvec
+    xNy = np.dot(x*Ni, y)
+    
+    if TNx == None and TNy == None: 
+        TNx = np.dot(Tmat.T*Ni, x)
+        TNy = np.dot(Tmat.T*Ni, y)
+
+    cf = sl.cho_factor(Sigma)
+    SigmaTNy = sl.cho_solve(cf, TNy)
+
+    return xNy - np.dot(TNx, SigmaTNy)
+
+
 # compute f_p statistic
 def fpStat(psr, f0):
     """ 
@@ -293,7 +326,7 @@ def createResidualsFast(psr, gwtheta, gwphi, mc, dist, fgw, phase0, psi, inc, pd
         # get values from pulsar object
         toas = p.toas.copy() - tref
         if pdist is None and pphase is None:
-            pd = p.pdist.copy()
+            pd = p.pdist
         elif pdist is None and pphase is not None:
             pd = pphase[ct]/(2*np.pi*fgw*(1-cosMu)) / 1.0267e11
         else:
@@ -605,7 +638,7 @@ def exploderMatrixNoSingles(times, flags, dt=10):
         
 
     # find only epochs with more than 1 TOA
-    bucket_ind2 = [ind for ind in bucket_ind if len(ind) > 4]
+    bucket_ind2 = [ind for ind in bucket_ind if len(ind) > 1]
     
     avetoas = np.array([np.mean(times[l]) for l in bucket_ind2],'d')
     aveflags = np.array([flags[l[0]] for l in bucket_ind2])
@@ -1387,6 +1420,111 @@ def createGWB(psr, Amp, gam, DM=False, noCorr=False, seed=None, turnover=False, 
 
     return res_gw
 
+def createGWB_clean(psr, Amp, gam, noCorr=False, seed=None, turnover=False, \
+                    f0=1e-9, beta=1, power=1, npts=600, howml=10):
+    """
+    Function to create GW incuced residuals from a stochastic GWB as defined
+    in Chamberlin, Creighton, Demorest et al. (2013)
+    
+    @param psr: pulsar object for single pulsar
+    @param Amp: Amplitude of red noise in GW units
+    @param gam: Red noise power law spectral index
+    @param noCorr: Add red noise with no spatial correlations
+    @param seed: Random number seed
+    @param turnover: Produce spectrum with turnover at frequency f0
+    @param f0: Frequency of spectrum turnover
+    @param beta: Spectral index of power spectram for f << f0
+    @param power: Fudge factor for flatness of spectrum turnover
+    @param npts: Number of points used in interpolation
+    @param howml: Lowest frequency is 1/(howml * T) 
+
+    
+    @return: list of residuals for each pulsar
+    
+    """
+
+    if seed is not None:
+        np.random.seed(seed)
+
+    # number of pulsars
+    Npulsars = len(psr)
+
+    # current Hubble scale in units of 1/day
+    H0=(2.27e-18)*(60.*60.*24.)
+
+    #gw start and end times for entire data set
+    start = np.min([p.toas.min() for p in psr]) - 86400
+    stop = np.max([p.toas.max() for p in psr]) + 86400
+        
+    # duration of the signal
+    dur = stop - start
+    
+    # get maximum number of points
+    if npts is None:
+        # default to cadence of 2 weeks
+        npts = dur/(86400*14)
+
+    # make a vector of evenly sampled data points
+    ut = np.linspace(start, stop, npts)
+
+    # time resolution in days
+    dt = dur/npts
+
+    # compute the overlap reduction function
+    if noCorr:
+        ORF = np.diag(np.ones(Npulsars)*2)
+    else:
+        ORF = computeORFMatrix(psr)
+
+    # Define frequencies spanning from DC to Nyquist. 
+    # This is a vector spanning these frequencies in increments of 1/(dur*howml).
+    f=np.arange(0, 1/(2*dt), 1/(dur*howml))
+    f[0] = f[1] # avoid divide by 0 warning
+    Nf = len(f)
+
+    # Use Cholesky transform to take 'square root' of ORF
+    M = np.linalg.cholesky(ORF)
+
+    # Create random frequency series from zero mean, unit variance, Gaussian distributions
+    w = np.zeros((Npulsars, Nf), complex)
+    for ll in range(Npulsars):
+        w[ll,:] = np.random.randn(Nf) + 1j*np.random.randn(Nf)
+
+    # strain amplitude
+    f1yr = 1/3.16e7
+    alpha = -0.5 * (gam-3)
+    hcf = Amp * (f/f1yr)**(alpha)
+    if turnover:
+        si = alpha - beta
+        hcf /= (1+(f/f0)**(power*si))**(1/power)
+
+    C = 1 / 96 / np.pi**2 * hcf**2 / f**3 * dur * howml
+
+    ### injection residuals in the frequency domain
+    Res_f = np.dot(M, w)
+    for ll in range(Npulsars):
+        Res_f[ll] = Res_f[ll] * C**(0.5)    # rescale by frequency dependent factor
+        Res_f[ll,0] = 0			    # set DC bin to zero to avoid infinities
+        Res_f[ll,-1] = 0		    # set Nyquist bin to zero also
+
+    # Now fill in bins after Nyquist (for fft data packing) and take inverse FT
+    Res_f2 = np.zeros((Npulsars, 2*Nf-2), complex)    
+    Res_t = np.zeros((Npulsars, 2*Nf-2))
+    Res_f2[:,0:Nf] = Res_f[:,0:Nf]
+    Res_f2[:, Nf:(2*Nf-2)] = np.conj(Res_f[:,(Nf-2):0:-1])
+    Res_t = np.real(np.fft.ifft(Res_f2)/dt)
+
+    # shorten data and interpolate onto TOAs
+    Res = np.zeros((Npulsars, npts))
+    res_gw = []
+    for ll in range(Npulsars):
+        
+        Res[ll,:] = Res_t[ll, 10:(npts+10)]
+        f = interp.interp1d(ut, Res[ll,:], kind='linear')
+        res_gw.append(f(psr[ll].toas))
+
+    return res_gw
+
 
 def real_sph_harm(ll, mm, phi, theta):
     """
@@ -1433,19 +1571,19 @@ def PhysPrior(clm,harm_sky_vals):
     angular-distribution of the metric-perturbation quadratic
     expectation-value.
     """
-    """ngrid_phi = 20
-    ngrid_costheta = 20
+    #ngrid_phi = 20
+    #ngrid_costheta = 20
+    #
+    #phi = np.arange(0.0,2.0*np.pi,2.0*np.pi/ngrid_phi)
+    #theta = np.arccos(np.arange(-1.0,1.0,2.0/ngrid_costheta))
+
+    #xx, yy = np.meshgrid(phi,theta)
+
+    #harm_sky_vals = [[0.0]*(2*ll+1) for ll in range(lmax+1)]
+    #for ll in range(len(harm_sky_vals)):
+    #    for mm in range(len(harm_sky_vals[ll])):
+    #        harm_sky_vals[ll][mm] = real_sph_harm(ll,mm-ll,xx,yy)
     
-    phi = np.arange(0.0,2.0*np.pi,2.0*np.pi/ngrid_phi)
-    theta = np.arccos(np.arange(-1.0,1.0,2.0/ngrid_costheta))
-
-    xx, yy = np.meshgrid(phi,theta)
-
-    harm_sky_vals = [[0.0]*(2*ll+1) for ll in range(lmax+1)]
-    for ll in range(len(harm_sky_vals)):
-        for mm in range(len(harm_sky_vals[ll])):
-            harm_sky_vals[ll][mm] = real_sph_harm(ll,mm-ll,xx,yy)
-    """
 
     Pdist=0.
     for ll in range(len(harm_sky_vals)):
@@ -1456,6 +1594,456 @@ def PhysPrior(clm,harm_sky_vals):
         return -np.inf
     else:
         return 0
+
+def fixNoiseValues(ptasignals, vals, pars, bvary=False, verbose=True):
+    """
+    Use fixed noise values to read into 
+    ptasignal dictionary. This will be much
+    easier if everything is switched to using
+    parids.
+
+    """
+
+    for ct, p in enumerate(pars):
+        for sig in ptasignals:
+
+            # efac
+            if sig['stype'] == 'efac':
+                flag = p.split('efac-')[-1]
+                if flag in sig['flagvalue']:
+                    if verbose:
+                        print 'Setting efac {0} value to {1}'.format(sig['flagvalue'], \
+                                                                     vals[ct])
+                    sig['pstart'][0] = vals[ct]
+                    sig['bvary'][0] = bvary
+                    
+            # equad
+            if sig['stype'] == 'equad':
+                flag = p.split('equad-')[-1]
+                if flag in sig['flagvalue']:
+                    if vals[ct] > 0:
+                        vals[ct] = np.log10(vals[ct])
+                    if verbose:
+                        print 'Setting equad {0} value to {1}'.format(sig['flagvalue'], \
+                                                                      vals[ct])
+                    sig['pstart'][0] = vals[ct]
+                    sig['bvary'][0] = bvary
+
+            # jitter equad
+            if sig['stype'] == 'jitter_equad':
+                flag = p.split('jitter_q-')[-1]
+                if flag in sig['flagvalue']:
+                    if vals[ct] > 0:
+                        vals[ct] = np.log10(vals[ct])
+                    if verbose:
+                        print 'Setting ecorr {0} value to {1}'.format(sig['flagvalue'], \
+                                                                      vals[ct])
+                    sig['pstart'][0] = vals[ct]
+                    sig['bvary'][0] = bvary
+
+            if sig['stype'] == 'powerlaw':
+                if p == 'RN-Amplitude':
+                    if verbose:
+                        print 'Setting RN Amp value to {0}'.format(vals[ct])
+                    sig['pstart'][0] = vals[ct]
+                    sig['bvary'][0] = bvary
+                if p == 'RN-spectral-index':
+                    if verbose:
+                        print 'Setting RN spectral index value to {0}'.format(vals[ct])
+                    sig['pstart'][1] = vals[ct]
+                    sig['bvary'][1] = bvary
+
+    return ptasignals
+
+def python_block_shermor_2D(Z, Nvec, Jvec, Uinds):
+    """
+    Sherman-Morrison block-inversion for Jitter, ZNiZ
+
+    @param Z:       The design matrix, array (n x m)
+    @param Nvec:    The white noise amplitude, array (n)
+    @param Jvec:    The jitter amplitude, array (k)
+    @param Uinds:   The start/finish indices for the jitter blocks (k x 2)
+
+    For this version, the residuals need to be sorted properly so that all the
+    blocks are continuous in memory. Here, there are n residuals, and k jitter
+    parameters.
+    
+    N = D + U*J*U.T
+    calculate: Z.T * N^-1 * Z
+    """
+    ni = 1.0 / Nvec
+    zNz = np.dot(Z.T*ni, Z)
+
+    for cc, jv in enumerate(Jvec):
+        if jv > 0.0:
+            Zblock = Z[Uinds[cc,0]:Uinds[cc,1], :]
+            niblock = ni[Uinds[cc,0]:Uinds[cc,1]]
+
+            beta = 1.0 / (np.einsum('i->', niblock)+1.0/jv)
+            zn = np.dot(niblock, Zblock)
+            zNz -= beta * np.outer(zn.T, zn)
+
+    return zNz
+
+def python_block_shermor_0D(r, Nvec, Jvec, Uinds): 
+    """
+    Sherman-Morrison block-inversion for Jitter 
+    @param r:       The timing residuals, array (n)
+    @param Nvec:    The white noise amplitude, array (n)
+    @param Jvec:    The jitter amplitude, array (k)
+    @param Uinds:   The start/finish indices for the jitter blocks (k x 2)
+    For this version, the residuals need to be sorted properly so that all the
+    blocks are continuous in memory. Here, there are n residuals, and k jitter
+    parameters.
+    """
+    
+    ni = 1/Nvec
+    Nx = r/Nvec
+
+    for cc, jv in enumerate(Jvec):
+        if jv > 0.0:
+            rblock = r[Uinds[cc,0]:Uinds[cc,1]]
+            niblock = ni[Uinds[cc,0]:Uinds[cc,1]]
+
+            beta = 1.0 / (np.einsum('i->', niblock)+1.0/jv)
+            Nx[Uinds[cc,0]:Uinds[cc,1]] -= beta * np.dot(niblock, rblock) * niblock
+
+    return Nx
+
+
+def python_block_shermor_1D(r, Nvec, Jvec, Uinds):
+    """
+    Sherman-Morrison block-inversion for Jitter
+
+    @param r:       The timing residuals, array (n)
+    @param Nvec:    The white noise amplitude, array (n)
+    @param Jvec:    The jitter amplitude, array (k)
+    @param Uinds:   The start/finish indices for the jitter blocks (k x 2)
+
+    For this version, the residuals need to be sorted properly so that all the
+    blocks are continuous in memory. Here, there are n residuals, and k jitter
+    parameters.
+    
+    N = D + U*J*U.T
+    calculate: r.T * N^-1 * r, log(det(N))
+    """
+    ni = 1.0 / Nvec
+    Jldet = np.einsum('i->', np.log(Nvec))
+    xNx = np.dot(r, r * ni)
+
+    for cc, jv in enumerate(Jvec):
+        if jv > 0.0:
+            rblock = r[Uinds[cc,0]:Uinds[cc,1]]
+            niblock = ni[Uinds[cc,0]:Uinds[cc,1]]
+
+            beta = 1.0 / (np.einsum('i->', niblock)+1.0/jv)
+            xNx -= beta * np.dot(rblock, niblock)**2
+            Jldet += np.log(jv) - np.log(beta)
+
+    return Jldet, xNx
+
+
+def quantize_fast(times, dt=1.0, calci=False):
+    """ Adapted from libstempo: produce the quantisation matrix fast """
+    isort = np.argsort(times)
+    
+    bucket_ref = [times[isort[0]]]
+    bucket_ind = [[isort[0]]]
+    
+    for i in isort[1:]:
+        if times[i] - bucket_ref[-1] < dt:
+            bucket_ind[-1].append(i)
+        else:
+            bucket_ref.append(times[i])
+            bucket_ind.append([i])
+    
+    t = np.array([np.mean(times[l]) for l in bucket_ind],'d')
+    
+    U = np.zeros((len(times),len(bucket_ind)),'d')
+    for i,l in enumerate(bucket_ind):
+        U[l,i] = 1
+    
+    rv = (t, U)
+
+    if calci:
+        Ui = ((1.0/np.sum(U, axis=0)) * U).T
+        rv = (t, U, Ui)
+
+    return rv
+
+
+def quantize_split(times, flags, dt=1.0, calci=False):
+    """
+    As quantize_fast, but now split the blocks per backend. Note: for
+    efficiency, this function assumes that the TOAs have been sorted by
+    argsortTOAs. This is _NOT_ checked.
+    """
+    isort = np.arange(len(times))
+    
+    bucket_ref = [times[isort[0]]]
+    bucket_flag = [flags[isort[0]]]
+    bucket_ind = [[isort[0]]]
+    
+    for i in isort[1:]:
+        if times[i] - bucket_ref[-1] < dt and flags[i] == bucket_flag[-1]:
+            bucket_ind[-1].append(i)
+        else:
+            bucket_ref.append(times[i])
+            bucket_flag.append(flags[i])
+            bucket_ind.append([i])
+    
+    t = np.array([np.mean(times[l]) for l in bucket_ind],'d')
+    
+    U = np.zeros((len(times),len(bucket_ind)),'d')
+    for i,l in enumerate(bucket_ind):
+        U[l,i] = 1
+    
+    rv = (t, U)
+
+    if calci:
+        Ui = ((1.0/np.sum(U, axis=0)) * U).T
+        rv = (t, U, Ui)
+
+    return rv
+
+
+
+def argsortTOAs(toas, flags, which=None, dt=1.0):
+    """
+    Return the sort, and the inverse sort permutations of the TOAs, for the
+    requested type of sorting
+
+    NOTE: This one is _not_ optimized for efficiency yet (but is done only once)
+
+    @param toas:    The toas that are to be sorted
+    @param flags:   The flags that belong to each TOA (indicates sys/backend)
+    @param which:   Which type of sorting we will use (None, 'jitterext', 'time')
+    @param dt:      Timescale for which to limit jitter blocks, default [10 secs]
+
+    @return:    perm, perminv       (sorting permutation, and inverse)
+    """
+    if which is None:
+        isort = slice(None, None, None)
+        iisort = slice(None, None, None)
+    elif which == 'time':
+        isort = np.argsort(toas, kind='mergesort')
+        iisort = np.zeros(len(isort), dtype=np.int)
+        for ii, p in enumerate(isort):
+            iisort[p] = ii
+    elif which == 'jitterext':
+        tave, Umat = quantize_fast(toas, dt)
+
+        isort = np.argsort(toas, kind='mergesort')
+        uflagvals = list(set(flags))
+
+        for cc, col in enumerate(Umat.T):
+            for flagval in uflagvals:
+                flagmask = (flags[isort] == flagval)
+                if np.sum(col[isort][flagmask]) > 1:
+                    # This observing epoch has several TOAs
+                    colmask = col[isort].astype(np.bool)
+                    epmsk = flagmask[colmask]
+                    epinds = np.flatnonzero(epmsk)
+                    
+                    if len(epinds) == epinds[-1] - epinds[0] + 1:
+                        # Keys are exclusively in succession
+                        pass
+                    else:
+                        # Sort the indices of this epoch and backend
+                        # We need mergesort here, because it is stable
+                        # (A stable sort keeps items with the same key in the
+                        # same relative order. )
+                        episort = np.argsort(flagmask[colmask], kind='mergesort')
+                        isort[colmask] = isort[colmask][episort]
+                else:
+                    # Only one element, always ok
+                    pass
+
+        # Now that we have a correct permutation, also construct the inverse
+        iisort = np.zeros(len(isort), dtype=np.int)
+        for ii, p in enumerate(isort):
+            iisort[p] = ii
+    else:
+        isort, iisort = np.arange(len(toas)), np.arange(len(toas))
+
+    return isort, iisort
+
+def checkTOAsort(toas, flags, which=None, dt=1.0):
+    """
+    Check whether the TOAs are indeed sorted as they should be according to the
+    definition in argsortTOAs
+
+    @param toas:    The toas that are supposed to be already sorted
+    @param flags:   The flags that belong to each TOA (indicates sys/backend)
+    @param which:   Which type of sorting we will check (None, 'jitterext', 'time')
+    @param dt:      Timescale for which to limit jitter blocks, default [10 secs]
+
+    @return:    True/False
+    """
+    rv = True
+    if which is None:
+        isort = slice(None, None, None)
+        iisort = slice(None, None, None)
+    elif which == 'time':
+        isort = np.argsort(toas, kind='mergesort')
+        if not np.all(isort == np.arange(len(isort))):
+            rv = False
+    elif which == 'jitterext':
+        tave, Umat = quantize_fast(toas, dt)
+
+        #isort = np.argsort(toas, kind='mergesort')
+        isort = np.arange(len(toas))
+        uflagvals = list(set(flags))
+
+        for cc, col in enumerate(Umat.T):
+            for flagval in uflagvals:
+                flagmask = (flags[isort] == flagval)
+                if np.sum(col[isort][flagmask]) > 1:
+                    # This observing epoch has several TOAs
+                    colmask = col[isort].astype(np.bool)
+                    epmsk = flagmask[colmask]
+                    epinds = np.flatnonzero(epmsk)
+                    
+                    if len(epinds) == epinds[-1] - epinds[0] + 1:
+                        # Keys are exclusively in succession
+                        pass
+                    else:
+                        # Keys are not sorted for this epoch/flag
+                        rv = False
+                else:
+                    # Only one element, always ok
+                    pass
+    else:
+        pass
+
+    return rv
+
+
+def checkquant(U, flags, uflagvals=None):
+    """
+    Check the quantization matrix for consistency with the flags
+
+    @param U:           quantization matrix
+    @param flags:       the flags of the TOAs
+    @param uflagvals:   subset of flags that are not ignored
+
+    @return:            True/False, whether or not consistent
+
+    The quantization matrix is checked for three kinds of consistency:
+    - Every quantization epoch has more than one observation
+    - No quantization epoch has no observations
+    - Only one flag is allowed per epoch
+    """
+    if uflagvals is None:
+        uflagvals = list(set(flags))
+
+    rv = True
+    collisioncheck = np.zeros((U.shape[1], len(uflagvals)), dtype=np.int)
+    for ii, flagval in enumerate(uflagvals):
+        flagmask = (flags == flagval)
+
+        Umat = U[flagmask, :]
+
+        simepoch = np.sum(Umat, axis=0)
+        if np.all(simepoch <= 1) and not np.all(simepoch == 0):
+            rv = False
+            #raise ValueError("quantization matrix contains non-jitter-style data")
+
+        collisioncheck[:, ii] = simepoch
+
+        # Check continuity of the columns
+        for cc, col in enumerate(Umat.T):
+            if np.sum(col > 1):
+                # More than one TOA for this flag/epoch
+                epinds = np.flatnonzero(col)
+                if len(epinds) != epinds[-1] - epinds[0] + 1:
+                    rv = False
+                    print("WARNING: checkquant found non-continuous blocks")
+                    #raise ValueError("quantization matrix epochs not continuous")
+        
+
+    epochflags = np.sum(collisioncheck > 0, axis=1)
+
+    if np.any(epochflags > 1):
+        rv = False
+        print("WARNING: checkquant found multiple backends for an epoch")
+        #raise ValueError("Some observing epochs include multiple backends")
+
+    if np.any(epochflags < 1):
+        rv = False
+        print("WARNING: checkquant found epochs without observations (eflags)")
+        #raise ValueError("Some observing epochs include no observations... ???")
+
+    obsum = np.sum(U, axis=0)
+    if np.any(obsum < 1):
+        rv = False
+        print("WARNING: checkquant found epochs without observations (all)")
+        #raise ValueError("Some observing epochs include no observations... ???")
+
+    return rv
+
+
+def quant2ind(U):
+    """
+    Convert the quantization matrix to an indices matrix for fast use in the
+    jitter likelihoods
+
+    @param U:       quantization matrix
+    
+    @return:        Index (basic slicing) version of the quantization matrix
+
+    This function assumes that the TOAs have been properly sorted according to
+    the proper function argsortTOAs above. Checks on the continuity of U are not
+    performed
+    """
+    inds = np.zeros((U.shape[1], 2), dtype=np.int)
+    for cc, col in enumerate(U.T):
+        epinds = np.flatnonzero(col)
+        inds[cc, 0] = epinds[0]
+        inds[cc, 1] = epinds[-1]+1
+
+    return inds
+
+def quantreduce(U, eat, flags, calci=False):
+    """
+    Reduce the quantization matrix by removing the observing epochs that do not
+    require any jitter parameters.
+
+    @param U:       quantization matrix
+    @param eat:     Epoch-averaged toas
+    @param flags:   the flags of the TOAs
+    @param calci:   Calculate pseudo-inverse yes/no
+
+    @return     newU, jflags (flags that need jitter)
+    """
+    uflagvals = list(set(flags))
+    incepoch = np.zeros(U.shape[1], dtype=np.bool)
+    jflags = []
+    for ii, flagval in enumerate(uflagvals):
+        flagmask = (flags == flagval)
+        
+        Umat = U[flagmask, :]
+        ecnt = np.sum(Umat, axis=0)
+        incepoch = np.logical_or(incepoch, ecnt>1)
+
+        if np.any(ecnt > 1):
+            jflags.append(flagval)
+
+    Un = U[:, incepoch]
+    eatn = eat[incepoch]
+
+    if calci:
+        Ui = ((1.0/np.sum(Un, axis=0)) * Un).T
+        rv = (Un, Ui, eatn, jflags)
+    else:
+        rv = (Un, eatn, jflags)
+
+    return rv
+
+
+
+
+
 
 
 
