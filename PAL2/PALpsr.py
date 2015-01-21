@@ -27,6 +27,7 @@ import libstempo as t2
 
 import PALutils
 import PALdatafile
+import matplotlib.pyplot as plt
 
 PAL_DMk = 4.15e3        # Units MHz^2 cm^3 pc sec
 
@@ -735,7 +736,9 @@ class Pulsar(object):
     def createPulsarAuxiliaries(self, h5df, Tmax, nfreqs, ndmfreqs, \
             twoComponent=False, nSingleFreqs=0, nSingleDMFreqs=0, \
             compression='None', likfunc='mark1', write='no', \
-            tmpars=None, memsave=True, incJitter=False, incDMX=False):
+            tmpars=None, memsave=True, incJitter=False, incDMX=False,
+            incRedBand=False, incDMBand=False, incRedGroup=False, \
+            redGroups=None):
 
 
         # For creating the auxiliaries it does not really matter: we are now
@@ -835,7 +838,7 @@ class Pulsar(object):
             (self.Fmat, self.Ffreqs) = PALutils.createfourierdesignmatrix(self.toas, \
                                                             nf, Tspan=Tmax, freq=True, \
                                                             logf=False)
-            self.Fmat /= np.sqrt(Tmax)
+            #self.Fmat /= np.sqrt(Tmax)
             #self.Ffreqs, self.Fmat = rr.get_rr_rep(self.toas, Tmax, 1/4.7/Tmax, nf, \
             #                                20, simpson=False)
             if useAverage:
@@ -855,7 +858,7 @@ class Pulsar(object):
             (self.Fdmmat, self.Fdmfreqs) = PALutils.createfourierdesignmatrix(self.toas, \
                                                             ndmf, Tspan=Tmax, freq=True, \
                                                             logf=False)
-            self.Fdmmat /= np.sqrt(Tmax)
+            #self.Fdmmat /= np.sqrt(Tmax)
             #self.Fdmfreqs, self.Fdmmat = rr.get_rr_rep(self.toas, Tmax, 1/1000/Tmax, nf, \
             #                                    50, simpson=False)
             if useAverage:
@@ -877,7 +880,47 @@ class Pulsar(object):
             self.kappadm = np.zeros(2*ndmf)
             if useAverage:
                 self.DFAv = np.zeros((len(self.freqs), 0))
+                
+            
+        if incRedBand:
+            lbands = [0, 1000, 2000]
+            lhbands = [1000, 2000, 5000]
+            Ftemp = [self.Fmat.copy()]
+            for lb, hb in zip(lbands, lhbands):
+                mask = np.logical_and(self.freqs>lb, self.freqs<=hb)
+                if np.sum(mask) > 0:
+                    Ftemp.append(self.Fmat.copy())
+                    Ftemp[-1][~mask,:] = 0.0
+            
+            self.Fmat = np.hstack(Ftemp)
+        
+        if incRedGroup:
+            self.redGroups = redGroups
+            Ftemp = [self.Fmat.copy()]
+            for ii, rg in enumerate(self.redGroups):
+                mask = []
+                for flag in rg:
+                    mask.append(np.logical_and(self.flags==flag))
 
+                mask = np.hstack(np.array(mask))
+                if np.sum(mask) > 0:
+                    Ftemp.append(self.Fmat.copy())
+                    Ftemp[-1][~mask,:] = 0.0
+            
+            self.Fmat = np.hstack(Ftemp)
+        
+        if incDMBand:
+            lbands = [0, 1000, 2000]
+            lhbands = [1000, 2000, 5000]
+            Ftemp = [self.DF.copy()]
+            for lb, hb in zip(lbands, lhbands):
+                mask = np.logical_and(self.freqs>lb, self.freqs<=hb)
+                if np.sum(mask) > 0:
+                    Ftemp.append(self.DF.copy())
+                    Ftemp[-1][~mask,:] = 0.0
+            
+            self.DF = np.hstack(Ftemp)
+        
         # create total F matrix if both red and DM
         if ndmf > 0 and nf > 0:
             self.Ftot = np.concatenate((self.Fmat, self.DF), axis=1)
@@ -891,6 +934,9 @@ class Pulsar(object):
             self.Ftot = self.Fmat
             if useAverage:
                 self.FtotAv = self.FAvmat
+        
+        #plt.matshow(self.Ftot, aspect='auto')
+        #plt.show()
 
 
         # Write these quantities to disk
@@ -930,6 +976,7 @@ class Pulsar(object):
             Mm = self.Mmat.copy()
             self.norm = np.sqrt(np.sum(Mm**2, axis=0))
             Mm /= self.norm
+            self.Mmat = Mm.copy()
             Sigi = np.dot(Mm.T, (w * Mm.T).T)
             #try:
             #    cf = sl.cho_factor(Sigi)
@@ -947,11 +994,20 @@ class Pulsar(object):
 
         else:
             Mmat = self.Mmat
+            # M matrix normalization
+            Mm = self.Mmat.copy()
+            self.norm = np.sqrt(np.sum(Mm**2, axis=0))
 
         self.Mmat_reduced = Mmat
-        U, s, Vh = sl.svd(Mmat)
-        self.Gmat = U[:, Mmat.shape[1]:].copy()
-        self.Gcmat = U[:, :Mmat.shape[1]].copy()
+        if likfunc != 'mark6' or likfunc != 'mark9':
+            U, s, Vh = sl.svd(Mmat)
+            self.Gmat = U[:, Mmat.shape[1]:].copy()
+            self.Gcmat = U[:, :Mmat.shape[1]].copy()
+        else:
+            self.Gmat = np.zeros(self.Mmat.shape)
+            n_m = len(self.toas) - self.Gmat.shape[1]
+            self.Gcmat = np.zeros((n_m, n_m))
+
         
 
         # T matrix

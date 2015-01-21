@@ -5,7 +5,7 @@ import numpy as np
 import PALdatafile
 import PALmodels
 import PALInferencePTMCMC
-from scipy.optimize import minimize
+from scipy.optimize import fmin
 import PALpsr
 import glob
 import pyswarm
@@ -49,6 +49,8 @@ parser.add_argument('--logfrequencies', dest='logfrequencies', action='store_tru
                     default=False, help='Use log sampling in frequencies.')
 parser.add_argument('--incSingleRed', dest='incSingleRed', action='store_true',default=False,
                    help='include single frequency red noise')
+parser.add_argument('--incRedBand', dest='incRedBand', action='store_true',default=False,
+                   help='include band limited red noise')
 
 
 parser.add_argument('--incDM', dest='incDM', action='store_true',default=False,
@@ -72,6 +74,8 @@ parser.add_argument('--incDMX', dest='incDMX', action='store_true', default=Fals
 parser.add_argument('--dmxKernelModel', dest='dmxKernelModel', action='store', type=str, \
                     default='None',
                    help='dmx Kernel Model')
+parser.add_argument('--incDMBand', dest='incDMBand', action='store_true',default=False,
+                   help='include band limited DM noise')
 
 parser.add_argument('--incGWB', dest='incGWB', action='store_true',default=False,
                    help='include GWB')
@@ -111,6 +115,8 @@ parser.add_argument('--separateJitterEquad', dest='separateJitterEquad', action=
                     help='separate Jitter Equad [None, backend, frequencies]')
 parser.add_argument('--fixNoise', dest='fixNoise', action='store_true',\
                     default=False, help='fix Noise values')
+parser.add_argument('--fixWhite', dest='fixWhite', action='store_true',\
+                    default=False, help='fix White Noise values')
 parser.add_argument('--noisedir', dest='noisedir', action='store', type=str,
                    help='Full path to directory containting maximum likeihood noise values')
 
@@ -254,6 +260,8 @@ else:
 #likfunc= 'mark5'
 print likfunc
 fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
+                    incRedBand=args.incRedBand, \
+                    incDMBand=args.incDMBand, \
                     logf=args.logfrequencies, \
                     incDM=args.incDM, dmModel=args.dmModel, \
                     incDMEvent=args.incDMshapelet, dmEventModel=dmEventModel, \
@@ -293,6 +301,9 @@ if args.fixSi:
     print 'Fixing GWB spectral index to 4.33'
     for sig in fullmodel['signals']:
         if sig['corr'] == 'gr':
+            sig['bvary'][1] = False
+            sig['pstart'][1] = 4.33
+        elif sig['corr'] == 'gr_sph':
             sig['bvary'][1] = False
             sig['pstart'][1] = 4.33
 
@@ -354,6 +365,15 @@ if args.fixNoise:
         vals = np.array([float(d[ii,1]) for ii in range(d.shape[0])])
         sigs = [psig for psig in fullmodel['signals'] if psig['pulsarind'] == ct]
         sigs = PALutils.fixNoiseValues(sigs, vals, pars, bvary=False, verbose=True)
+
+# turn red noise back on
+if args.fixNoise and args.fixWhite:
+    print 'Turning on red noise and only fixing white noise'
+    for sig in fullmodel['signals']:
+        if sig['corr'] == 'single' and sig['stype'] == 'powerlaw':
+            sig['bvary'][1] = True
+            sig['bvary'][0] = True
+
 
 # check for single efacs
 if args.incCW or args.incTimingModel or args.incSingleRed or args.incSingleDM:
@@ -431,8 +451,11 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize':
         print 'Running model with GWB correlations'
     if args.incJitterEquad and args.Tmatrix:
         loglkwargs['incJitter'] = True
-    if args.fixNoise:
+    if args.fixNoise and not args.fixWhite:
         loglkwargs['varyNoise'] = False
+    elif args.fixNoise and args.fixWhite:
+        loglkwargs['varyNoise'] = True
+        loglkwargs['fixWhite'] = True
     
     if args.zerologlike:
         loglkwargs = {}
@@ -441,19 +464,24 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize':
     inRange = False
     pstart = False
     fixpstart=False
-    if args.incTimingModel:
+    if args.incTimingModel or args.fixNoise:
         fixpstart=True
     if MPIrank == 0:
         pstart = True
     startSpectrumMin = False
+    fixpstart = True
     while not(inRange):
         p0 = model.initParameters(startEfacAtOne=True, fixpstart=fixpstart)
         startSpectrumMin = True
-        if logprior(p0) != -np.inf and loglike(p0, loglkwargs) != -np.inf:
-            inRange = True
-
+        if args.fixWhite or args.fixNoise:
+            if logprior(p0) != -np.inf and loglike(p0) != -np.inf:
+                inRange = True
+        else:
+            if logprior(p0) != -np.inf and loglike(p0, **loglkwargs) != -np.inf:
+                inRange = True
+    
     # if fixed noise, must call likelihood once to initialize matrices
-    if args.fixNoise:
+    if args.fixNoise or args.fixWhite:
         loglike(p0, incCorrelations=False)
 
     if args.sampler == 'minimize':
@@ -461,14 +489,17 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize':
         # define function
         def fun(x):
             if logprior(x) != -np.inf:
-                ret = -loglike(x, loglkwargs)
+                ret = -loglike(x, **loglkwargs)
             else:
                 ret = 1e10
 
             return ret
 
-        pyswarm.pso(fun, lb=model.pmin, ub=model.pmax, swarmsize=1000, \
-                    maxiter=1000, minfunc=1e-4, minstep=1e-4, debug=True)
+        maxpars, maxf = pyswarm.pso(fun, model.pmin, model.pmax, swarmsize=300, \
+                        omega=0.5, phip=0.5, phig=0.5, maxiter=1000, debug=True, \
+                        minfunc=1e-6)
+
+        np.savetxt(args.outDir + '/pso_maxpars.txt', maxpars)
 
 
     if args.sampler == 'mcmc':
@@ -496,8 +527,16 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize':
                 sampler.addProposalToCycle(model.drawFromGWBPrior, 10)
             elif args.gwbModel == 'spectrum':
                 sampler.addProposalToCycle(model.drawFromGWBSpectrumPrior, 10)
+            elif args.gwbModel == 'turnover':
+                sampler.addProposalToCycle(model.drawFromGWBTurnoverPrior, 10)
         if args.incRed and args.redModel=='powerlaw':
             sampler.addProposalToCycle(model.drawFromRedNoisePrior, 5)
+        if args.incRedBand and args.redModel=='powerlaw':
+            sampler.addProposalToCycle(model.drawFromRedNoiseBandPrior, 5)
+        if args.incDMBand and args.dmModel=='powerlaw':
+            sampler.addProposalToCycle(model.drawFromDMNoiseBandPrior, 5)
+        if args.incDM and args.dmModel=='powerlaw':
+            sampler.addProposalToCycle(model.drawFromDMPrior, 5)
         if args.incRed and args.redModel=='spectrum':
             sampler.addProposalToCycle(model.drawFromRedNoiseSpectrumPrior, 10)
         if args.incEquad:
@@ -507,7 +546,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize':
         if args.incJitterEpoch:
             sampler.addProposalToCycle(model.drawFromJitterEpochPrior, 5)
         if args.incTimingModel:
-            sampler.addProposalToCycle(model.drawFromTMfisherMatrix, 50)
+            sampler.addProposalToCycle(model.drawFromTMfisherMatrix, 40)
             #sampler.addProposalToCycle(model.drawFromTMPrior, 5)
         if args.incCW:
             sampler.addProposalToCycle(model.drawFromCWPrior, 5)

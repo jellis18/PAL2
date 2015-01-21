@@ -417,8 +417,8 @@ class DataFile(object):
                     efacequad_freq.append('-'.join((pulsarname, fflag)))
                 
                 else:
-                    print 'WARNING: no flagGroup found for TOA {0} \
-                            in pulsar {1}'.format(ii, pulsarname)
+                    #print 'WARNING: no flagGroup found for TOA {0} \
+                    #        in pulsar {1}'.format(ii, pulsarname)
                     efacequad_freq.append(pulsarname)
             
             self.writeData(flagGroup, "efacequad_freq", efacequad_freq, overwrite=overwrite)
@@ -549,6 +549,7 @@ class DataFile(object):
             elat = np.array(self.getData(psrname, 'tmp_valpost'))[elatind]
 
             # convert via pyephem
+            #print elong, elat
             ec = ephem.Ecliptic(elong, elat)
             
             # check for B name

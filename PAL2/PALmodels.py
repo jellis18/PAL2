@@ -127,6 +127,8 @@ class PTAmodels(object):
     """
     def makeModelDict(self,  nfreqs=20, ndmfreqs=None, \
             incRedNoise=False, noiseModel='powerlaw', fc=None, logf=False,\
+            incRedBand=False, incRedGroups=False, redGroups=None, \
+            incDMBand=False, \
             incDM=False, dmModel='powerlaw', \
             incDMEvent=False, dmEventModel='shapelet', ndmEventCoeffs=3, \
             incRedFourierMode=False, incDMFourierMode=False, incGWFourierMode=False, \
@@ -414,6 +416,40 @@ class PTAmodels(object):
                     })
                 signals.append(newsignal)
 
+            if incRedBand:
+                lbands = [0, 1000, 2000]
+                lhbands = [1000, 2000, 5000]
+                for lb, hb in zip(lbands, lhbands):
+                    if np.any(np.logical_and(p.freqs<=hb, p.freqs>lb)):
+                        print lb, hb, np.sum(np.logical_and(p.freqs<=hb, p.freqs>lb))
+                        bvary = [True, True, False]
+                        pmin = [-20.0, 0.02, 1.0e-11]
+                        pmax = [-11.0, 6.98, 3.0e-9]
+                        pstart = [-19.0, 2.01, 1.0e-10]
+                        pwidth = [0.1, 0.1, 5.0e-11]
+                        prior = [redAmpPrior, redSiPrior, 'log']
+                        parids = ['RN-Amplitude-{0}-{1}'.format(lb,hb), \
+                                    'RN-Si-{0}-{1}'.format(lb,hb), \
+                                    'RN-fL-{0}-{1}'.format(lb,hb)]
+                        print parids
+                    
+                        newsignal = OrderedDict({
+                            "stype":'powerlaw_band',
+                            "corr":"single",
+                            "pulsarind":ii,
+                            "flagname":"pulsarname",
+                            "flagvalue":p.name,
+                            "bvary":bvary,
+                            "pmin":pmin,
+                            "pmax":pmax,
+                            "pwidth":pwidth,
+                            "pstart":pstart,
+                            "prior":prior,
+                            "parids":parids
+                            })
+                        signals.append(newsignal)
+
+
             if incDM:
                 if dmModel=='spectrum':
                     #nfreqs = ndmfreqs
@@ -455,6 +491,39 @@ class PTAmodels(object):
                     "prior":prior
                     })
                 signals.append(newsignal)
+            
+            if incDMBand:
+                lbands = [0, 1000, 2000]
+                lhbands = [1000, 2000, 5000]
+                for lb, hb in zip(lbands, lhbands):
+                    if np.any(np.logical_and(p.freqs<=hb, p.freqs>lb)):
+                        print lb, hb, np.sum(np.logical_and(p.freqs<=hb, p.freqs>lb))
+                        bvary = [True, True, False]
+                        pmin = [-14.0, 0.02, 1.0e-11]
+                        pmax = [-6.5, 6.98, 3.0e-9]
+                        pstart = [-13.0, 2.01, 1.0e-10]
+                        pwidth = [0.1, 0.1, 5.0e-11]
+                        prior = [DMAmpPrior, DMSiPrior, 'log']
+                        parids = ['DM-Amplitude-{0}-{1}'.format(lb,hb), \
+                                    'DM-Si-{0}-{1}'.format(lb,hb), \
+                                    'DM-fL-{0}-{1}'.format(lb,hb)]
+                        print parids
+                    
+                        newsignal = OrderedDict({
+                            "stype":'dmpowerlaw_band',
+                            "corr":"single",
+                            "pulsarind":ii,
+                            "flagname":"pulsarname",
+                            "flagvalue":p.name,
+                            "bvary":bvary,
+                            "pmin":pmin,
+                            "pmax":pmax,
+                            "pwidth":pwidth,
+                            "pstart":pstart,
+                            "prior":prior,
+                            "parids":parids
+                            })
+                        signals.append(newsignal)
 
 
             if incScattering:
@@ -745,16 +814,13 @@ class PTAmodels(object):
 
                         if tmperrs[jj] == 0:
                             tmperrs[jj] = tmpest[jj]
-
+                        
                         # physical priors
                         if parid == 'SINI':
-                            pmin += [-1.0]
-                            pmax += [1.0]
+                            pmin += [-tmpest[jj] - 1]
+                            pmax += [1-tmpest[jj]]
                             pwidth += [tmperrs[jj]]
-                            if tmpest[jj] <= -1.0 or tmpest[jj] >= 1.0:
-                                pstart += [0.99]
-                            else:
-                                pstart += [tmpest[jj]]
+                            pstart += [0.0]
                         elif parid == 'STIG':
                             pmin += [-1.0]
                             pmax += [1.0]
@@ -764,29 +830,29 @@ class PTAmodels(object):
                             else:
                                 pstart += [tmpest[jj]]
                         elif parid == 'ECC' or parid == 'E':
-                            pmin += [0.0]
-                            pmax += [1.0]
+                            pmin += [-tmpest[jj]]
+                            pmax += [1.0-tmpest[jj]]
                             pwidth += [tmperrs[jj]]
-                            pstart += [tmpest[jj]]
+                            pstart += [0.0]
                         elif parid == 'KOM':
-                            pmin += [0.0]
-                            pmax += [360.0]
+                            pmin += [-tmpest[jj]]
+                            pmax += [360.0-tmpest[jj]]
                             pwidth += [tmperrs[jj]]
-                            pstart += [tmpest[jj]]
+                            pstart += [0.0]
                         elif parid == 'PX':
                             if tmpest[jj] < 0:
                                 tmpest[jj] = 0.001
-                            pmin += [0.0]
-                            pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
+                            pmin += [-tmpest[jj]]
+                            pmax += [500.0 * tmperrs[jj]]
                             pwidth += [tmperrs[jj]]
-                            pstart += [tmpest[jj]]
+                            pstart += [0.0]
                         elif parid == 'M2':
                             if tmpest[jj] < 0:
                                 tmpest[jj] = 0.001
-                            pmin += [0.0]
-                            pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
+                            pmin += [-tmpest[jj]]
+                            pmax += [500.0 * tmperrs[jj]]
                             pwidth += [tmperrs[jj]]
-                            pstart += [tmpest[jj]]
+                            pstart += [0.0]
                         elif parid == 'GAMMA':
                             pmin += [0.0]
                             pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
@@ -804,29 +870,111 @@ class PTAmodels(object):
                         #    pstart += [0]
                         
                         # make parameter be the 'parameter offset'
-                        elif parid == 'Offset':
-                            pmin += [-500]
-                            pmax += [500]
-                            pwidth += [0.1]
-                            pstart += [0]
+                        #elif parid == 'Offset':
+                        #    pmin += [-500]
+                        #    pmax += [500]
+                        #    pwidth += [0.1]
+                        #    pstart += [0]
 
-                        elif parid == 'F0':
-                            pmin += [-500]
-                            pmax += [500]
-                            pwidth += [0.1]
-                            pstart += [0]
-                        
-                        elif parid == 'F1':
-                            pmin += [-500]
-                            pmax += [500]
-                            pwidth += [0.1]
-                            pstart += [0]
+                        #elif parid == 'F0':
+                        #    pmin += [-500]
+                        #    pmax += [500]
+                        #    pwidth += [0.1]
+                        #    pstart += [0]
+                        #
+                        #elif parid == 'F1':
+                        #    pmin += [-500]
+                        #    pmax += [500]
+                        #    pwidth += [0.1]
+                        #    pstart += [0]
 
                         else:
-                            pmin += [-500.0 * tmperrs[jj] + tmpest[jj]]
-                            pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
+                            pmin += [-500.0 * tmperrs[jj]]
+                            pmax += [500.0 * tmperrs[jj]]
                             pwidth += [tmperrs[jj]]
-                            pstart += [tmpest[jj]]
+                            pstart += [0.0]
+
+                        ## physical priors
+                        #if parid == 'SINI':
+                        #    pmin += [-1.0]
+                        #    pmax += [1.0]
+                        #    pwidth += [tmperrs[jj]]
+                        #    if tmpest[jj] <= -1.0 or tmpest[jj] >= 1.0:
+                        #        pstart += [0.99]
+                        #    else:
+                        #        pstart += [tmpest[jj]]
+                        #elif parid == 'STIG':
+                        #    pmin += [-1.0]
+                        #    pmax += [1.0]
+                        #    pwidth += [tmperrs[jj]]
+                        #    if tmpest[jj] <= -1.0 or tmpest[jj] >= 1.0:
+                        #        pstart += [0.5]
+                        #    else:
+                        #        pstart += [tmpest[jj]]
+                        #elif parid == 'ECC' or parid == 'E':
+                        #    pmin += [0.0]
+                        #    pmax += [1.0]
+                        #    pwidth += [tmperrs[jj]]
+                        #    pstart += [tmpest[jj]]
+                        #elif parid == 'KOM':
+                        #    pmin += [0.0]
+                        #    pmax += [360.0]
+                        #    pwidth += [tmperrs[jj]]
+                        #    pstart += [tmpest[jj]]
+                        #elif parid == 'PX':
+                        #    if tmpest[jj] < 0:
+                        #        tmpest[jj] = 0.001
+                        #    pmin += [0.0]
+                        #    pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
+                        #    pwidth += [tmperrs[jj]]
+                        #    pstart += [tmpest[jj]]
+                        #elif parid == 'M2':
+                        #    if tmpest[jj] < 0:
+                        #        tmpest[jj] = 0.001
+                        #    pmin += [0.0]
+                        #    pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
+                        #    pwidth += [tmperrs[jj]]
+                        #    pstart += [tmpest[jj]]
+                        #elif parid == 'GAMMA':
+                        #    pmin += [0.0]
+                        #    pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
+                        #    pwidth += [tmperrs[jj]]
+                        #    pstart += [tmpest[jj]]
+                        #elif parid == 'SHAPMAX':
+                        #    pmin += [0.0]
+                        #    pmax += [50]
+                        #    pstart += [tmpest[jj]]
+                        #    pwidth += [tmperrs[jj]]
+                        ##elif parid == 'EDOT':
+                        ##    pmin += [-500.0 * tmperrs[jj] + tmpest[jj]]
+                        ##    pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
+                        ##    pwidth += [tmperrs[jj]]
+                        ##    pstart += [0]
+                        #
+                        ## make parameter be the 'parameter offset'
+                        ##elif parid == 'Offset':
+                        ##    pmin += [-500]
+                        ##    pmax += [500]
+                        ##    pwidth += [0.1]
+                        ##    pstart += [0]
+
+                        ##elif parid == 'F0':
+                        ##    pmin += [-500]
+                        ##    pmax += [500]
+                        ##    pwidth += [0.1]
+                        ##    pstart += [0]
+                        ##
+                        ##elif parid == 'F1':
+                        ##    pmin += [-500]
+                        ##    pmax += [500]
+                        ##    pwidth += [0.1]
+                        ##    pstart += [0]
+
+                        #else:
+                        #    pmin += [-500.0 * tmperrs[jj] + tmpest[jj]]
+                        #    pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
+                        #    pwidth += [tmperrs[jj]]
+                        #    pstart += [tmpest[jj]]
                         print parid, pmin[-1], pmax[-1], pwidth[-1], pstart[-1], tmpest[jj]
 
                 if nonLinear:
@@ -866,7 +1014,7 @@ class PTAmodels(object):
                     "pmax":pmax,
                     "pwidth":pwidth,
                     "pstart":pstart,
-                    "prior":prior
+                    "prior":prior,
                     })
                 signals.append(newsignal)
             
@@ -1012,6 +1160,13 @@ class PTAmodels(object):
                 pstart = [-15.0, 2.01, 1.0e-10]
                 pwidth = [0.1, 0.1, 5.0e-11]
                 prior = [GWAmpPrior, GWSiPrior, 'log']
+            elif gwbModel=='turnover':
+                bvary = [True, True, True, True]
+                pmin = [-18.0, 1.02, -9, 0.01]
+                pmax = [-11.0, 6.98, -7, 6.98]
+                pstart = [-15.0, 2.01, -8, 2.01]
+                pwidth = [0.1, 0.1, 0.1, 0.1]
+                prior = [GWAmpPrior, GWSiPrior, 'uniform', 'uniform']
 
             newsignal = OrderedDict({
                 "stype":gwbModel,
@@ -1169,17 +1324,18 @@ class PTAmodels(object):
             # pulsar distance parameters used with CW sigal
             self.ptasignals.append(signal)
 
-        elif signal['stype'] in ['powerlaw', 'spectrum', 'spectralModel']:
+        elif signal['stype'] in ['powerlaw', 'spectrum', 'spectralModel', \
+                                 'powerlaw_band', 'turnover']:
             # Any time-correlated signal
             self.addSignalTimeCorrelated(signal)
             self.haveStochSources = True
             if signal['corr'] in ['gr_sph']:
-               psr_locs = np.array([[p.phi[0], p.theta[0]] for p in self.psr])
-               lmax = signal['lmax']
-               self.harm_sky_vals = PALutils.SetupPriorSkyGrid(lmax)
-               self.AniBasis = ani.CorrBasis(psr_locs, lmax)
+                psr_locs = np.array([[p.phi, p.theta] for p in self.psr])
+                lmax = signal['lmax']
+                self.harm_sky_vals = PALutils.SetupPriorSkyGrid(lmax)
+                self.AniBasis = ani.CorrBasis(psr_locs, lmax)
 
-        elif signal['stype'] in ['dmpowerlaw', 'dmspectrum']:
+        elif signal['stype'] in ['dmpowerlaw', 'dmspectrum', 'dmpowerlaw_band']:
             # A DM variation signal
             self.addSignalDMV(signal)
             self.haveStochSources = True
@@ -1726,7 +1882,13 @@ class PTAmodels(object):
                 stype='equad', corr='single')
         numJitter = self.getNumberOfSignalsFromDict(signals, \
                 stype='jitter_equad', corr='single')
+        numRedBand = self.getNumberOfSignalsFromDict(signals, \
+                stype='powerlaw_band', corr='single')
+        numDMBand = self.getNumberOfSignalsFromDict(signals, \
+                stype='dmpowerlaw_band', corr='single')
         incJitter = np.array(numJitter) > 0
+        incRedBand = np.array(numRedBand) > 0
+        incDMBand = np.array(numDMBand) > 0
         if self.likfunc == 'mark9':
             incJitter = [False]*numJitter
         separateEfacs = np.logical_or(numEfacs > 1, numEquads > 1)
@@ -1780,7 +1942,9 @@ class PTAmodels(object):
                                 nSingleDMFreqs=numSingleDMFreqs[pindex], \
                                 likfunc=likfunc, compression=compression, \
                                 write=write, tmpars=tmpars, memsave=memsave, \
-                                         incJitter=incJitter[pindex], incDMX=incDMX)
+                                incJitter=incJitter[pindex], incDMX=incDMX, \
+                                incRedBand=incRedBand[pindex], \
+                                incDMBand=incDMBand[pindex])
 
         # Initialise the ptasignal objects
         self.ptasignals = []
@@ -1856,6 +2020,14 @@ class PTAmodels(object):
                 elif sig['stype'] == 'cw':
                     flagname = 'cw'
                     flagvalue = sig['parid'][jj]
+                
+                elif sig['stype'] == 'powerlaw_band':
+                    flagname = 'powerlaw_band'
+                    flagvalue = sig['parids'][jj]
+                
+                elif sig['stype'] == 'dmpowerlaw_band':
+                    flagname = 'dmpowerlaw_band'
+                    flagvalue = sig['parids'][jj]
 
                 elif sig['stype'] == 'powerlaw' and sig['corr'] != 'gr_sph':
                     flagname = 'powerlaw'
@@ -1872,6 +2044,10 @@ class PTAmodels(object):
                     else:
                         flagvalue = ['RN-Amplitude', 'RN-spectral-index', \
                                      'low-frequency-cutoff'][jj]
+
+                elif sig['stype'] == 'turnover' and sig['corr'] == 'gr':
+                    flagvalue = ['GWB-Amplitude', 'GWB-spectral-index', \
+                                'GWB-f0', 'GWB-kappa'][jj]
 
                 elif sig['stype'] == 'dmpowerlaw':
                     flagname = 'dmpowerlaw'
@@ -1919,8 +2095,10 @@ class PTAmodels(object):
                 
                 elif sig['stype'] == 'redfouriermode':
                     flagname = 'redfourier'
-                    flagvalue = sig['flagvalue'] + '_ared_' + \
-                            str(self.psr[psrindex].Ffreqs[jj])
+                    if jj%2 == 0:
+                        flagvalue = 'ared_s_' +str(self.psr[psrindex].Ffreqs[jj])
+                    else:
+                        flagvalue = 'ared_c_' +str(self.psr[psrindex].Ffreqs[jj])
                 
                 elif sig['stype'] == 'dmfouriermode':
                     flagname = 'dmfourier'
@@ -2013,6 +2191,7 @@ class PTAmodels(object):
         self.npgs = np.zeros(self.npsr, dtype=np.int)
         self.npgos = np.zeros(self.npsr, dtype=np.int)
         self.gradient = np.zeros(self.dimensions)
+        self.hessian = np.zeros((self.dimensions, self.dimensions))
         self.ntmpars = 0
         nphiTmat = 0
         self.logdet_Sigma = 0
@@ -2043,6 +2222,7 @@ class PTAmodels(object):
         nftot = np.max(self.npftot)
         if self.likfunc == 'mark6' or self.likfunc=='mark9':
             self.Phiinv = np.zeros((nphiTmat, nphiTmat))
+            self.TNT = np.zeros((nphiTmat, nphiTmat))
             self.Phi = np.zeros((nphiTmat, nphiTmat))
             self.Sigma = np.zeros((nphiTmat, nphiTmat))
         else:
@@ -2245,8 +2425,8 @@ class PTAmodels(object):
             else:
                 d = np.append(d, np.dot(p.Ftot.T, p.detresiduals/p.Nvec))
 
-        # fill in gradient
-        self.gradient[ind] = d - Phiinva
+        # fill in gradient for fourier modes
+        self.gradient[ind] = -d + Phiinva
 
         
         # loop over all signals
@@ -2267,7 +2447,7 @@ class PTAmodels(object):
             # linear timing model parameters (not doing non-linear yet)
             if sig['stype'] == 'lineartimingmodel':
 
-                self.gradient[parind:parind+npars] = np.dot(p.Mmat.T, p.detresiduals/p.Nvec)
+                self.gradient[parind:parind+npars] = -np.dot(p.Mmat.T, p.detresiduals/p.Nvec)
                 
                 # check for special parameterizations
                 pindex = 0
@@ -2287,7 +2467,7 @@ class PTAmodels(object):
                 # this efac only applies to some TOAs
                 ind = np.flatnonzero(sig['Nvec'])
 
-                self.gradient[parind] = -len(ind)/efac + \
+                self.gradient[parind] = len(ind)/efac - \
                         1/efac * np.dot(p.detresiduals[ind]**2,1/p.Nvec[ind])
             
             # equad
@@ -2298,7 +2478,7 @@ class PTAmodels(object):
                 # this equad only applies to some TOAs
                 ind = np.flatnonzero(sig['Nvec'])
 
-                self.gradient[parind] = -0.5*len(ind)*np.log(10) + \
+                self.gradient[parind] = 0.5*len(ind)*np.log(10) - \
                         0.5* np.dot(p.detresiduals[ind]**2, 1/p.Nvec[ind]) * np.log(10)
 
             # red spectral components
@@ -2318,14 +2498,14 @@ class PTAmodels(object):
                     npars_a = fourierdict['npars']
 
                     avals = fourierdict['pstart'].copy()
-                    avals[fourierdict['bvary']] = parameters[psrind_a:psrind_a:npars_a]
+                    avals[fourierdict['bvary']] = parameters[psrind_a:psrind_a+npars_a]
 
                     # loop over coefficients
                     for jj in range(npars):
 
-                        self.gradient[parind+jj] = -np.log(10) + 0.5*np.log(10) * \
-                                np.sum(avals[2*jj:2*jj+1]**2/ \
-                                       rho[2*jj:2*jj+1])
+                        self.gradient[parind+jj] = np.log(10) - 0.5*np.log(10) * \
+                                np.sum(avals[2*jj:2*jj+2]**2/ \
+                                       10**rho[2*jj:2*jj+2])
 
             # red powerlaw
             if sig['stype'] == 'powerlaw':
@@ -2358,11 +2538,11 @@ class PTAmodels(object):
                     for jj in range(int(len(p.Ffreqs)/2)):
                         
                         # logA gradient
-                        self.gradient[parind] += (-np.log(10) + 0.5*np.log(10) * \
-                                np.sum(avals[2*jj:2*jj+1]**2/ \
-                                       rho[2*jj:2*jj+1])) * 2
+                        self.gradient[parind] += (np.log(10) - 0.5*np.log(10) * \
+                                np.sum(avals[2*jj:2*jj+2]**2/ \
+                                       10**rho[2*jj:2*jj+2])) * 2
 
-                        self.gradient[parind+1] += 0.5 * np.log10(f1yr/p.Ffreqs[jj]) * \
+                        self.gradient[parind+1] += 0.5 * np.log10(f1yr/p.Ffreqs[jj*2]) * \
                                             self.gradient[parind]
 
 
@@ -2613,6 +2793,10 @@ class PTAmodels(object):
         incDMshapelet = False
         incDMXconstantKernel = False
         incDMXseKernel = False
+        for p in self.psr:
+            p.band = []
+            p.dmband = []
+
         for ss, sig in enumerate(self.ptasignals):
 
             # short hand
@@ -2636,7 +2820,7 @@ class PTAmodels(object):
                     pcdoubled = np.array([sparameters, sparameters]).T.flatten()
 
                     # fill in kappa
-                    self.psr[psrind].kappa = pcdoubled  + np.log10(sig['Tmax'])
+                    self.psr[psrind].kappa = pcdoubled  
 
                 # correlated signals
                 if sig['corr'] in ['gr', 'uniform', 'dipole']:
@@ -2646,7 +2830,7 @@ class PTAmodels(object):
 
                     # define rho
                     rho = np.array([sparameters, sparameters]).T.flatten()
-                
+
                 if sig['corr'] in ['gr_sph']:
 
                     # correlation matrix
@@ -2655,8 +2839,7 @@ class PTAmodels(object):
                     self.corrmat = self.computeAniORF(clms)
                     
                     # define rho
-                    rho = np.array([sparameters, sparameters]).T.flatten() \
-                            + np.log10(sig['Tmax'])
+                    rho = np.array([sparameters, sparameters]).T.flatten() 
 
             # spectral Model
             if sig['stype'] == 'spectralModel':
@@ -2688,7 +2871,6 @@ class PTAmodels(object):
                     
                     freqpy = self.psr[psrind].Ffreqs
                     f1yr = 1/3.16e7
-                    #f1yr = 1/self.psr[psrind].Tmax 
                     #pcdoubled = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
                     #                     freqpy**(-gamma)/sig['Tmax'])
                     pcdoubled = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
@@ -2729,9 +2911,44 @@ class PTAmodels(object):
                     
                     f1yr = 1/3.16e7
                     rho = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
-                                         fgw**(-gamma))
+                                         fgw**(-gamma))#/sig['Tmax'])
+            
+            # band limited powerlaw spectrum
+            if sig['stype'] == 'powerlaw_band':
 
+                # pulsar independend red noise powerlaw
+                if sig['corr'] == 'single':
 
+                    # get Amplitude and spectral index
+                    Amp = 10**sparameters[0]
+                    gamma = sparameters[1]
+                    
+                    freqpy = self.psr[psrind].Ffreqs
+                    f1yr = 1/3.16e7
+                    pcdoubled = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
+                                         freqpy**(-gamma)/sig['Tmax'])
+
+                    # fill in kappa
+                    self.psr[psrind].band.append(pcdoubled)
+
+            # GWB turnover model
+            if sig['stype'] == 'turnover' and sig['corr'] == 'gr':
+                    
+                    # correlation matrix
+                    self.corrmat = sig['corrmat']
+                    
+                    # get Amplitude and spectral index
+                    Amp = 10**sparameters[0]
+                    gamma = sparameters[1]
+                    f0 = 10**sparameters[2]
+                    kappa = sparameters[3]
+
+                    freqpy = self.gwfreqs
+                    f1yr = 1/3.16e7
+                    hcf = Amp * (freqpy/f1yr)**((3-gamma)/2) / (1+(f0/freqpy)**kappa)**(1/2)
+                    rho = np.log10(hcf**2/12/np.pi**2 / freqpy**3)
+
+                    
           # DM spectrum
             if sig['stype'] == 'dmspectrum':
 
@@ -2742,7 +2959,7 @@ class PTAmodels(object):
                     pcdoubled = np.array([sparameters, sparameters]).T.flatten()
 
                     # fill in kappa
-                    self.psr[psrind].kappadm = pcdoubled + np.log10(sig['Tmax'])
+                    self.psr[psrind].kappadm = pcdoubled 
 
 
             # powerlaw DM spectrum
@@ -2757,13 +2974,29 @@ class PTAmodels(object):
                     
                     freqpy = self.psr[psrind].Fdmfreqs
                     f1yr = 1/3.16e7
-                    #pcdoubled = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
-                    #                     freqpy**(-gamma)/sig['Tmax'])
                     pcdoubled = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
-                                         freqpy**(-gamma))
+                                         freqpy**(-gamma)/sig['Tmax'])
 
                     # fill in kappa
                     self.psr[psrind].kappadm = pcdoubled
+            
+            # band limited dmpowerlaw spectrum
+            if sig['stype'] == 'dmpowerlaw_band':
+
+                # pulsar independend red noise powerlaw
+                if sig['corr'] == 'single':
+
+                    # get Amplitude and spectral index
+                    Amp = 10**sparameters[0]
+                    gamma = sparameters[1]
+                    
+                    freqpy = self.psr[psrind].Fdmfreqs
+                    f1yr = 1/3.16e7
+                    pcdoubled = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
+                                         freqpy**(-gamma)/sig['Tmax'])
+
+                    # fill in kappa
+                    self.psr[psrind].dmband.append(pcdoubled)
             
             # squared exponential DM spectrum
             if sig['stype'] == 'dmse':
@@ -2827,6 +3060,12 @@ class PTAmodels(object):
             # loop over all pulsars
             for ii, p in enumerate(self.psr):
 
+                if p.band != []:
+                    p.kappa = np.append(p.kappa, np.hstack(p.band))
+                
+                if p.dmband != []:
+                    p.kappadm = np.append(p.kappadm, np.hstack(p.dmband))
+
                 # have both red noise and DM variations
                 if p.incRed and p.incDM:
                 #if np.any(p.kappa) and np.any(p.kappadm):
@@ -2853,6 +3092,7 @@ class PTAmodels(object):
                     p.kappa_tot = np.concatenate((p.kappa_tot, p.kappadmsingle))
 
                 # append to signal diagonal
+
                 if incTM:
                     p.kappa_tot = np.concatenate((np.ones(p.Mmat_reduced.shape[1])*80, \
                                                  p.kappa_tot))
@@ -2932,6 +3172,7 @@ class PTAmodels(object):
                     self.gwamp = 10**rho
                 
                 # append to signal diagonal
+                p.kappa_tot = np.log10(10**p.kappa_tot+self.gwamp)
                 if incTM:
                     p.kappa_tot = np.concatenate((np.ones(p.Mmat.shape[1])*80, \
                                                  p.kappa_tot))
@@ -2941,10 +3182,10 @@ class PTAmodels(object):
                         p.kappa_tot = np.concatenate((p.kappa_tot, np.ones(p.ndmEventCoeffs)*80))
 
                 # append to signal diagonal
-                sigdiag.append(10**p.kappa_tot+self.gwamp)
+                sigdiag.append(10**p.kappa_tot)
 
             # convert to array and flatten
-            self.Phi = np.array(sigdiag).flatten()
+            self.Phi = np.hstack(sigdiag) 
             np.fill_diagonal(self.Phiinv, 1/self.Phi)
             #self.logdetPhi = np.sum(np.log(self.Phi[-self.npftot[ii]:]))
             self.logdetPhi = np.sum(np.log(self.Phi))
@@ -3088,14 +3329,20 @@ class PTAmodels(object):
                 for jj in range(sig['ntotpars']):
                     if sig['bvary'][jj]:
                         # check for direct offset parameters
+                        #if sig['parid'][jj] == 'Offset':
+                        #    offset += [sparameters[pindex]*psr.ptmparerrs[jj]]
+                        #elif sig['parid'][jj] == 'F0':
+                        #    offset += [sparameters[pindex]*psr.ptmparerrs[jj]]
+                        #elif sig['parid'][jj] == 'F1':
+                        #    offset += [sparameters[pindex]*psr.ptmparerrs[jj]]
                         if sig['parid'][jj] == 'Offset':
-                            offset += [sparameters[pindex]*psr.ptmparerrs[jj]]
+                            offset += [sparameters[pindex]*psr.norm[jj]]
                         elif sig['parid'][jj] == 'F0':
-                            offset += [sparameters[pindex]*psr.ptmparerrs[jj]]
+                            offset += [sparameters[pindex]*psr.norm[jj]]
                         elif sig['parid'][jj] == 'F1':
-                            offset += [sparameters[pindex]*psr.ptmparerrs[jj]]
+                            offset += [sparameters[pindex]*psr.norm[jj]]
                         else:
-                            offset += [sparameters[pindex]-sig['pstart'][jj]]
+                            offset += [(sparameters[pindex]-sig['pstart'][jj])*psr.norm[jj]]
 
                         pindex += 1
 
@@ -3691,11 +3938,14 @@ class PTAmodels(object):
                 expval2 = sl.cho_solve(cf, d)
                 logdet_Sigma = np.sum(2*np.log(np.diag(cf[0])))
             except np.linalg.LinAlgError:
+                print 'Error'
                 U, s, Vh = sl.svd(Sigma)
                 if not np.all(s > 0):
                     raise ValueError("ERROR: Sigma singular according to SVD")
                 logdet_Sigma = np.sum(np.log(s))
-                expval2 = np.dot(Vh.T, np.dot(np.diag(1.0/s), np.dot(U.T, d)))
+                sinv = 1/s
+                sinv[s/s[0]<1e-15] = 0
+                expval2 = np.dot(Vh.T*sinv, U.T, d)
 
 
             loglike += -0.5 * (self.logdetPhi + logdet_Sigma) + 0.5 * (np.dot(d, expval2)) 
@@ -4597,14 +4847,16 @@ class PTAmodels(object):
 
     """
 
-    def mark9LogLikelihood(self, parameters, incCorrelations=False, varyNoise=True):
+    def mark9LogLikelihood(self, parameters, incCorrelations=False, varyNoise=True, \
+                          fixWhite=False):
 
         loglike = 0
 
         if varyNoise:
 
             # set pulsar white noise parameters
-            self.setPsrNoise(parameters, incJitter=False)
+            if not fixWhite:
+                self.setPsrNoise(parameters, incJitter=False)
 
             # set red noise, DM and GW parameters
             self.constructPhiMatrix(parameters, incCorrelations=incCorrelations, \
@@ -4623,6 +4875,8 @@ class PTAmodels(object):
         if varyNoise:
             self.logdet_Sigma = 0
         for ct, p in enumerate(self.psr):
+                
+            nf = p.Ttmat.shape[1]
 
             # check for nans or infs
             if np.any(np.isnan(p.detresiduals)) or np.any(np.isinf(p.detresiduals)):
@@ -4640,7 +4894,9 @@ class PTAmodels(object):
             
             if varyNoise:
                 # compute T^T N^{-1} T
-                TNT.append(PALutils.python_block_shermor_2D(p.Ttmat, p.Nvec, p.Qamp, p.Uinds))
+                if not fixWhite:
+                    self.TNT[nfref:(nfref+nf), nfref:(nfref+nf)] = \
+                        PALutils.python_block_shermor_2D(p.Ttmat, p.Nvec, p.Qamp, p.Uinds)
 
             # triple product in likelihood function
             logdet_N, rNr = PALutils.python_block_shermor_1D(p.detresiduals, \
@@ -4653,12 +4909,12 @@ class PTAmodels(object):
             if not incCorrelations:
 
                 # compute sigma
-                nf = p.Ttmat.shape[1]
                 dd = d[nfref:(nfref+nf)]
 
                 if varyNoise:
                     self.Sigma[nfref:(nfref+nf), nfref:(nfref+nf)] = \
-                            TNT[ct] + self.Phiinv[nfref:(nfref+nf), nfref:(nfref+nf)]
+                            self.TNT[nfref:(nfref+nf), nfref:(nfref+nf)] +\
+                            self.Phiinv[nfref:(nfref+nf), nfref:(nfref+nf)]
 
                 # cholesky decomp for maximum likelihood fourier components
                 try:
@@ -4683,7 +4939,7 @@ class PTAmodels(object):
 
             if varyNoise:
                 # compute sigma
-                self.Sigma = sl.block_diag(*TNT) + self.Phiinv
+                self.Sigma = self.TNT + self.Phiinv
 
             # cholesky decomp for second term in exponential
             try:
@@ -4700,7 +4956,6 @@ class PTAmodels(object):
                     self.logdet_Sigma = np.sum(np.log(s))
 
             loglike += -0.5 * (self.logdetPhi + self.logdet_Sigma) + 0.5 * (np.dot(d, expval2)) 
-
         return loglike
 
     # compute F_p statistic
@@ -5033,7 +5288,6 @@ class PTAmodels(object):
     """
 
     def mark3LogPrior(self, parameters):
-
         prior = 0
         #for ct, pp in enumerate(parameters):
         #    print pp, self.pmin[ct], pp >= self.pmin[ct]
@@ -5060,6 +5314,31 @@ class PTAmodels(object):
             if sig['corr'] == 'gr' and sig['stype'] == 'powerlaw':
                 if sig['prior'][0] == 'uniform':
                     prior += np.log(10**sparameters[0])
+                elif sig['prior'][0] == 'sesana':
+                    m = -15
+                    s = 0.5
+                    logA = sparameters[0]
+                    prior += -0.5 * (np.log(2*np.pi*s**2) + (m-logA)**2/s**2)
+                elif sig['prior'][0] == 'mcwilliams':
+                    m = np.log10(4.1e-15)
+                    s = 0.6
+                    logA = sparameters[0]
+                    prior += -0.5 * (np.log(2*np.pi*s**2) + (m-logA)**2/s**2)
+
+            if sig['corr'] == 'gr' and sig['stype'] == 'turnover':
+                if sig['prior'][0] == 'sesana':
+                    m = -15
+                    s = 0.5
+                    logA = sparameters[0]
+                    prior += -0.5 * (np.log(2*np.pi*s**2) + (m-logA)**2/s**2)
+                elif sig['prior'][0] == 'mcwilliams':
+                    m = np.log10(4.1e-15)
+                    s = 0.6
+                    logA = sparameters[0]
+                    prior += -0.5 * (np.log(2*np.pi*s**2) + (m-logA)**2/s**2)
+                elif sig['prior'][0] == 'uniform':
+                    prior += np.log(10**sparameters[0])
+
             
             if sig['corr'] == 'gr' and sig['stype'] == 'spectrum':
                 if np.any(np.array(sig['prior']) == 'uniform'):
@@ -5115,7 +5394,9 @@ class PTAmodels(object):
 
             if sig['corr'] in ['gr_sph']:
                 clms = np.append(2*np.sqrt(np.pi),sparameters[3:])
-                #prior += PALutils.PhysPrior(clms, self.harm_sky_vals)
+                prior += PALutils.PhysPrior(clms, self.harm_sky_vals)
+                if sig['prior'][0] == 'uniform':
+                    prior += np.log(10**sparameters[0])
 
             # prior on ECC, EDOT and T0
             if sig['stype'] == 'lineartimingmodel' or sig['stype'] == 'nonlineartimingmodel':
@@ -5209,7 +5490,178 @@ class PTAmodels(object):
                                                corr='single')
 
         # which parameters to jump
-        ind = np.unique(np.random.randint(0, nsigs, nsigs))
+        #ind = np.unique(np.random.randint(0, nsigs, nsigs))
+        ind = np.unique(np.random.randint(0, nsigs, 1))
+
+        # draw params from prior
+        for ii in ind:
+
+            # get signal
+            sig = self.ptasignals[signum[ii]]
+            parind = sig['parindex']
+            npars = sig['npars']
+
+            # jump in amplitude if varying
+            if sig['bvary'][0]:
+
+                # log prior
+                if sig['prior'][0] == 'log':
+                    q[parind] = np.random.uniform(self.pmin[parind], self.pmax[parind])
+                    qxy += 0
+
+                elif sig['prior'][0] == 'uniform':
+                    q[parind] = np.log10(np.random.uniform(10**self.pmin[parind], \
+                                                           10**self.pmax[parind]))
+                    qxy += np.log(10**parameters[parind]/10**q[parind])
+                    
+                else:
+                    print 'Prior type not recognized for parameter'
+                    q[parind] = parameters[parind]
+        
+            # jump in spectral index if varying
+            if sig['bvary'][1]:
+
+                if sig['prior'][1] == 'uniform':
+                    q[parind+1] = np.random.uniform(self.pmin[parind+1], self.pmax[parind+1])
+                    qxy += 0
+
+                else:
+                    q[parind+1] = parameters[parind+1]
+
+        
+        return q, qxy
+    
+    # DM noise draws
+    def drawFromDMPrior(self, parameters, iter, beta):
+        
+        # post-jump parameters
+        q = parameters.copy()
+
+        # transition probability
+        qxy = 0
+
+        # find number of signals
+        nsigs = np.sum(self.getNumberOfSignalsFromDict(self.ptasignals, stype='dmpowerlaw', \
+                                                       corr='single'))
+        signum = self.getSignalNumbersFromDict(self.ptasignals, stype='dmpowerlaw', \
+                                               corr='single')
+
+        # which parameters to jump
+        #ind = np.unique(np.random.randint(0, nsigs, nsigs))
+        ind = np.unique(np.random.randint(0, nsigs, 1))
+
+        # draw params from prior
+        for ii in ind:
+
+            # get signal
+            sig = self.ptasignals[signum[ii]]
+            parind = sig['parindex']
+            npars = sig['npars']
+
+            # jump in amplitude if varying
+            if sig['bvary'][0]:
+
+                # log prior
+                if sig['prior'][0] == 'log':
+                    q[parind] = np.random.uniform(self.pmin[parind], self.pmax[parind])
+                    qxy += 0
+
+                elif sig['prior'][0] == 'uniform':
+                    q[parind] = np.log10(np.random.uniform(10**self.pmin[parind], \
+                                                           10**self.pmax[parind]))
+                    qxy += np.log(10**parameters[parind]/10**q[parind])
+                    
+                else:
+                    print 'Prior type not recognized for parameter'
+                    q[parind] = parameters[parind]
+        
+            # jump in spectral index if varying
+            if sig['bvary'][1]:
+
+                if sig['prior'][1] == 'uniform':
+                    q[parind+1] = np.random.uniform(self.pmin[parind+1], self.pmax[parind+1])
+                    qxy += 0
+
+                else:
+                    q[parind+1] = parameters[parind+1]
+
+        
+        return q, qxy
+    
+    # red noise draws
+    def drawFromRedNoiseBandPrior(self, parameters, iter, beta):
+        
+        # post-jump parameters
+        q = parameters.copy()
+
+        # transition probability
+        qxy = 0
+
+        # find number of signals
+        nsigs = np.sum(self.getNumberOfSignalsFromDict(self.ptasignals, stype='powerlaw_band', \
+                                                       corr='single'))
+        signum = self.getSignalNumbersFromDict(self.ptasignals, stype='powerlaw_band', \
+                                               corr='single')
+
+        # which parameters to jump
+        #ind = np.unique(np.random.randint(0, nsigs, nsigs))
+        ind = np.unique(np.random.randint(0, nsigs, 1))
+
+        # draw params from prior
+        for ii in ind:
+
+            # get signal
+            sig = self.ptasignals[signum[ii]]
+            parind = sig['parindex']
+            npars = sig['npars']
+
+            # jump in amplitude if varying
+            if sig['bvary'][0]:
+
+                # log prior
+                if sig['prior'][0] == 'log':
+                    q[parind] = np.random.uniform(self.pmin[parind], self.pmax[parind])
+                    qxy += 0
+
+                elif sig['prior'][0] == 'uniform':
+                    q[parind] = np.log10(np.random.uniform(10**self.pmin[parind], \
+                                                           10**self.pmax[parind]))
+                    qxy += np.log(10**parameters[parind]/10**q[parind])
+                    
+                else:
+                    print 'Prior type not recognized for parameter'
+                    q[parind] = parameters[parind]
+        
+            # jump in spectral index if varying
+            if sig['bvary'][1]:
+
+                if sig['prior'][1] == 'uniform':
+                    q[parind+1] = np.random.uniform(self.pmin[parind+1], self.pmax[parind+1])
+                    qxy += 0
+
+                else:
+                    q[parind+1] = parameters[parind+1]
+
+        
+        return q, qxy
+    
+    # dm noise draws
+    def drawFromDMNoiseBandPrior(self, parameters, iter, beta):
+        
+        # post-jump parameters
+        q = parameters.copy()
+
+        # transition probability
+        qxy = 0
+
+        # find number of signals
+        nsigs = np.sum(self.getNumberOfSignalsFromDict(self.ptasignals, stype='dmpowerlaw_band', \
+                                                       corr='single'))
+        signum = self.getSignalNumbersFromDict(self.ptasignals, stype='dmpowerlaw_band', \
+                                               corr='single')
+
+        # which parameters to jump
+        #ind = np.unique(np.random.randint(0, nsigs, nsigs))
         ind = np.unique(np.random.randint(0, nsigs, 1))
 
         # draw params from prior
@@ -5396,6 +5848,17 @@ class PTAmodels(object):
                     q[parind] = np.log10(np.random.uniform(10**self.pmin[parind], \
                                                            10**self.pmax[parind]))
                     qxy += np.log(10**parameters[parind]/10**q[parind])
+                
+                elif sig['prior'][0] == 'sesana':
+                    m = -15
+                    s = 0.5
+                    q[parind] = m + np.random.randn() * s
+                    qxy -= (m-parameters[parind])**2/2/s**2 - (m-q[parind])**2/2/s**2
+                elif sig['prior'][0] == 'mcwilliams':
+                    m = np.log10(4.1e-15)
+                    s = 0.6
+                    q[parind] = m + np.random.randn() * s
+                    qxy -= (m-parameters[parind])**2/2/s**2 - (m-q[parind])**2/2/s**2
                     
                 else:
                     print 'Prior type not recognized for parameter'
@@ -5410,6 +5873,76 @@ class PTAmodels(object):
 
                 else:
                     q[parind+1] = parameters[parind+1]
+
+        
+        return q, qxy
+    
+    # GWB draws draws
+    def drawFromGWBTurnoverPrior(self, parameters, iter, beta):
+        
+        # post-jump parameters
+        q = parameters.copy()
+
+        # transition probability
+        qxy = 0
+
+        # find number of signals
+        nsigs = 1
+        signum = self.getSignalNumbersFromDict(self.ptasignals, stype='turnover', corr='gr')
+
+        # which parameters to jump
+        ind = np.unique(np.random.randint(0, nsigs, 1))
+
+        # draw params from prior
+        for ii in ind:
+
+            # get signal
+            sig = self.ptasignals[signum[ii]]
+            parind = sig['parindex']
+            npars = sig['npars']
+
+            # jump in amplitude if varying
+            if sig['bvary'][0]:
+
+                # amplitude priors
+                if sig['prior'][0] == 'sesana':
+                    m = -15
+                    s = 0.5
+                    q[parind] = m + np.random.randn() * s
+                    qxy -= (m-parameters[parind])**2/2/s**2 - (m-q[parind])**2/2/s**2
+                elif sig['prior'][0] == 'mcwilliams':
+                    m = np.log10(4.1e-15)
+                    s = 0.6
+                    q[parind] = m + np.random.randn() * s
+                    qxy -= (m-parameters[parind])**2/2/s**2 - (m-q[parind])**2/2/s**2
+                elif sig['prior'][0] == 'uniform':
+                    q[parind] = np.log10(np.random.uniform(10**self.pmin[parind], \
+                                                           10**self.pmax[parind]))
+                    qxy += np.log(10**parameters[parind]/10**q[parind])
+                elif sig['prior'][0] == 'log':
+                    q[parind] = np.random.uniform(self.pmin[parind], \
+                                                           self.pmax[parind])
+
+        
+            # turnover frequency
+            if sig['bvary'][2]:
+
+                if sig['prior'][2] == 'uniform':
+                    q[parind+1]= np.random.uniform(self.pmin[parind+1], self.pmax[parind+1])
+                    qxy += 0
+
+                else:
+                    q[parind+1] = parameters[parind+1]
+            
+            # kappa
+            if sig['bvary'][3]:
+
+                if sig['prior'][3] == 'uniform':
+                    q[parind+2] = np.random.uniform(self.pmin[parind+2], self.pmax[parind+2])
+                    qxy += 0
+
+                else:
+                    q[parind+2] = parameters[parind+2]
 
         
         return q, qxy
@@ -5889,8 +6422,8 @@ class PTAmodels(object):
     # draws from timing model fisher matrix
     def drawFromTMfisherMatrix(self, parameters, iter, beta):
 
-        if (iter-1) % 5000 == 0 and (iter-1) != 0 and self.likfunc != 'mark8':
-            self.updateFisher(parameters)
+        #if (iter-1) % 5000 == 0 and (iter-1) != 0 and self.likfunc != 'mark8':
+        #    self.updateFisher(parameters)
         
         # post-jump parameters
         q = parameters.copy()

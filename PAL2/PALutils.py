@@ -1609,8 +1609,15 @@ def fixNoiseValues(ptasignals, vals, pars, bvary=False, verbose=True):
 
             # efac
             if sig['stype'] == 'efac':
+                sig['bvary'][0] = bvary
                 flag = p.split('efac-')[-1]
                 if flag in sig['flagvalue']:
+                    if verbose:
+                        print 'Setting efac {0} value to {1}'.format(sig['flagvalue'], \
+                                                                     vals[ct])
+                    sig['pstart'][0] = vals[ct]
+                    sig['bvary'][0] = bvary
+                elif flag == 'efac':
                     if verbose:
                         print 'Setting efac {0} value to {1}'.format(sig['flagvalue'], \
                                                                      vals[ct])
@@ -1619,6 +1626,7 @@ def fixNoiseValues(ptasignals, vals, pars, bvary=False, verbose=True):
                     
             # equad
             if sig['stype'] == 'equad':
+                sig['bvary'][0] = bvary
                 flag = p.split('equad-')[-1]
                 if flag in sig['flagvalue']:
                     if vals[ct] > 0:
@@ -1628,9 +1636,16 @@ def fixNoiseValues(ptasignals, vals, pars, bvary=False, verbose=True):
                                                                       vals[ct])
                     sig['pstart'][0] = vals[ct]
                     sig['bvary'][0] = bvary
+                elif flag == 'equad':
+                    if verbose:
+                        print 'Setting equad {0} value to {1}'.format(sig['flagvalue'], \
+                                                                     vals[ct])
+                    sig['pstart'][0] = vals[ct]
+                    sig['bvary'][0] = bvary
 
             # jitter equad
             if sig['stype'] == 'jitter_equad':
+                sig['bvary'][0] = bvary
                 flag = p.split('jitter_q-')[-1]
                 if flag in sig['flagvalue']:
                     if vals[ct] > 0:
@@ -1640,8 +1655,16 @@ def fixNoiseValues(ptasignals, vals, pars, bvary=False, verbose=True):
                                                                       vals[ct])
                     sig['pstart'][0] = vals[ct]
                     sig['bvary'][0] = bvary
+                elif flag == 'jitter_q':
+                    if verbose:
+                        print 'Setting ecorr {0} value to {1}'.format(sig['flagvalue'], \
+                                                                     vals[ct])
+                    sig['pstart'][0] = vals[ct]
+                    sig['bvary'][0] = bvary
 
             if sig['stype'] == 'powerlaw':
+                sig['bvary'][0] = bvary
+                sig['bvary'][1] = bvary
                 if p == 'RN-Amplitude':
                     if verbose:
                         print 'Setting RN Amp value to {0}'.format(vals[ct])
@@ -1953,7 +1976,7 @@ def checkquant(U, flags, uflagvals=None):
 
         # Check continuity of the columns
         for cc, col in enumerate(Umat.T):
-            if np.sum(col > 1):
+            if np.sum(col > 2):
                 # More than one TOA for this flag/epoch
                 epinds = np.flatnonzero(col)
                 if len(epinds) != epinds[-1] - epinds[0] + 1:
