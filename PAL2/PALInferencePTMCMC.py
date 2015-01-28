@@ -52,7 +52,7 @@ class PTSampler(object):
 
     """
 
-    def __init__(self, ndim, logl, logp, cov, covinds=None, loglargs=[], loglkwargs={}, \
+    def __init__(self, ndim, logl, logp, cov, groups=None, loglargs=[], loglkwargs={}, \
                  logpargs=[], logpkwargs={}, comm=MPI.COMM_WORLD, \
                  outDir='./chains', verbose=True, resume=False):
 
@@ -76,16 +76,24 @@ class PTSampler(object):
                 pass
 
         # find indices for which to perform adaptive jumps
-        if covinds is None:
-            covinds = np.arange(0, self.ndim)
-        self.covinds = np.array(covinds)
-
+        self.groups = groups
+        if groups is None:
+            self.groups = [np.arange(0, self.ndim)]
+        
         # set up covariance matrix
-        ndim = len(self.covinds)
-        #TODO: this doesn't work unless parameters are in blocks
-        self.cov = cov[self.covinds.min():self.covinds.max()+1, \
-                       self.covinds.min():self.covinds.max()+1]
-        self.U, self.S, v = np.linalg.svd(self.cov)
+        self.cov = cov
+        self.U = [[]] * len(self.groups)
+        self.S = [[]] * len(self.groups)
+
+        # do svd on parameter groups
+        for ct, group in enumerate(self.groups):
+            covgroup = np.zeros((len(group), len(group)))
+            for ii in range(len(group)):
+                for jj in range(len(group)):
+                    covgroup[ii,jj] = self.cov[group[ii], group[jj]]
+            
+            self.U[ct], self.S[ct], v = np.linalg.svd(covgroup)
+
         self.M2 = np.zeros((ndim, ndim))
         self.mu = np.zeros(ndim)
 
@@ -357,7 +365,13 @@ class PTSampler(object):
         time.sleep(0.000001) 
         if getCovariance and self.MPIrank > 0:
             self.cov = self.comm.recv(source=0, tag=111)
-            self.U, self.S, v = np.linalg.svd(self.cov)
+            for ct, group in enumerate(self.groups):
+                covgroup = np.zeros((len(group), len(group)))
+                for ii in range(len(group)):
+                    for jj in range(len(group)):
+                        covgroup[ii,jj] = self.cov[group[ii], group[jj]]
+                
+                self.U[ct], self.S[ct], v = np.linalg.svd(covgroup)
             getCovariance = 0
         
         # update KDE buffer after burn in
@@ -612,7 +626,7 @@ class PTSampler(object):
         """
 
         it = iter - mem
-        ndim = len(self.covinds)
+        ndim = self.ndim
 
         if it == 0:
             self.M2 = np.zeros((ndim, ndim))
@@ -621,17 +635,23 @@ class PTSampler(object):
         for ii in range(mem):
             diff = np.zeros(ndim)
             it += 1
-            for jj, ind in enumerate(self.covinds):
+            for jj in range(ndim):
                 
-                diff[jj] = self._AMbuffer[iter-mem+ii, ind] - self.mu[jj]
+                diff[jj] = self._AMbuffer[iter-mem+ii, jj] - self.mu[jj]
                 self.mu[jj] += diff[jj]/it
 
-            self.M2 += np.outer(diff, (self._AMbuffer[iter-mem+ii,self.covinds]-self.mu))
+            self.M2 += np.outer(diff, (self._AMbuffer[iter-mem+ii,:]-self.mu))
 
         self.cov = self.M2/(it-1)  
 
-        # do svd
-        self.U, self.S, v = np.linalg.svd(self.cov)
+        # do svd on parameter groups
+        for ct, group in enumerate(self.groups):
+            covgroup = np.zeros((len(group), len(group)))
+            for ii in range(len(group)):
+                for jj in range(len(group)):
+                    covgroup[ii,jj] = self.cov[group[ii], group[jj]]
+
+            self.U[ct], self.S[ct], v = np.linalg.svd(covgroup)
 
     # function to update gaussian KDE  of posterior based on current samples
     def _updateKDE(self, iter):
@@ -706,7 +726,10 @@ class PTSampler(object):
 
         q = x.copy()
         qxy = 0
-        ndim = len(self.covinds)
+
+        # choose group
+        jumpind = np.random.randint(0, len(self.groups))
+        ndim = len(self.groups[jumpind])
 
         # adjust step size
         prob = np.random.rand()
@@ -743,8 +766,8 @@ class PTSampler(object):
 
         #y[ind] = y[ind] + np.random.randn(neff) * cd * np.sqrt(self.S[ind])
         #q[self.covinds] = np.dot(self.U, y)
-        q[self.covinds] += np.random.randn() * cd * np.sqrt(self.S[ind]) * \
-                self.U[:,ind].flatten()
+        q[self.groups[jumpind]] += np.random.randn() * cd * np.sqrt(self.S[jumpind][ind]) * \
+                self.U[jumpind][:,ind].flatten()
 
         return q, qxy
     
@@ -766,7 +789,10 @@ class PTSampler(object):
 
         q = x.copy()
         qxy = 0
-        ndim = len(self.covinds)
+        
+        # choose group
+        jumpind = np.random.randint(0, len(self.groups))
+        ndim = len(self.groups[jumpind])
 
         # adjust step size
         prob = np.random.rand()
@@ -792,15 +818,15 @@ class PTSampler(object):
             scale *= np.sqrt(self.temp)
         
         # get parmeters in new diagonalized basis
-        y = np.dot(self.U.T, x[self.covinds])
+        y = np.dot(self.U[jumpind].T, x[self.groups[jumpind]])
 
         # make correlated componentwise adaptive jump
-        ind = np.arange(len(self.covinds))
+        ind = np.arange(len(self.groups[jumpind]))
         neff = len(ind)
         cd = 2.4  / np.sqrt(2*neff) * scale 
 
-        y[ind] = y[ind] + np.random.randn(neff) * cd * np.sqrt(self.S[ind])
-        q[self.covinds] = np.dot(self.U, y)
+        y[ind] = y[ind] + np.random.randn(neff) * cd * np.sqrt(self.S[jumpind][ind])
+        q[self.groups[jumpind]] = np.dot(self.U[jumpind], y)
 
         #cd = 2.4/np.sqrt(2*self.ndim) * np.sqrt(scale)
         #q = np.random.multivariate_normal(x, cd**2*self.cov)

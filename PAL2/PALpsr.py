@@ -1347,6 +1347,7 @@ class Pulsar(object):
             self.freqs = self.freqs[self.isort]
             self.flags = self.flags[self.isort]
             self.Mmat = self.Mmat[self.isort,:]
+            self.detresiduals = self.residuals.copy()
 
 
         # Next we'll need the G-matrices, and the compression matrices.
@@ -1383,6 +1384,22 @@ class Pulsar(object):
             self.Mmat_reduced = h5df.getData(self.name, 'Mmat_reduced')
             self.Umat = h5df.getData(self.name, 'Umat')
             self.Uinds = h5df.getData(self.name, 'Uinds')
+            
+            # get quantization matrix
+            avetoas, Umat, Ui = PALutils.quantize_split(self.toas, self.flags, dt=1.0, \
+                                                                  calci=True)
+
+            # get only epochs that need jitter/ecorr
+            self.Umat, self.avetoas, aveflags = PALutils.quantreduce(Umat, \
+                                                            avetoas, self.flags)
+
+            # get quantization indices
+            self.Uinds = PALutils.quant2ind(self.Umat)
+            self.aveflags = self.flags[self.Uinds[:,0]]
+
+            print PALutils.checkTOAsort(self.toas, self.flags, which='jitterext', dt=1.0)
+            print PALutils.checkquant(self.Umat, self.flags, uflagvals=aveflags)
+            
 
 
         # basic quantities

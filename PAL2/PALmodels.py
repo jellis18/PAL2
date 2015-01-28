@@ -1115,16 +1115,31 @@ class PTAmodels(object):
             pmin = [0, 0, 7, 0.1, -9, 0, 0, 0]
             pmax = [np.pi, 2*np.pi, 10, 3, -7, np.pi, np.pi, np.pi]
             pstart = [np.pi/2, np.pi/2, 8, 1, -8, np.pi, np.pi, np.pi/2]
-            pwidth = [0.1, 0.1, 0.1, 0.1, 0.001, 0.1, 0.1, 0.1]
+            pwidth = [0.1, 0.1, 0.1, 0.1, 0.0001, 0.1, 0.1, 0.1]
             prior = ['cos', 'uniform', 'log', 'log', 'log', 'uniform', 'uniform', 'cos']
             parids = ['theta', 'phi', 'logmc', 'logd', 'logf', 'phase', 'pol', 'inc']
+            
+            newsignal = OrderedDict({
+                "stype":"cw",
+                "corr":"gr",
+                "pulsarind":-1,
+                "bvary":bvary,
+                "pmin":pmin,
+                "pmax":pmax,
+                "pwidth":pwidth,
+                "pstart":pstart,
+                "parid":parids,
+                "prior":prior,
+                "upperlimit":CWupperLimit
+                })
+            signals.append(newsignal)
 
         elif incCW and CWupperLimit:
             bvary = [True] * 8
             pmin = [0, 0, 7, -17, -9, 0, 0, 0]
             pmax = [np.pi, 2*np.pi, 10, -12, -7, np.pi, np.pi, np.pi]
             pstart = [np.pi/2, np.pi/2, 8, -14, -8, np.pi, np.pi, np.pi/2]
-            pwidth = [0.1, 0.1, 0.1, 0.1, 0.001, 0.1, 0.1, 0.1]
+            pwidth = [0.1, 0.1, 0.1, 0.1, 0.0001, 0.1, 0.1, 0.1]
             prior = ['cos', 'uniform', 'log', 'uniform', 'log', 'uniform', 'uniform', 'cos']
             parids = ['theta', 'phi', 'logmc', 'logh', 'logf', 'phase', 'pol', 'inc']
 
@@ -1186,18 +1201,19 @@ class PTAmodels(object):
                 ncoeff = (lmax + 1)**2 - 1
                 bvary = [True]*(nfreqs + ncoeff)
                 pmin = [-18.0]*nfreqs
-                pmin += [-5] * (ncoeff)
+                pmin += [-5.0] * (ncoeff)
                 pmax = [-8.0]*nfreqs
-                pmax += [5] * (ncoeff)
-                pstart = [-10.0]*nfreqs
+                pmax += [5.0] * (ncoeff)
+                pstart = [-17.0]*nfreqs
                 pstart += [0.0] * (ncoeff)
                 pwidth = [0.1]*nfreqs
                 pwidth += [0.1] * (ncoeff)
                 prior = [GWspectrumPrior]*nfreqs
                 prior += ['uniform'] * (ncoeff)
-                parids = ['rho_'+ str(f) for f in p.Ffreqs]
-                parids += ['c_' +str(l) + str(m) for l in range(1,lmax) \
-                                for m in range(-l,l+1)]
+                print nfreqs
+                parids = ['rho_'+ str(f) for f in range(nfreqs)]
+                parids += ['c_' +str(l) + str(m) for l in range(lmax+1) \
+                                for m in range(-l,l+1) if l !=0]
 
             elif gwbModel=='powerlaw':
                 ncoeff = (lmax + 1)**2 - 1
@@ -1330,7 +1346,7 @@ class PTAmodels(object):
             self.addSignalTimeCorrelated(signal)
             self.haveStochSources = True
             if signal['corr'] in ['gr_sph']:
-                psr_locs = np.array([[p.phi, p.theta] for p in self.psr])
+                psr_locs = np.array([[p.phi[0], p.theta[0]] for p in self.psr])
                 lmax = signal['lmax']
                 self.harm_sky_vals = PALutils.SetupPriorSkyGrid(lmax)
                 self.AniBasis = ani.CorrBasis(psr_locs, lmax)
@@ -2005,7 +2021,7 @@ class PTAmodels(object):
                     flagname = sig['flagname']
                     flagvalue = 'pdist_'+sig['flagvalue'] 
 
-                elif sig['stype'] == 'spectrum':
+                elif sig['stype'] == 'spectrum' and sig['corr'] != 'gr_sph':
                     flagname = 'frequency'
                     #flagvalue = 'rho' + str(jj)
                     if sig['corr'] == 'single':
@@ -2836,10 +2852,11 @@ class PTAmodels(object):
                     # correlation matrix
                     nf = int(len(self.psr[psrind].Ffreqs)/2)
                     clms = np.append(2*np.sqrt(np.pi), sparameters[nf:])
+                    rhovals = sparameters[:nf]
                     self.corrmat = self.computeAniORF(clms)
                     
                     # define rho
-                    rho = np.array([sparameters, sparameters]).T.flatten() 
+                    rho = np.array([rhovals, rhovals]).T.flatten() 
 
             # spectral Model
             if sig['stype'] == 'spectralModel':
@@ -2871,10 +2888,10 @@ class PTAmodels(object):
                     
                     freqpy = self.psr[psrind].Ffreqs
                     f1yr = 1/3.16e7
-                    #pcdoubled = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
-                    #                     freqpy**(-gamma)/sig['Tmax'])
                     pcdoubled = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
-                                         freqpy**(-gamma))
+                                         freqpy**(-gamma)/sig['Tmax'])
+                    #pcdoubled = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
+                    #                     freqpy**(-gamma))
 
                     # fill in kappa
                     self.psr[psrind].kappa = pcdoubled
@@ -4897,6 +4914,8 @@ class PTAmodels(object):
                 if not fixWhite:
                     self.TNT[nfref:(nfref+nf), nfref:(nfref+nf)] = \
                         PALutils.python_block_shermor_2D(p.Ttmat, p.Nvec, p.Qamp, p.Uinds)
+                    #TNT.append( \
+                    #    PALutils.python_block_shermor_2D(p.Ttmat, p.Nvec, p.Qamp, p.Uinds))
 
             # triple product in likelihood function
             logdet_N, rNr = PALutils.python_block_shermor_1D(p.detresiduals, \
@@ -4915,6 +4934,9 @@ class PTAmodels(object):
                     self.Sigma[nfref:(nfref+nf), nfref:(nfref+nf)] = \
                             self.TNT[nfref:(nfref+nf), nfref:(nfref+nf)] +\
                             self.Phiinv[nfref:(nfref+nf), nfref:(nfref+nf)]
+                    #self.Sigma[nfref:(nfref+nf), nfref:(nfref+nf)] = \
+                    #        TNT[ct] + \
+                    #        self.Phiinv[nfref:(nfref+nf), nfref:(nfref+nf)]
 
                 # cholesky decomp for maximum likelihood fourier components
                 try:
@@ -5393,9 +5415,12 @@ class PTAmodels(object):
                     prior += -np.inf
 
             if sig['corr'] in ['gr_sph']:
-                clms = np.append(2*np.sqrt(np.pi),sparameters[3:])
+                if sig['stype'] == 'powerlaw':
+                    clms = np.append(2*np.sqrt(np.pi),sparameters[3:])
+                elif sig['stype'] == 'spectrum':
+                    clms = np.append(2*np.sqrt(np.pi),sparameters[int(self.npf[psrind]/2):])
                 prior += PALutils.PhysPrior(clms, self.harm_sky_vals)
-                if sig['prior'][0] == 'uniform':
+                if sig['prior'][0] == 'uniform' and sig['stype']=='powerlaw':
                     prior += np.log(10**sparameters[0])
 
             # prior on ECC, EDOT and T0
@@ -6006,7 +6031,7 @@ class PTAmodels(object):
         for signum0 in signum:
             sig0 = self.ptasignals[signum0]
             pdist_inds.append(sig0['parindex'])
-            L0.append(q[sig0['parindex']])
+            L0.append(self.psr[sig0['pulsarind']].pdist)
             pdisterr.append(self.psr[sig0['pulsarind']].pdistErr)
 
         # make indices array
@@ -6016,6 +6041,8 @@ class PTAmodels(object):
 
         L_new = np.random.multivariate_normal(L0, np.diag(pdisterr**2))
         q[pdist_inds] = L_new
+        qxy -= np.sum((L0-parameters[pdist_inds])**2/2/pdisterr**2 - \
+                      (L0-q[pdist_inds])**2/2/pdisterr**2)
         
         return q, qxy
 

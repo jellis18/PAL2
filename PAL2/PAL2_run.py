@@ -507,19 +507,28 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize':
         cov = model.initJumpCovariance()
         
         if args.incTimingModel:
-            ind = np.array([ct for ct, par in enumerate(par_out) if 'efac' in par or \
+            ind = [np.array([ct for ct, par in enumerate(par_out) if 'efac' in par or \
                     'equad' in par or 'jitter' in par or 'RN' in par or 'DM' in par \
-                    or 'red_' in par or 'dm_' in par or 'GWB' in par])
+                    or 'red_' in par or 'dm_' in par or 'GWB' in par])]
         elif args.incCW:
-            ind = np.array([ct for ct, par in enumerate(par_out) if 'pdist' not in par])
+            ind = [np.array([ct for ct, par in enumerate(par_out) if 'efac' in par or \
+                    'equad' in par or 'jitter' in par or 'RN' in par or 'DM' in par \
+                    or 'red_' in par or 'dm_' in par or 'GWB' in par])]
+
+            ind.append(np.array([ct for ct, par in enumerate(par_out) if \
+                        'pdist' not in par and 'efac' not in par and \
+                        'equad' not in par and 'jitter' not in par and \
+                        'RN' not in par and 'DM' not in par and \
+                        'red_' not in par and 'dm_' not in par and \
+                        'GWB' not in par]))
         else:
             ind = None
-        ind = None
+        #ind = None
 
         # define MCMC sampler
         sampler = PALInferencePTMCMC.PTSampler(len(p0), loglike, logprior, cov, comm=comm, \
                                                outDir=args.outDir, loglkwargs=loglkwargs, \
-                                               resume=args.resume, covinds=ind)
+                                               resume=args.resume, groups=ind)
 
         # add jump proposals
         if incGWB:
