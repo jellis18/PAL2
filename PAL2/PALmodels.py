@@ -2928,7 +2928,7 @@ class PTAmodels(object):
                     
                     f1yr = 1/3.16e7
                     rho = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
-                                         fgw**(-gamma))/sig['Tmax'])
+                                         fgw**(-gamma)/sig['Tmax'])
             
             # band limited powerlaw spectrum
             if sig['stype'] == 'powerlaw_band':
