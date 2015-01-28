@@ -2911,7 +2911,7 @@ class PTAmodels(object):
                     
                     f1yr = 1/3.16e7
                     rho = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
-                                         fgw**(-gamma))
+                                         fgw**(-gamma)/sig['Tmax'])
                 
                 if sig['corr'] in ['gr_sph']:
 
@@ -2928,7 +2928,7 @@ class PTAmodels(object):
                     
                     f1yr = 1/3.16e7
                     rho = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
-                                         fgw**(-gamma))#/sig['Tmax'])
+                                         fgw**(-gamma))/sig['Tmax'])
             
             # band limited powerlaw spectrum
             if sig['stype'] == 'powerlaw_band':
@@ -2963,7 +2963,7 @@ class PTAmodels(object):
                     freqpy = self.gwfreqs
                     f1yr = 1/3.16e7
                     hcf = Amp * (freqpy/f1yr)**((3-gamma)/2) / (1+(f0/freqpy)**kappa)**(1/2)
-                    rho = np.log10(hcf**2/12/np.pi**2 / freqpy**3)
+                    rho = np.log10(hcf**2/12/np.pi**2 / freqpy**3/sig['Tmax'])
 
                     
           # DM spectrum
