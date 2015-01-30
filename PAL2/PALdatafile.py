@@ -540,6 +540,7 @@ class DataFile(object):
         rajind = np.flatnonzero(np.array(psr.ptmdescription) == 'RAJ')
         decjind = np.flatnonzero(np.array(psr.ptmdescription) == 'DECJ')
 
+
         # look for ecliptic coordinates
         if len(rajind) == 0 and len(decjind) == 0:
             #print 'Could not fine RAJ or DECJ. Looking for ecliptic coords...'

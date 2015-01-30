@@ -1346,7 +1346,8 @@ class PTAmodels(object):
             self.addSignalTimeCorrelated(signal)
             self.haveStochSources = True
             if signal['corr'] in ['gr_sph']:
-                psr_locs = np.array([[p.phi[0], p.theta[0]] for p in self.psr])
+                #psr_locs = np.array([[p.phi[0], p.theta[0]] for p in self.psr])
+                psr_locs = np.array([[p.phi, p.theta] for p in self.psr])
                 lmax = signal['lmax']
                 self.harm_sky_vals = PALutils.SetupPriorSkyGrid(lmax)
                 self.AniBasis = ani.CorrBasis(psr_locs, lmax)
@@ -5010,9 +5011,9 @@ class PTAmodels(object):
             A[1,:] = 1/f0**(1/3) * np.cos(2*np.pi*f0*p.toas)
 
             Sigma = self.Sigma[nfref:(nfref+nf), nfref:(nfref+nf)]
-            ip1 = PALutils.innerProduct_rr(A[0,:], p.residuals, \
+            ip1 = PALutils.innerProduct_rr(A[0,:], p.detresiduals, \
                                            p.Nvec, p.Tmat, Sigma)
-            ip2 = PALutils.innerProduct_rr(A[1,:], p.residuals, \
+            ip2 = PALutils.innerProduct_rr(A[1,:], p.detresiduals, \
                                            p.Nvec, p.Tmat, Sigma)
             N = np.array([ip1, ip2])
             
