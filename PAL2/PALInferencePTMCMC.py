@@ -477,7 +477,10 @@ class PTSampler(object):
         @param lnprob0: current log posterior value
         @param iter: current iteration number
 
-        @return swapReturn: 0 = no swap proposed, 1 = swap proposed and rejected, 2 = swap proposed and accepted
+        @return swapReturn: 0 = no swap proposed, 
+        1 = swap proposed and rejected, 
+        2 = swap proposed and accepted
+
         @return p0: new parameter vector
         @return lnlike0: new log-likelihood
         @return lnprob0: new log posterior value

@@ -1347,7 +1347,7 @@ class PTAmodels(object):
             self.haveStochSources = True
             if signal['corr'] in ['gr_sph']:
                 #psr_locs = np.array([[p.phi[0], p.theta[0]] for p in self.psr])
-                psr_locs = np.array([[p.phi, p.theta] for p in self.psr])
+                ##psr_locs = np.array([[p.phi, p.theta] for p in self.psr])
                 lmax = signal['lmax']
                 self.harm_sky_vals = PALutils.SetupPriorSkyGrid(lmax)
                 self.AniBasis = ani.CorrBasis(psr_locs, lmax)
@@ -2913,6 +2913,8 @@ class PTAmodels(object):
                     f1yr = 1/3.16e7
                     rho = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
                                          fgw**(-gamma)/sig['Tmax'])
+                    #rho = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
+                    #                     fgw**(-gamma))
                 
                 if sig['corr'] in ['gr_sph']:
 
@@ -2930,6 +2932,8 @@ class PTAmodels(object):
                     f1yr = 1/3.16e7
                     rho = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
                                          fgw**(-gamma)/sig['Tmax'])
+                    #rho = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
+                    #                     fgw**(-gamma))
             
             # band limited powerlaw spectrum
             if sig['stype'] == 'powerlaw_band':
@@ -2965,6 +2969,7 @@ class PTAmodels(object):
                     f1yr = 1/3.16e7
                     hcf = Amp * (freqpy/f1yr)**((3-gamma)/2) / (1+(f0/freqpy)**kappa)**(1/2)
                     rho = np.log10(hcf**2/12/np.pi**2 / freqpy**3/sig['Tmax'])
+                    #rho = np.log10(hcf**2/12/np.pi**2 / freqpy**3)
 
                     
           # DM spectrum
@@ -5339,24 +5344,24 @@ class PTAmodels(object):
                     prior += np.log(10**sparameters[0])
                 elif sig['prior'][0] == 'sesana':
                     m = -15
-                    s = 0.5
+                    s = 0.22
                     logA = sparameters[0]
                     prior += -0.5 * (np.log(2*np.pi*s**2) + (m-logA)**2/s**2)
                 elif sig['prior'][0] == 'mcwilliams':
                     m = np.log10(4.1e-15)
-                    s = 0.6
+                    s = 0.26
                     logA = sparameters[0]
                     prior += -0.5 * (np.log(2*np.pi*s**2) + (m-logA)**2/s**2)
 
             if sig['corr'] == 'gr' and sig['stype'] == 'turnover':
                 if sig['prior'][0] == 'sesana':
                     m = -15
-                    s = 0.5
+                    s = 0.22
                     logA = sparameters[0]
                     prior += -0.5 * (np.log(2*np.pi*s**2) + (m-logA)**2/s**2)
                 elif sig['prior'][0] == 'mcwilliams':
                     m = np.log10(4.1e-15)
-                    s = 0.6
+                    s = 0.26
                     logA = sparameters[0]
                     prior += -0.5 * (np.log(2*np.pi*s**2) + (m-logA)**2/s**2)
                 elif sig['prior'][0] == 'uniform':
@@ -5877,12 +5882,12 @@ class PTAmodels(object):
                 
                 elif sig['prior'][0] == 'sesana':
                     m = -15
-                    s = 0.5
+                    s = 0.22
                     q[parind] = m + np.random.randn() * s
                     qxy -= (m-parameters[parind])**2/2/s**2 - (m-q[parind])**2/2/s**2
                 elif sig['prior'][0] == 'mcwilliams':
                     m = np.log10(4.1e-15)
-                    s = 0.6
+                    s = 0.26
                     q[parind] = m + np.random.randn() * s
                     qxy -= (m-parameters[parind])**2/2/s**2 - (m-q[parind])**2/2/s**2
                     
@@ -5933,12 +5938,12 @@ class PTAmodels(object):
                 # amplitude priors
                 if sig['prior'][0] == 'sesana':
                     m = -15
-                    s = 0.5
+                    s = 0.22
                     q[parind] = m + np.random.randn() * s
                     qxy -= (m-parameters[parind])**2/2/s**2 - (m-q[parind])**2/2/s**2
                 elif sig['prior'][0] == 'mcwilliams':
                     m = np.log10(4.1e-15)
-                    s = 0.6
+                    s = 0.26
                     q[parind] = m + np.random.randn() * s
                     qxy -= (m-parameters[parind])**2/2/s**2 - (m-q[parind])**2/2/s**2
                 elif sig['prior'][0] == 'uniform':

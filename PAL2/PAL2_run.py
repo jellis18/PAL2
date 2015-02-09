@@ -570,7 +570,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize':
 
 
         # run MCMC
-        print 'Starting Sampling'
+        print 'Engage!'
         sampler.sample(p0, args.niter, covUpdate=1000, AMweight=15, SCAMweight=30, \
                        DEweight=20, neff=args.neff, KDEweight=0)
 
