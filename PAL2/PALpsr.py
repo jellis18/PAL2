@@ -747,6 +747,9 @@ class Pulsar(object):
         if likfunc=='mark7' or likfunc=='mark6' or likfunc=='mark9':
             self.twoComponentNoise = False
 
+        # sorting index if not sorting
+        self.isort = np.arange(0, len(self.toas))
+
 
         if likfunc == 'mark9':
             # get sorted indices
@@ -845,7 +848,7 @@ class Pulsar(object):
                 (self.FAvmat, tmp) = PALutils.createfourierdesignmatrix(self.avetoas, \
                                                                 nf, Tspan=Tmax, freq=True, \
                                                                 logf=False)
-                self.FAvmat /= np.sqrt(Tmax)
+                #self.FAvmat /= np.sqrt(Tmax)
             self.kappa = np.zeros(2*nf)
         else:
             self.Fmat = np.zeros((len(self.toas), 0))
@@ -966,6 +969,7 @@ class Pulsar(object):
             else:
                 tmparkeep = self.getNewTimingModelParameterList(keep=True, tmpars=tmpars)
                 print 'Numerically including', tmparkeep
+                print self.Mmat.shape
                 Mmat, newptmpars, newptmdescription = self.delFromDesignMatrix(tmparkeep)
             
             tmpardel = self.getNewTimingModelParameterList(keep=False, tmpars=tmpars)
@@ -1074,6 +1078,7 @@ class Pulsar(object):
                 h5df.addData(self.name, 'fisher', self.fisher)
                 h5df.addData(self.name, 'fisherU', self.fisherU)
                 h5df.addData(self.name, 'fisherS', self.fisherS)
+                h5df.addData(self.name, 'norm', self.norm)
 
             if likfunc == 'mark6':
                 h5df.addData(self.name, 'Tmat', self.Tmat)
@@ -1230,6 +1235,9 @@ class Pulsar(object):
         # construct std dev of data for use in priors
         self.sig_data = self.residuals.std()
 
+        # sorting index if not sorting
+        self.isort = np.arange(0, len(self.toas))
+
         # Before writing anything to file, we need to know right away how many
         # fixed and floating frequencies this model contains.
         nf = 0 ; ndmf = 0 ; nsf = nSingleFreqs ; nsdmf = nSingleDMFreqs
@@ -1246,7 +1254,7 @@ class Pulsar(object):
         if nsdmf > 0:
             self.DMSFfreqs = np.zeros(nsdmf)
 
-        modelFrequencies = h5df.getData(self.name, 'PAL_modelFrequencies')
+        #modelFrequencies = h5df.getData(self.name, 'PAL_modelFrequencies')
 
         
         # read the daily averaged residuals
@@ -1370,6 +1378,7 @@ class Pulsar(object):
             self.fisher = h5df.getData(self.name, 'fisher')
             self.fisherU = h5df.getData(self.name, 'fisherU')
             self.fisherS = h5df.getData(self.name, 'fisherS')
+            self.norm = h5df.getData(self.name, 'norm')
 
         if likfunc == 'mark6':
             self.Tmat = h5df.getData(self.name, 'Tmat')

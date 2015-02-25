@@ -4,6 +4,7 @@ import scipy.special as ss
 import scipy.linalg as sl
 import scipy.integrate as si
 import scipy.interpolate as interp
+import healpy as hp
 import numpy.polynomial.hermite as herm
 #import numexpr as ne
 import sys,os
@@ -703,7 +704,7 @@ def exploderMatrix_slow(toas, freqs=None, dt=1200, flags=None):
     else:
         return avetoas, U
 
-def dailyAveMatrix(toas, err, dt=1200, flags=None):
+def dailyAveMatrix(times, err, dt=10, flags=None):
     """
     Compute matrix for daily averaging
 
@@ -714,37 +715,30 @@ def dailyAveMatrix(toas, err, dt=1200, flags=None):
     @return: exploder matrix and daily averaged toas
 
     """
+    isort = np.argsort(times)
+    
+    bucket_ref = [times[isort[0]]]
+    bucket_ind = [[isort[0]]]
+    
+    for i in isort[1:]:
+        if times[i] - bucket_ref[-1] < dt:
+            bucket_ind[-1].append(i)
+        else:
+            bucket_ref.append(times[i])
+            bucket_ind.append([i])
+    
+    avetoas = np.array([np.mean(times[l]) for l in bucket_ind],'d')
+    if flags is not None:
+        aveflags = np.array([flags[l[0]] for l in bucket_ind])
 
-
-    processed = np.array([0]*len(toas), dtype=np.bool)  # No toas processed yet
-    U = np.zeros((len(toas), 0))
-    avetoas = np.empty(0)
-    avefreqs = np.empty(0)
-    aveerr = np.empty(0)
-    aveflags = []
-
-    while not np.all(processed):
-        npindex = np.where(processed == False)[0]
-        ind = npindex[0]
-        satmin = toas[ind] - dt
-        satmax = toas[ind] + dt
-
-        dailyind = np.where(np.logical_and(toas > satmin, toas < satmax))[0]
-
-        newcol = np.zeros((len(toas)))
-        w = 1/err[dailyind]**2
-        newcol[dailyind] = w/np.sum(w)
-
-        U = np.append(U, np.array([newcol]).T, axis=1)
-        avetoas = np.append(avetoas, np.mean(toas[dailyind]))
-        aveerr = np.append(aveerr, np.sqrt(1/np.sum(w)))
-
-        # TODO: what if we have different backends overlapping
-        if flags is not None:
-            aveflags.append(flags[dailyind][0])
+    
+    U = np.zeros((len(times),len(bucket_ind)))
+    aveerr = np.zeros(len(bucket_ind))
+    for i,l in enumerate(bucket_ind):
+        w = 1/err[l]**2
+        aveerr[i] = np.sqrt(1/np.sum(w))
+        U[l,i] =  w/np.sum(w)
         
-        processed[dailyind] = True
-       
     if flags is not None:
         return avetoas, aveerr, aveflags, U
     else:
@@ -2063,6 +2057,326 @@ def quantreduce(U, eat, flags, calci=False):
 
     return rv
 
+def real_sph_harm(mm, ll, phi, theta):
+    """
+    The real-valued spherical harmonics.
+    """
+    if mm>0:
+        ans = (1./math.sqrt(2)) * \
+                (ss.sph_harm(mm, ll, phi, theta) + \
+                ((-1)**mm) * ss.sph_harm(-mm, ll, phi, theta))
+    elif mm==0:
+        ans = ss.sph_harm(0, ll, phi, theta)
+    elif mm<0:
+        ans = (1./(math.sqrt(2)*complex(0.,1))) * \
+                (ss.sph_harm(-mm, ll, phi, theta) - \
+                ((-1)**mm) * ss.sph_harm(mm, ll, phi, theta))
+
+    return ans.real
+
+
+def signalResponse_fast(ptheta_a, pphi_a, gwtheta_a, gwphi_a):
+    """
+    Create the signal response matrix FAST
+    """
+    npsrs = len(ptheta_a)
+
+    # Create a meshgrid for both phi and theta directions
+    gwphi, pphi = np.meshgrid(gwphi_a, pphi_a)
+    gwtheta, ptheta = np.meshgrid(gwtheta_a, ptheta_a)
+
+    return createSignalResponse(pphi, ptheta, gwphi, gwtheta)
+
+
+def createSignalResponse(pphi, ptheta, gwphi, gwtheta):
+    """
+    Create the signal response matrix. All parameters are assumed to be of the
+    same dimensionality.
+
+    @param pphi:    Phi of the pulsars
+    @param ptheta:  Theta of the pulsars
+    @param gwphi:   Phi of GW propagation direction
+    @param gwtheta: Theta of GW propagation direction
+
+    @return:    Signal response matrix of Earth-term
+    """
+    Fp = createSignalResponse_pol(pphi, ptheta, gwphi, gwtheta, plus=True)
+    Fc = createSignalResponse_pol(pphi, ptheta, gwphi, gwtheta, plus=False)
+
+    # Pixel maps are lumped together, polarization pixels are neighbours
+    F = np.zeros((Fp.shape[0], 2*Fp.shape[1]))
+    F[:, 0::2] = Fp
+    F[:, 1::2] = Fc
+
+    return F
+
+def createSignalResponse_pol(pphi, ptheta, gwphi, gwtheta, plus=True, norm=True):
+    """
+    Create the signal response matrix. All parameters are assumed to be of the
+    same dimensionality.
+
+    @param pphi:    Phi of the pulsars
+    @param ptheta:  Theta of the pulsars
+    @param gwphi:   Phi of GW propagation direction
+    @param gwtheta: Theta of GW propagation direction
+    @param plus:    Whether or not this is the plus-polarization
+    @param norm:    Normalise the correlations to equal Jenet et. al (2005)
+
+    @return:    Signal response matrix of Earth-term
+    """
+    # Create the unit-direction vectors. First dimension will be collapsed later
+    # Sign convention of Gair et al. (2014)
+    Omega = np.array([-np.sin(gwtheta)*np.cos(gwphi), \
+                      -np.sin(gwtheta)*np.sin(gwphi), \
+                      -np.cos(gwtheta)])
+    
+    mhat = np.array([-np.sin(gwphi), np.cos(gwphi), np.zeros(gwphi.shape)])
+    nhat = np.array([-np.cos(gwphi)*np.cos(gwtheta), \
+                     -np.cos(gwtheta)*np.sin(gwphi), \
+                     np.sin(gwtheta)])
+
+    p = np.array([np.cos(pphi)*np.sin(ptheta), \
+                  np.sin(pphi)*np.sin(ptheta), \
+                  np.cos(ptheta)])
+    
+    # There is a factor of 3/2 difference between the Hellings & Downs
+    # integral, and the one presented in Jenet et al. (2005; also used by Gair
+    # et al. 2014). This factor 'normalises' the correlation matrix, but I don't
+    # see why I have to pull this out of my ass here. My antennae patterns are
+    # correct, so does this mean our strain amplitude is re-scaled. Check this.
+    npixels = Omega.shape[2]
+    if norm:
+        # Add extra factor of 3/2
+        c = np.sqrt(1.5) / np.sqrt(npixels)
+    else:
+        c = 1.0 / np.sqrt(npixels)
+
+    # Calculate the Fplus or Fcross antenna pattern. Definitions as in Gair et
+    # al. (2014), with right-handed coordinate system
+    if plus:
+        # The sum over axis=0 represents an inner-product
+        Fsig = 0.5 * c * (np.sum(nhat * p, axis=0)**2 - np.sum(mhat * p, axis=0)**2) / \
+                (1 - np.sum(Omega * p, axis=0))
+    else:
+        # The sum over axis=0 represents an inner-product
+        Fsig = c * np.sum(mhat * p, axis=0) * np.sum(nhat * p, axis=0) / \
+                (1 - np.sum(Omega * p, axis=0))
+
+    return Fsig
+
+
+
+def almFromClm(clm):
+    """
+    Given an array of clm values, return an array of complex alm valuex
+
+    Note: There is a bug in healpy for the negative m values. This function just
+    takes the imaginary part of the abs(m) alm index.
+    """
+    maxl = int(np.sqrt(len(clm)))-1
+    nclm = len(clm)
+
+    nalm = hp.Alm.getsize(maxl)
+    alm = np.zeros((nalm), dtype=np.complex128)
+
+    clmindex = 0
+    for ll in range(0, maxl+1):
+        for mm in range(-ll, ll+1):
+            almindex = hp.Alm.getidx(maxl, ll, abs(mm))
+            
+            if mm == 0:
+                alm[almindex] += clm[clmindex]
+            elif mm < 0:
+                alm[almindex] -= 1j * clm[clmindex] / np.sqrt(2)
+            elif mm > 0:
+                alm[almindex] += clm[clmindex] / np.sqrt(2)
+            
+            clmindex += 1
+    
+    return alm
+
+
+def clmFromAlm(alm):
+    """
+    Given an array of clm values, return an array of complex alm valuex
+
+    Note: There is a bug in healpy for the negative m values. This function just
+    takes the imaginary part of the abs(m) alm index.
+    """
+    nalm = len(alm)
+    maxl = int(np.sqrt(9.0 - 4.0 * (2.0-2.0*nalm))*0.5 - 1.5)   # Really?
+    nclm = (maxl+1)**2
+
+    # Check the solution. Went wrong one time..
+    if nalm != int(0.5 * (maxl+1) * (maxl+2)):
+        raise ValueError("Check numerical precision. This should not happen")
+
+    clm = np.zeros(nclm)
+
+    clmindex = 0
+    for ll in range(0, maxl+1):
+        for mm in range(-ll, ll+1):
+            almindex = hp.Alm.getidx(maxl, ll, abs(mm))
+            
+            if mm == 0:
+                clm[clmindex] = alm[almindex].real
+            elif mm < 0:
+                clm[clmindex] = - alm[almindex].imag * np.sqrt(2)
+            elif mm > 0:
+                clm[clmindex] = alm[almindex].real * np.sqrt(2)
+            
+            clmindex += 1
+    
+    return clm
+
+
+
+def mapFromClm_fast(clm, nside):
+    """
+    Given an array of C_{lm} values, produce a pixel-power-map (non-Nested) for
+    healpix pixelation with nside
+
+    @param clm:     Array of C_{lm} values (inc. 0,0 element)
+    @param nside:   Nside of the healpix pixelation
+
+    return:     Healpix pixels
+
+    Use Healpix spherical harmonics for computational efficiency
+    """
+    maxl = int(np.sqrt(len(clm)))-1
+    alm = almFromClm(clm)
+
+    h = hp.alm2map(alm, nside, maxl, verbose=False)
+
+    return h
+
+def mapFromClm(clm, nside):
+    """
+    Given an array of C_{lm} values, produce a pixel-power-map (non-Nested) for
+    healpix pixelation with nside
+
+    @param clm:     Array of C_{lm} values (inc. 0,0 element)
+    @param nside:   Nside of the healpix pixelation
+
+    return:     Healpix pixels
+
+    Use real_sph_harm for the map
+    """
+    npixels = hp.nside2npix(nside)
+    pixels = hp.pix2ang(nside, np.arange(npixels), nest=False)
+    
+    h = np.zeros(npixels)
+
+    ind = 0
+    maxl = int(np.sqrt(len(clm)))-1
+    for ll in range(maxl+1):
+        for mm in range(-ll, ll+1):
+            h += clm[ind] * real_sph_harm(mm, ll, pixels[1], pixels[0])
+            ind += 1
+
+    return h
+
+
+def clmFromMap_fast(h, lmax):
+    """
+    Given a pixel map, and a maximum l-value, return the corresponding C_{lm}
+    values.
+
+    @param h:       Sky power map
+    @param lmax:    Up to which order we'll be expanding
+
+    return: clm values
+
+    Use Healpix spherical harmonics for computational efficiency
+    """
+    alm = hp.sphtfunc.map2alm(h, lmax=lmax, regression=False)
+    alm[0] = np.sum(h) * np.sqrt(4*np.pi) / len(h)  # Why doesn't healpy do this?
+
+    return clmFromAlm(alm)
+
+
+def clmFromMap(h, lmax):
+    """
+    Given a pixel map, and a maximum l-value, return the corresponding C_{lm}
+    values.
+
+    @param h:       Sky power map
+    @param lmax:    Up to which order we'll be expanding
+
+    return: clm values
+
+    Use real_sph_harm for the map
+    """
+    npixels = len(h)
+    nside = hp.npix2nside(npixels)
+    pixels = hp.pix2ang(nside, np.arange(npixels), nest=False)
+    
+    clm = np.zeros( (lmax+1)**2 )
+    
+    ind = 0
+    for ll in range(lmax+1):
+        for mm in range(-ll, ll+1):
+            clm[ind] += np.sum(h * real_sph_harm(mm, ll, pixels[1], pixels[0]))
+            ind += 1
+            
+    return clm * 4 * np.pi / npixels
+
+
+
+def getCov(sh00, nside, F_e):
+    """
+    Given a vector of clm values, construct the covariance matrix
+
+    @param sh00:    Healpix map
+    @param nside:   Healpix nside resolution
+    @param F_e:     Signal response matrix
+
+    @return:    Cross-pulsar correlation for this array of clm values
+    """
+    # Create a sky-map (power)
+    # Use mapFromClm to compare to real_sph_harm. Fast uses Healpix
+
+    # Double the power (one for each polarization)
+    sh = np.array([sh00, sh00]).T.flatten()
+
+    # Create the cross-pulsar covariance
+    hdcov_F = np.dot(F_e * sh, F_e.T)
+
+    # The pulsar term is added (only diagonals: uncorrelated)
+    return hdcov_F + np.diag(np.diag(hdcov_F))
+
+
+def CorrBasis(psr_locs, nside=32):
+    """
+    Calculate the correlation basis matrices using the pixel-space
+    transormations
+
+    @param psr_locs:    Location of the pulsars [phi, theta]
+    @param nside:       What nside to use in the pixelation [32]
+
+    Note: GW directions are in direction of GW propagation
+    """
+    npsrs = len(psr_locs)
+    pphi = psr_locs[:,0]
+    ptheta = psr_locs[:,1]
+
+    # Create the pixels
+    npixels = hp.nside2npix(nside)
+    pixels = hp.pix2ang(nside, np.arange(npixels), nest=False)
+    gwtheta = pixels[0]
+    gwphi = pixels[1]
+
+    # Create the signal response matrix
+    F_e = signalResponse_fast(ptheta, pphi, gwtheta, gwphi)
+    print F_e.shape
+    sh00 = mapFromClm_fast(np.array([1.0]), nside)
+    print sh00.shape
+
+    basis = []
+    for ii in range(npixels):
+        basis.append(getCov(sh00[ii], nside, F_e[:,2*ii:2*ii+2]))
+
+    return basis
 
 
 

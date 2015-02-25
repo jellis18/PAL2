@@ -789,7 +789,7 @@ class PTAmodels(object):
                 else:
                     newptmdescription = p.getNewTimingModelParameterList(keep=True, \
                         tmpars=['Offset', 'F0', 'F1', 'RAJ', 'DECJ', 'LAMBDA', \
-                                'ELONG', 'ELAT', 'PMRA', 'PMDEC', \
+                                'ELONG', 'ELAT', 'PMRA', 'PMDEC', 'PX',\
                                 'BETA', 'PMELONG', 'PMELAT','DM', 'DM1', \
                                 'DM2'] + jumps + dmx + fds)
                     #newptmdescription = p.getNewTimingModelParameterList(keep=True, \
@@ -815,94 +815,12 @@ class PTAmodels(object):
                         if tmperrs[jj] == 0:
                             tmperrs[jj] = tmpest[jj]
                         
-                        # physical priors
-                        if parid == 'SINI':
-                            pmin += [-tmpest[jj] - 1]
-                            pmax += [1-tmpest[jj]]
-                            pwidth += [tmperrs[jj]]
-                            pstart += [0.0]
-                        elif parid == 'STIG':
-                            pmin += [-1.0]
-                            pmax += [1.0]
-                            pwidth += [tmperrs[jj]]
-                            if tmpest[jj] <= -1.0 or tmpest[jj] >= 1.0:
-                                pstart += [0.5]
-                            else:
-                                pstart += [tmpest[jj]]
-                        elif parid == 'ECC' or parid == 'E':
-                            pmin += [-tmpest[jj]]
-                            pmax += [1.0-tmpest[jj]]
-                            pwidth += [tmperrs[jj]]
-                            pstart += [0.0]
-                        elif parid == 'KOM':
-                            pmin += [-tmpest[jj]]
-                            pmax += [360.0-tmpest[jj]]
-                            pwidth += [tmperrs[jj]]
-                            pstart += [0.0]
-                        elif parid == 'PX':
-                            if tmpest[jj] < 0:
-                                tmpest[jj] = 0.001
-                            pmin += [-tmpest[jj]]
-                            pmax += [500.0 * tmperrs[jj]]
-                            pwidth += [tmperrs[jj]]
-                            pstart += [0.0]
-                        elif parid == 'M2':
-                            if tmpest[jj] < 0:
-                                tmpest[jj] = 0.001
-                            pmin += [-tmpest[jj]]
-                            pmax += [500.0 * tmperrs[jj]]
-                            pwidth += [tmperrs[jj]]
-                            pstart += [0.0]
-                        elif parid == 'GAMMA':
-                            pmin += [0.0]
-                            pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
-                            pwidth += [tmperrs[jj]]
-                            pstart += [tmpest[jj]]
-                        elif parid == 'SHAPMAX':
-                            pmin += [0.0]
-                            pmax += [50]
-                            pstart += [tmpest[jj]]
-                            pwidth += [tmperrs[jj]]
-                        #elif parid == 'EDOT':
-                        #    pmin += [-500.0 * tmperrs[jj] + tmpest[jj]]
-                        #    pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
-                        #    pwidth += [tmperrs[jj]]
-                        #    pstart += [0]
-                        
-                        # make parameter be the 'parameter offset'
-                        #elif parid == 'Offset':
-                        #    pmin += [-500]
-                        #    pmax += [500]
-                        #    pwidth += [0.1]
-                        #    pstart += [0]
-
-                        #elif parid == 'F0':
-                        #    pmin += [-500]
-                        #    pmax += [500]
-                        #    pwidth += [0.1]
-                        #    pstart += [0]
-                        #
-                        #elif parid == 'F1':
-                        #    pmin += [-500]
-                        #    pmax += [500]
-                        #    pwidth += [0.1]
-                        #    pstart += [0]
-
-                        else:
-                            pmin += [-500.0 * tmperrs[jj]]
-                            pmax += [500.0 * tmperrs[jj]]
-                            pwidth += [tmperrs[jj]]
-                            pstart += [0.0]
-
                         ## physical priors
                         #if parid == 'SINI':
-                        #    pmin += [-1.0]
-                        #    pmax += [1.0]
+                        #    pmin += [-tmpest[jj] - 1]
+                        #    pmax += [1-tmpest[jj]]
                         #    pwidth += [tmperrs[jj]]
-                        #    if tmpest[jj] <= -1.0 or tmpest[jj] >= 1.0:
-                        #        pstart += [0.99]
-                        #    else:
-                        #        pstart += [tmpest[jj]]
+                        #    pstart += [0.0]
                         #elif parid == 'STIG':
                         #    pmin += [-1.0]
                         #    pmax += [1.0]
@@ -912,29 +830,29 @@ class PTAmodels(object):
                         #    else:
                         #        pstart += [tmpest[jj]]
                         #elif parid == 'ECC' or parid == 'E':
-                        #    pmin += [0.0]
-                        #    pmax += [1.0]
+                        #    pmin += [-tmpest[jj]]
+                        #    pmax += [1.0-tmpest[jj]]
                         #    pwidth += [tmperrs[jj]]
-                        #    pstart += [tmpest[jj]]
+                        #    pstart += [0.0]
                         #elif parid == 'KOM':
-                        #    pmin += [0.0]
-                        #    pmax += [360.0]
+                        #    pmin += [-tmpest[jj]]
+                        #    pmax += [360.0-tmpest[jj]]
                         #    pwidth += [tmperrs[jj]]
-                        #    pstart += [tmpest[jj]]
+                        #    pstart += [0.0]
                         #elif parid == 'PX':
                         #    if tmpest[jj] < 0:
                         #        tmpest[jj] = 0.001
-                        #    pmin += [0.0]
-                        #    pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
+                        #    pmin += [-tmpest[jj]]
+                        #    pmax += [500.0 * tmperrs[jj]]
                         #    pwidth += [tmperrs[jj]]
-                        #    pstart += [tmpest[jj]]
+                        #    pstart += [0.0]
                         #elif parid == 'M2':
                         #    if tmpest[jj] < 0:
                         #        tmpest[jj] = 0.001
-                        #    pmin += [0.0]
-                        #    pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
+                        #    pmin += [-tmpest[jj]]
+                        #    pmax += [500.0 * tmperrs[jj]]
                         #    pwidth += [tmperrs[jj]]
-                        #    pstart += [tmpest[jj]]
+                        #    pstart += [0.0]
                         #elif parid == 'GAMMA':
                         #    pmin += [0.0]
                         #    pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
@@ -971,10 +889,92 @@ class PTAmodels(object):
                         ##    pstart += [0]
 
                         #else:
+                        #    pmin += [-500.0 * tmperrs[jj]]
+                        #    pmax += [500.0 * tmperrs[jj]]
+                        #    pwidth += [tmperrs[jj]]
+                        #    pstart += [0.0]
+
+                        # physical priors
+                        if parid == 'SINI':
+                            pmin += [-1.0]
+                            pmax += [1.0]
+                            pwidth += [tmperrs[jj]]
+                            if tmpest[jj] <= -1.0 or tmpest[jj] >= 1.0:
+                                pstart += [0.99]
+                            else:
+                                pstart += [tmpest[jj]]
+                        elif parid == 'STIG':
+                            pmin += [-1.0]
+                            pmax += [1.0]
+                            pwidth += [tmperrs[jj]]
+                            if tmpest[jj] <= -1.0 or tmpest[jj] >= 1.0:
+                                pstart += [0.5]
+                            else:
+                                pstart += [tmpest[jj]]
+                        elif parid == 'ECC' or parid == 'E':
+                            pmin += [0.0]
+                            pmax += [1.0]
+                            pwidth += [tmperrs[jj]]
+                            pstart += [tmpest[jj]]
+                        elif parid == 'KOM':
+                            pmin += [0.0]
+                            pmax += [360.0]
+                            pwidth += [tmperrs[jj]]
+                            pstart += [tmpest[jj]]
+                        elif parid == 'PX':
+                            if tmpest[jj] < 0:
+                                tmpest[jj] = 0.001
+                            pmin += [0.0]
+                            pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
+                            pwidth += [tmperrs[jj]]
+                            pstart += [tmpest[jj]]
+                        elif parid == 'M2':
+                            if tmpest[jj] < 0:
+                                tmpest[jj] = 0.001
+                            pmin += [0.0]
+                            pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
+                            pwidth += [tmperrs[jj]]
+                            pstart += [tmpest[jj]]
+                        elif parid == 'GAMMA':
+                            pmin += [0.0]
+                            pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
+                            pwidth += [tmperrs[jj]]
+                            pstart += [tmpest[jj]]
+                        elif parid == 'SHAPMAX':
+                            pmin += [0.0]
+                            pmax += [50]
+                            pstart += [tmpest[jj]]
+                            pwidth += [tmperrs[jj]]
+                        #elif parid == 'EDOT':
                         #    pmin += [-500.0 * tmperrs[jj] + tmpest[jj]]
                         #    pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
                         #    pwidth += [tmperrs[jj]]
-                        #    pstart += [tmpest[jj]]
+                        #    pstart += [0]
+                        
+                        # make parameter be the 'parameter offset'
+                        #elif parid == 'Offset':
+                        #    pmin += [-500]
+                        #    pmax += [500]
+                        #    pwidth += [0.1]
+                        #    pstart += [0]
+
+                        #elif parid == 'F0':
+                        #    pmin += [-500]
+                        #    pmax += [500]
+                        #    pwidth += [0.1]
+                        #    pstart += [0]
+                        #
+                        #elif parid == 'F1':
+                        #    pmin += [-500]
+                        #    pmax += [500]
+                        #    pwidth += [0.1]
+                        #    pstart += [0]
+
+                        else:
+                            pmin += [-500.0 * tmperrs[jj] + tmpest[jj]]
+                            pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
+                            pwidth += [tmperrs[jj]]
+                            pstart += [tmpest[jj]]
                         print parid, pmin[-1], pmax[-1], pwidth[-1], pstart[-1], tmpest[jj]
 
                 if nonLinear:
@@ -1171,7 +1171,7 @@ class PTAmodels(object):
             elif gwbModel=='powerlaw':
                 bvary = [True, True, False]
                 pmin = [-18.0, 1.02, 1.0e-11]
-                pmax = [-11.0, 6.98, 3.0e-9]
+                pmax = [np.log10(4e-12), 6.98, 3.0e-9]
                 pstart = [-15.0, 2.01, 1.0e-10]
                 pwidth = [0.1, 0.1, 5.0e-11]
                 prior = [GWAmpPrior, GWSiPrior, 'log']
@@ -1201,9 +1201,9 @@ class PTAmodels(object):
                 ncoeff = (lmax + 1)**2 - 1
                 bvary = [True]*(nfreqs + ncoeff)
                 pmin = [-18.0]*nfreqs
-                pmin += [-5.0] * (ncoeff)
+                pmin += [-4.0] * (ncoeff)
                 pmax = [-8.0]*nfreqs
-                pmax += [5.0] * (ncoeff)
+                pmax += [4.0] * (ncoeff)
                 pstart = [-17.0]*nfreqs
                 pstart += [0.0] * (ncoeff)
                 pwidth = [0.1]*nfreqs
@@ -1220,9 +1220,9 @@ class PTAmodels(object):
                 bvary = [True, True, False]
                 bvary += [True] * (ncoeff)
                 pmin = [-17.0, 1.02, 1.0e-11]
-                pmin += [-10] * (ncoeff)
+                pmin += [-4] * (ncoeff)
                 pmax = [-11.0, 6.98, 3.0e-9]
-                pmax += [10] * (ncoeff)
+                pmax += [4] * (ncoeff)
                 pstart = [-15.0, 2.01, 1.0e-10]
                 pstart += [0.0] * (ncoeff)
                 pwidth = [0.1, 0.1, 5.0e-11]
@@ -1346,7 +1346,7 @@ class PTAmodels(object):
             self.addSignalTimeCorrelated(signal)
             self.haveStochSources = True
             if signal['corr'] in ['gr_sph']:
-                #psr_locs = np.array([[p.phi[0], p.theta[0]] for p in self.psr])
+                psr_locs = np.array([[p.phi[0], p.theta[0]] for p in self.psr])
                 ##psr_locs = np.array([[p.phi, p.theta] for p in self.psr])
                 lmax = signal['lmax']
                 self.harm_sky_vals = PALutils.SetupPriorSkyGrid(lmax)
@@ -3393,12 +3393,13 @@ class PTAmodels(object):
                         elif sig['parid'][jj] == 'Offset':
                             offset[:] = psr.ptmparerrs[jj] * sparameters[pindex]
                         else:
-                            psr.t2psr[sig['parid'][jj]].val = np.longdouble(sparameters[pindex])
+                            psr.t2psr[sig['parid'][jj]].val = \
+                                    np.longdouble(sparameters[pindex])
                         pindex += 1
 
                 # Generate the new residuals
                 psr.detresiduals = np.array(psr.t2psr.residuals(updatebats=True), 
-                                            dtype=np.double) + offset
+                                            dtype=np.double)[psr.isort] + offset
             
             # fourier modes
             if sig['stype'] in ['redfouriermode', 'gwfouriermode']:
@@ -3650,7 +3651,8 @@ class PTAmodels(object):
                 
                 f1yr = 1/3.16e7
                 pcdoubled = Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
-                                     fgw**(-gamma)
+                                     fgw**(-gamma)/ np.sqrt(self.psr[ii].Tmax \
+                                                            * self.psr[jj].Tmax)
 
                 phiIJ =  0.5 * np.concatenate((pcdoubled, \
                                     np.zeros(len(self.psr[ii].Fdmfreqs))))
@@ -3783,13 +3785,14 @@ class PTAmodels(object):
                 
                 f1yr = 1/3.16e7
                 pcdoubled = Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
-                                     fgw**(-gamma)
+                            fgw**(-gamma) / np.sqrt(self.psr[ii].Tmax * self.psr[jj].Tmax)
                     
                 Phi = np.zeros(nf+nfdm)
                 #di = np.diag_indices(nf)
                 Phi[:nf] = pcdoubled
         
                 phiIJ = 0.5 * np.dot(self.psr[ii].UtF, (Phi * self.psr[jj].UtF).T)
+                #phiIJ = np.dot(self.psr[ii].UtF, (Phi * self.psr[jj].UtF).T)
         
                 top = np.dot(Y[ii], np.dot(phiIJ, Y[jj]))
                 bot = np.trace(np.dot(Z[ii], np.dot(phiIJ, np.dot(Z[jj], phiIJ.T))))
@@ -4643,7 +4646,8 @@ class PTAmodels(object):
         if np.abs(np.sum(p.alphacoeff[1:])) > 1:
             return -np.inf
         for ii in range(p.nalpha):
-            hermcoeff.append(p.alphacoeff[ii] / np.sqrt(2**ii*ss.gamma(ii+1)*np.sqrt(2*np.pi*p.Nvec)))
+            hermcoeff.append(p.alphacoeff[ii] / np.sqrt(2**ii*ss.gamma(ii+1)\
+                                                *np.sqrt(2*np.pi*p.Nvec)))
         
         # evaluate hermite polynomial sums
         hval = hermval(hermargs, np.array(hermcoeff))[0]
@@ -4951,8 +4955,9 @@ class PTAmodels(object):
                     if varyNoise:
                         self.logdet_Sigma += np.sum(2*np.log(np.diag(cf[0])))
                 except np.linalg.LinAlgError:
+         
                     return -np.inf
-                    raise ValueError("ERROR: Sigma singular according to SVD")
+                    #raise ValueError("ERROR: Sigma singular according to SVD")
 
                 loglike += 0.5 * (np.dot(dd, expval2))
 
@@ -5319,6 +5324,7 @@ class PTAmodels(object):
         prior = 0
         #for ct, pp in enumerate(parameters):
         #    print pp, self.pmin[ct], pp >= self.pmin[ct]
+        #    print pp, self.pmin[ct], pp <= self.pmax[ct]
         if np.all(parameters >= self.pmin) and np.all(parameters <= self.pmax):
             prior += -np.sum(np.log(self.pmax-self.pmin))
 
@@ -5432,7 +5438,7 @@ class PTAmodels(object):
             # prior on ECC, EDOT and T0
             if sig['stype'] == 'lineartimingmodel' or sig['stype'] == 'nonlineartimingmodel':
                 
-                ecc, edot, t0, sini, a1, m2, pb = 0, 0, 0, 0, 0, 0, 0
+                ecc, edot, t0, sini, a1, m2, pb, kin = 0, 0, 0, 0, 0, 0, 0, 0
                 pindex = 0
                 for jj in range(sig['ntotpars']):
                     if sig['bvary'][jj]:
@@ -5451,6 +5457,8 @@ class PTAmodels(object):
                             pb = sparameters[pindex]
                         elif sig['parid'][jj] == 'M2':
                             m2 = sparameters[pindex]
+                        elif sig['parid'][jj] == 'KIN':
+                            kin = sparameters[pindex]
 
                         pindex += 1
 
@@ -5465,6 +5473,9 @@ class PTAmodels(object):
                 # flat in cosi prior
                 if sini:
                     prior += np.log(sini/np.sqrt(1-sini**2))
+
+                if kin:
+                    prior += np.log(np.abs(np.sin(kin*np.pi/180)))
 
                 # prior on pulsar mass [0,3]
                # if sini and pb and m2 and a1:

@@ -6,6 +6,7 @@ import PALdatafile
 import PALmodels
 import PALInferencePTMCMC
 from scipy.optimize import fmin
+import scipy.special as ss
 import PALpsr
 import glob
 import pyswarm
@@ -173,6 +174,11 @@ parser.add_argument('--Tmatrix', dest='Tmatrix', action='store_true', \
 parser.add_argument('--mark9', dest='mark9', action='store_true', \
                     default=False, help='Use mark9 likelihoodk')
 
+parser.add_argument('--Tmin', dest='Tmin', type=float, action='store', \
+                     default=1, help='Minimum temperature for parallel tempering')
+parser.add_argument('--Tmax', dest='Tmax', type=float, action='store', \
+                     default=1, help='Max temperature for parallel tempering')
+
 # parse arguments
 args = parser.parse_args()
 
@@ -182,6 +188,9 @@ args = parser.parse_args()
 comm = MPI.COMM_WORLD
 MPIrank = comm.Get_rank()
 MPIsize = comm.Get_size()
+
+if args.Tmax == 1:
+    args.Tmax=None
 
 
 if not os.path.exists(args.outDir):
@@ -196,7 +205,9 @@ if args.pname[0] != 'all':
     model = PALmodels.PTAmodels(args.h5file, pulsars=args.pname)
 elif args.pname[0] == 'all':
     print 'Using all pulsars'
-    model = PALmodels.PTAmodels(args.h5file)
+    pulsars = 'all'
+    #pulsars = list(np.loadtxt('pulsars.txt', dtype='S42'))
+    model = PALmodels.PTAmodels(args.h5file, pulsars=pulsars)
 
 # get number of epochs
 nepoch = None
@@ -255,6 +266,7 @@ if args.dmxKernelModel != 'None':
 else:
     incDMXKernel = False
     DMXKernelModel = args.dmxKernelModel
+
 
 
 #likfunc= 'mark5'
@@ -393,6 +405,14 @@ else:
 model.initModel(fullmodel, memsave=memsave, fromFile=args.fromFile, verbose=True, write=write)
 
 
+#import matplotlib.pyplot as plt
+#for p in model.psr:
+#    plt.figure()
+#    plt.errorbar(p.toas, p.residuals, p.toaerrs, fmt='.')
+#    plt.title(p.name)
+#    plt.show()
+
+
 pardes = model.getModelParameterList()
 par_names = [p['id'] for p in pardes if p['index'] != -1]
 par_out = []
@@ -412,7 +432,8 @@ fout.close()
 
 
 # define likelihood functions
-if args.sampler == 'mcmc' or args.sampler == 'minimize':
+if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multinest' \
+   or args.sampler=='polychord':
     if args.incJitter or args.incJitterEquad or args.incJitterEpoch:
         loglike = model.mark2LogLikelihood
     elif args.incTimingModel and args.fullmodel and not args.incNonGaussian:
@@ -507,9 +528,11 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize':
         cov = model.initJumpCovariance()
         
         if args.incTimingModel:
+            idx = np.arange(len(par_out))
             ind = [np.array([ct for ct, par in enumerate(par_out) if 'efac' in par or \
                     'equad' in par or 'jitter' in par or 'RN' in par or 'DM' in par \
                     or 'red_' in par or 'dm_' in par or 'GWB' in par])]
+            ind += [idx[(ind[-1][-1]+1):]]
         elif args.incCW:
             ind = [np.array([ct for ct, par in enumerate(par_out) if 'efac' in par or \
                     'equad' in par or 'jitter' in par or 'RN' in par or 'DM' in par \
@@ -524,6 +547,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize':
         else:
             ind = None
         #ind = None
+        print ind
 
         # define MCMC sampler
         sampler = PALInferencePTMCMC.PTSampler(len(p0), loglike, logprior, cov, comm=comm, \
@@ -572,74 +596,107 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize':
         # run MCMC
         print 'Engage!'
         sampler.sample(p0, args.niter, covUpdate=1000, AMweight=15, SCAMweight=30, \
-                       DEweight=20, neff=args.neff, KDEweight=0)
+                       DEweight=20, neff=args.neff, KDEweight=0, Tmin=args.Tmin,
+                       Tmax=args.Tmax)
 
+    if args.sampler == 'polychord':
+        print 'Using PolyChord Sampler'
+        import pypolychord
 
-elif args.sampler == 'multinest':
-    print 'WARNING: Using MultiNest, will use uniform priors on all parameters' 
-    import pymultinest
+        prior_array = np.append(model.pmin, model.pmax)
 
-    p0 = model.initParameters(startEfacAtOne=True, fixpstart=False)
-
-    # mark2 loglike
-    if args.incJitter or args.incJitterEquad:
-
-        ndim = len(p0)
-
-        def myloglike(cube, ndim, nparams):
+        def chord_like(ndim, theta, phi):
             
-            acube = np.zeros(ndim)
-            for ii in range(ndim):
-                acube[ii] = cube[ii]
-
             # check prior
-            if model.mark3LogPrior(acube) != -np.inf:
-                return model.mark6LogLikelihood(acube, incJitter=True)
+            if model.mark3LogPrior(theta) != -np.inf:
+                return loglike(theta, **loglkwargs)
             else:
                 #print 'WARNING: Prior returns -np.inf!!'
                 return -np.inf
 
-        def myprior(cube, ndim, nparams):
-
-            for ii in range(ndim):
-                cube[ii] = model.pmin[ii] + cube[ii] * (model.pmax[ii]-model.pmin[ii])
-    
-    
-    # mark1 loglike
-    else:
-
+        n_live = 1000
         ndim = len(p0)
 
-        def myloglike(cube, ndim, nparams):
-            
-            acube = np.zeros(ndim)
-            for ii in range(ndim):
-                acube[ii] = cube[ii]
-            
-            # check prior
-            if model.mark3LogPrior(acube) != -np.inf:
-                return model.mark6LogLikelihood(acube)
-            else:
-                #print 'WARNING: Prior returns -np.inf!!'
-                return -np.inf
+        pypolychord.run(chord_like, ndim, prior_array, n_live=n_live, n_chords=5, \
+                       output_basename=args.outDir+"/pcord-")
 
-            return model.mark1LogLikelihood(acube)
 
-        def myprior(cube, ndim, nparams):
 
-            for ii in range(ndim):
-                cube[ii] = model.pmin[ii] + cube[ii] * (model.pmax[ii]-model.pmin[ii])
+    if args.sampler == 'multinest':
+        print 'WARNING: Using MultiNest, will use uniform priors on all parameters' 
+        import pymultinest
 
-                # number of live points
-    nlive = 1000
-    n_params = ndim
+        p0 = model.initParameters(startEfacAtOne=True, fixpstart=False)
 
-    # run MultiNest
-    pymultinest.run(myloglike, myprior, n_params, resume = False, \
-                    verbose = True, sampling_efficiency = 0.2, \
-                    outputfiles_basename =  args.outDir+'/mn'+'-', \
-                    n_iter_before_update=5, n_live_points=nlive, \
-                    const_efficiency_mode=False, importance_nested_sampling=False, \
-                    n_clustering_params=n_params, init_MPI=False)
+        # mark2 loglike
+        if args.incJitter or args.incJitterEquad:
+
+            ndim = len(p0)
+
+            def myloglike(cube, ndim, nparams):
+                
+                acube = np.zeros(ndim)
+                for ii in range(ndim):
+                    acube[ii] = cube[ii]
+
+                # check prior
+                if model.mark3LogPrior(acube) != -np.inf:
+                    return loglike(acube, **loglkwargs)
+                else:
+                    #print 'WARNING: Prior returns -np.inf!!'
+                    return -np.inf
+
+            def myprior(cube, ndim, nparams):
+
+                for ii in range(ndim):
+                    cube[ii] = model.pmin[ii] + cube[ii] * (model.pmax[ii]-model.pmin[ii])
+        
+        
+        # mark1 loglike
+        else:
+
+            ndim = len(p0)
+
+            def myloglike(cube, ndim, nparams):
+                
+                acube = np.zeros(ndim)
+                for ii in range(ndim):
+                    acube[ii] = cube[ii]
+                
+                # check prior
+                if model.mark3LogPrior(acube) != -np.inf:
+                    ll = loglike(acube, **loglkwargs)
+                    return ll
+                else:
+                    #print 'WARNING: Prior returns -np.inf!!'
+                    return -np.inf
+
+                #return model.mark1LogLikelihood(acube)
+
+            def myprior(cube, ndim, nparams):
+
+                for ii in range(ndim):
+                    if args.GWBAmpPrior == 'sesana' and par_out[ii] == 'GWB-Amplitude':
+                        m = -15
+                        s = 0.22
+                        cube[ii] = m + s*np.sqrt(2) * ss.erfcinv(2*(1-cube[ii]))
+                    if args.GWBAmpPrior == 'mcwilliams' and par_out[ii] == 'GWB-Amplitude':
+                        m = np.log10(4.1e-15)
+                        s = 0.26
+                        cube[ii] = m + s*np.sqrt(2) * ss.erfcinv(2*(1-cube[ii]))
+                    else:
+                        cube[ii] = model.pmin[ii] + cube[ii] * (model.pmax[ii]-model.pmin[ii])
+
+                    # number of live points
+        nlive = 2000
+        n_params = ndim
+
+        # run MultiNest
+        pymultinest.run(myloglike, myprior, n_params, resume = args.resume, \
+                        verbose = True, sampling_efficiency = 0.2, \
+                        outputfiles_basename =  args.outDir+'/mn'+'-', \
+                        n_iter_before_update=5, n_live_points=nlive, \
+                        const_efficiency_mode=False, importance_nested_sampling=False, \
+                        n_clustering_params=n_params, init_MPI=False)
 
 
