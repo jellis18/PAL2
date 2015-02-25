@@ -554,7 +554,8 @@ class PTSampler(object):
                     # calculate new posterior values
                     lnprob0 = 1/self.temp * lnlike0 + self.logp(p0)
 
-        # Return values for colder chain: 0=nothing happened; 1=swap proposed, not accepted; 2=swap proposed & accepted
+        # Return values for colder chain: 0=nothing happened; 1=swap proposed, 
+        # not accepted; 2=swap proposed & accepted
         if swapProposed:
             if swapAccepted:
                 swapReturn = 2

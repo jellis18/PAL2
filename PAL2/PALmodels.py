@@ -4932,7 +4932,7 @@ class PTAmodels(object):
                                                     p.Nvec, p.Qamp, p.Uinds)
             
             # first component of likelihood function
-            loglike += -0.5 * (logdet_N + rNr)
+            loglike += -0.5 * (logdet_N + rNr) - 0.5 * len(p.toas)*np.log(2*np.pi)
             
             # calculate red noise piece
             if not incCorrelations:
@@ -4959,7 +4959,7 @@ class PTAmodels(object):
                     return -np.inf
                     #raise ValueError("ERROR: Sigma singular according to SVD")
 
-                loglike += 0.5 * (np.dot(dd, expval2))
+                loglike += 0.5 * (np.dot(dd, expval2)) 
 
                 # increment frequency counter
                 nfref += nf
