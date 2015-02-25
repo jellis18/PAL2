@@ -244,9 +244,13 @@ class DataFile(object):
 
         # Load pulsar data from the libstempo library
         try:
-            t2pulsar = t2.tempopulsar(parfile, timfile, maxobs=20000)
+            t2pulsar = t2.tempopulsar(relparfile, reltimfile, maxobs=20000)
         except TypeError:
-            t2pulsar = t2.tempopulsar(parfile, timfile)
+            t2pulsar = t2.tempopulsar(relparfile, reltimfile)
+        except:
+            print("Dir: ", dirname, savedir, parfile, timfile)
+            os.chdir(savedir)
+            raise
 
         # Load the entire par-file into memory, so that we can save it in the
         # HDF5 file
@@ -318,14 +322,18 @@ class DataFile(object):
 
             # close file
             fin.close()
+
+            # write to file
+            self.writeData(psrGroup, 'pdist', pdist, overwrite=overwrite)
+            self.writeData(psrGroup, 'pdistErr', pdistErr, overwrite=overwrite)
         except IOError:
             print 'WARNING: cannot find pulsarDistances.txt file!, setting all pulsar distances to 1'    
             pdist, pdistErr = 1.0, 0.2
-
-        # write to file
-        self.writeData(psrGroup, 'pdist', pdist, overwrite=overwrite)
-        self.writeData(psrGroup, 'pdistErr', pdistErr, overwrite=overwrite)
-        
+        except KeyError:
+            print 'WARNING: PAL2 environment variable not set. Not using pulsar distances'
+            pdist, pdistErr = 1.0, 0.2
+            self.writeData(psrGroup, 'pdist', pdist, overwrite=overwrite)
+            self.writeData(psrGroup, 'pdistErr', pdistErr, overwrite=overwrite)
 
         # Now obtain and write the timing model parameters
         tmpname = ['Offset'] + list(t2pulsar.pars)
