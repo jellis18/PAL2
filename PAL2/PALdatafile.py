@@ -262,7 +262,7 @@ class DataFile(object):
         # memory for HDF5 storage
         tempfilename = tempfile.mktemp()
         t2pulsar.savetim(tempfilename)
-        with open(tempfilename, 'r') as content_file:
+        with open(reltimfile, 'r') as content_file:
             timfile_content = content_file.read()
         os.remove(tempfilename)
 
@@ -282,7 +282,7 @@ class DataFile(object):
 
         # determine whether or not to drop points
         dat = t2pulsar.residuals()/t2pulsar.toaerrs/1e-6
-        #t2pulsar.deleted = np.abs(dat) > sigma
+        t2pulsar.deleted = np.abs(dat) > sigma
         if sigma < 10:
             print 'Deleting {0} points for pulsar {1}'.format(np.sum(t2pulsar.deleted), \
                                                                     t2pulsar.name)

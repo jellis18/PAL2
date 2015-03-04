@@ -2379,6 +2379,27 @@ def CorrBasis(psr_locs, nside=32):
     return basis
 
 
+def constructPulsarMassFromFile(chain, pars, retSamps=True):
+    """
+    Construct puslar mass form chain file that uses DD/T2 model
+    
+    """
+
+    # get values
+    m2 = chain[:,list(pars).index('M2')] 
+    try:
+        cosi = np.cos(np.arcsin(chain[:,list(pars).index('SINI')]))
+        sini = chain[:,list(pars).index('SINI')]
+    except ValueError:
+        cosi = np.cos(chain[:,list(pars).index('KIN')]*np.pi/180)
+        sini = np.sin(chain[:,list(pars).index('KIN')]*np.pi/180)
+
+    Pb = chain[:,list(pars).index('PB')]*86400
+    X = chain[:,list(pars).index('A1')]*299.79e6/3e8
+    M2 = m2*4.9e-6
+    mp = ((sini*(Pb/2/np.pi)**(2./3)*M2/X)**(3./2) - M2)/4.9e-6
+
+    return mp
 
 
 

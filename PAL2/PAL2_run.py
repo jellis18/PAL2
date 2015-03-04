@@ -267,6 +267,17 @@ else:
     incDMXKernel = False
     DMXKernelModel = args.dmxKernelModel
 
+#import libstempo as t2
+#psr = t2.tempopulsar('/Users/jaellis/Work/pulsars/NANOGrav/1713_21yr/feb/new.par', \
+#                     '/Users/jaellis/Work/pulsars/NANOGrav/1713_21yr/feb/1713.Feb.T2.tim', \
+#                     maxobs=20000)
+#print model.psr[0].Mmat.shape
+#print model.psr[0].Mmat[:,0]
+#model.psr[0].Mmat = psr.designmatrix(fixunits=True)
+#model.psr[0].residuals = psr.residuals()
+#print model.psr[0].Mmat.shape
+#print model.psr[0].Mmat[:,0]
+
 
 
 #likfunc= 'mark5'
@@ -527,7 +538,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
 
         cov = model.initJumpCovariance()
         
-        if args.incTimingModel:
+        if args.incTimingModel and not args.fixNoise:
             idx = np.arange(len(par_out))
             ind = [np.array([ct for ct, par in enumerate(par_out) if 'efac' in par or \
                     'equad' in par or 'jitter' in par or 'RN' in par or 'DM' in par \
