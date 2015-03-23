@@ -578,7 +578,7 @@ def createTimeLags(toa1, toa2, round=True):
         
     return tm
 
-def exploderMatrix(times, freqs=None, dt=10, flags=None):
+def exploderMatrix(times, freqs=None, dt=1.0, flags=None):
     isort = np.argsort(times)
     
     bucket_ref = [times[isort[0]]]
@@ -639,7 +639,7 @@ def exploderMatrixNoSingles(times, flags, dt=10):
         
 
     # find only epochs with more than 1 TOA
-    bucket_ind2 = [ind for ind in bucket_ind if len(ind) > 1]
+    bucket_ind2 = [ind for ind in bucket_ind if len(ind) > 2]
     
     avetoas = np.array([np.mean(times[l]) for l in bucket_ind2],'d')
     aveflags = np.array([flags[l[0]] for l in bucket_ind2])
@@ -2345,13 +2345,14 @@ def getCov(sh00, nside, F_e):
     # The pulsar term is added (only diagonals: uncorrelated)
     return hdcov_F + np.diag(np.diag(hdcov_F))
 
-
-def CorrBasis(psr_locs, nside=32):
+def CorrBasis(psr_locs, nside=32, direction='origin'):
     """
     Calculate the correlation basis matrices using the pixel-space
     transormations
 
     @param psr_locs:    Location of the pulsars [phi, theta]
+    @param ntiles:      Number of tiles to grid the sky with
+                        (should be a square number)
     @param nside:       What nside to use in the pixelation [32]
 
     Note: GW directions are in direction of GW propagation
@@ -2360,11 +2361,17 @@ def CorrBasis(psr_locs, nside=32):
     pphi = psr_locs[:,0]
     ptheta = psr_locs[:,1]
 
+    print pphi, ptheta
+
     # Create the pixels
     npixels = hp.nside2npix(nside)
     pixels = hp.pix2ang(nside, np.arange(npixels), nest=False)
-    gwtheta = pixels[0]
-    gwphi = pixels[1]
+    if direction=='propagation':
+        gwtheta = pixels[0]
+        gwphi = pixels[1]
+    else:
+        gwtheta = np.pi-pixels[0]
+        gwphi = np.pi+pixels[1]
 
     # Create the signal response matrix
     F_e = signalResponse_fast(ptheta, pphi, gwtheta, gwphi)
@@ -2377,6 +2384,9 @@ def CorrBasis(psr_locs, nside=32):
         basis.append(getCov(sh00[ii], nside, F_e[:,2*ii:2*ii+2]))
 
     return basis
+
+
+
 
 
 def constructPulsarMassFromFile(chain, pars, retSamps=True):

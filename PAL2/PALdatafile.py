@@ -262,7 +262,7 @@ class DataFile(object):
         # memory for HDF5 storage
         tempfilename = tempfile.mktemp()
         t2pulsar.savetim(tempfilename)
-        with open(reltimfile, 'r') as content_file:
+        with open(tempfilename, 'r') as content_file:
             timfile_content = content_file.read()
         os.remove(tempfilename)
 

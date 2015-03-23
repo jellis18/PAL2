@@ -88,6 +88,8 @@ parser.add_argument('--noCorrelations', dest='noCorrelations', action='store_tru
                     default=False, help='Do not in include GWB correlations')
 parser.add_argument('--GWBAmpPrior', dest='GWBAmpPrior', action='store', type=str, \
                     default='log', help='prior on GWB Amplitude [uniform, log]')
+parser.add_argument('--incORF', dest='incORF', action='store_true', \
+                    default='False', help='Include generic ORF')
 
 parser.add_argument('--incGWBAni', dest='incGWBAni', action='store_true',default=False,
                    help='include GWB')
@@ -152,6 +154,8 @@ parser.add_argument('--incPdist', dest='incPdist', action='store_true', \
                     default=False, help='Include pulsar distances for CW signal in run')
 parser.add_argument('--CWupperLimit', dest='CWupperLimit', action='store_true', \
                     default=False, help='Calculate CW upper limit (use h not d_L)')
+parser.add_argument('--CWmass_ratio', dest='CWmass_ratio', action='store_true', 
+                    default=False, help='Use model that parameterizes mass ratio and M')
 parser.add_argument('--fixf', dest='fixf', action='store', type=float, default=0.0,
                    help='value of GW frequency for upper limits')
 
@@ -290,6 +294,7 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     incDMEvent=args.incDMshapelet, dmEventModel=dmEventModel, \
                     ndmEventCoeffs=args.nshape, \
                     incDMX=args.incDMX, \
+                    incORF=args.incORF, \
                     incGWBAni=args.incGWBAni, lmax=args.nls,\
                     incDMXKernel=incDMXKernel, DMXKernelModel=DMXKernelModel, \
                     separateEfacs=separateEfacs, separateEfacsByFreq=separateEfacsByFreq, \
@@ -306,6 +311,7 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     nnongaussian=args.nnongauss, \
                     incCW=args.incCW, incPulsarDistance=args.incPdist, \
                     CWupperLimit=args.CWupperLimit, \
+                    mass_ratio=args.CWmass_ratio, \
                     incJitterEquad=args.incJitterEquad, \
                     incJitterEpoch=args.incJitterEpoch, nepoch=nepoch, \
                     redAmpPrior=args.redAmpPrior, GWAmpPrior=args.GWBAmpPrior, \
@@ -317,6 +323,41 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     gwbModel=args.gwbModel, \
                     compression=args.compression, \
                     likfunc=likfunc)
+
+
+#### Complete Hack to test CW source ####
+
+if args.CWmass_ratio:
+    print 'Fixing CW params'
+    for sig in fullmodel['signals']:
+        if sig['stype'] == 'cw':
+
+            # uniform prior on mass ratio
+            sig['prior'][-1] = 'uniform'
+
+            # gaussian prior on total mass
+            sig['prior'][2] = 'gaussian'
+            sig['mu'][2] = 9.97 + np.log10(3.06)
+            sig['sigma'][2] = 0.5
+
+            # gaussian prior on frequency
+            sig['prior'][4] = 'gaussian'
+            #sig['mu'][4] = -7.67 # orbital period
+            sig['mu'][4] = -7.369 # twice orbital period
+            sig['sigma'][4] = 0.004
+
+            # fix luminosity distance to 16331.8 Mpc
+            sig['bvary'][3] = False
+            sig['pstart'][3] = np.log10(16331.8)
+
+            # fix sky location
+            sig['bvary'][0] = False
+            sig['pstart'][0] = 1.54
+            
+            sig['bvary'][1] = False
+            sig['pstart'][1] = 5.83
+
+
 
 
 # fix spectral index
@@ -365,7 +406,7 @@ for sig in fullmodel['signals']:
 
 #for sig in fullmodel['signals']:
 #    if sig['stype'] == 'jitter_equad':
-#        if np.any([e in sig['flagvalue'] for e in ['L-wide_ASP']]):
+#        if np.any([e in sig['flagvalue'] for e in ['430_ASP']]):
 #            sig['bvary'] = [False]
 
 memsave = True
@@ -415,6 +456,9 @@ else:
     write = 'no'
 model.initModel(fullmodel, memsave=memsave, fromFile=args.fromFile, verbose=True, write=write)
 
+if args.CWmass_ratio:
+    print 'Setting Tref'
+    model.Tref = 53500.0 * 86400.0
 
 #import matplotlib.pyplot as plt
 #for p in model.psr:
@@ -514,7 +558,8 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
     
     # if fixed noise, must call likelihood once to initialize matrices
     if args.fixNoise or args.fixWhite:
-        loglike(p0, incCorrelations=False)
+        if not args.zerologlike:
+            loglike(p0, incCorrelations=False)
 
     if args.sampler == 'minimize':
 
@@ -545,9 +590,12 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
                     or 'red_' in par or 'dm_' in par or 'GWB' in par])]
             ind += [idx[(ind[-1][-1]+1):]]
         elif args.incCW:
-            ind = [np.array([ct for ct, par in enumerate(par_out) if 'efac' in par or \
-                    'equad' in par or 'jitter' in par or 'RN' in par or 'DM' in par \
-                    or 'red_' in par or 'dm_' in par or 'GWB' in par])]
+            if args.fixNoise:
+                ind = []
+            else:
+                ind = [np.array([ct for ct, par in enumerate(par_out) if 'efac' in par or \
+                        'equad' in par or 'jitter' in par or 'RN' in par or 'DM' in par \
+                        or 'red_' in par or 'dm_' in par or 'GWB' in par])]
 
             ind.append(np.array([ct for ct, par in enumerate(par_out) if \
                         'pdist' not in par and 'efac' not in par and \

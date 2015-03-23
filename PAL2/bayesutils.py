@@ -133,7 +133,7 @@ def confinterval(samples, sigma=0.68, onesided=False, weights=None, bins=40,
 def makesubplot2d(ax, samples1, samples2, cmap=None, color='k', weights=None, 
                   smooth=True, \
                   bins=[40, 40], contours=True, x_range=None, y_range=None, \
-                  logx=False, logy=False, logz=False):
+                  logx=False, logy=False, logz=False, lw=1.5):
     
     if x_range is None:
         xmin = np.min(samples1)
@@ -183,7 +183,7 @@ def makesubplot2d(ax, samples1, samples2, cmap=None, color='k', weights=None,
         contourcolors = (color, color, color)
         contourlinestyles = ('-', '--', '-.')
         #contourlinewidths = (2.0, 2.0, 2.0)
-        contourlinewidths = (1.5, 1.5, 1.5)
+        contourlinewidths = (lw, lw, lw)
         contourlabels = [r'1 $\sigma$', r'2 $\sigma$',r'3 $\sigma$']
         
         contlabels = (contourlabels[0], contourlabels[1], contourlabels[2])
@@ -227,7 +227,8 @@ def getMeanAndStd(samples, weights=None, bins=50):
     
     
 def makesubplot1d(ax, samples, weights=None, interpolate=False, smooth=True,\
-                  label=None, bins=30, range=None, color='k'):
+                  label=None, bins=30, range=None, color='k', 
+                  orientation='vertical', **kwargs):
     """ 
     Make histogram of samples
 
@@ -250,9 +251,15 @@ def makesubplot1d(ax, samples, weights=None, interpolate=False, smooth=True,\
 
     # make plot
     if label is not None:
-        ax.plot(xedges, hist, color=color, lw=1.5, label=label)
+        if orientation == 'horizontal':
+            ax.plot(hist, xedges, color=color, label=label, **kwargs)
+        else:
+            ax.plot(xedges, hist, color=color, label=label, **kwargs)
     else:
-        ax.plot(xedges, hist, color=color, lw=1.5)
+        if orientation == 'horizontal':
+            ax.plot(hist, xedges, color=color, **kwargs)
+        else:
+            ax.plot(xedges, hist, color=color, **kwargs)
 
 def getMax(samples, weights=None, range=None, bins=50):
     """ 
@@ -282,7 +289,7 @@ def getMax(samples, weights=None, range=None, bins=50):
 # make triangle plot of marginalized posterior distribution
 def triplot(chain, color='k', weights=None, interpolate=False, smooth=True, \
            labels=None, figsize=(11,8.5), title=None, inj=None, tex=True, \
-            incMaxPost=True, cmap='YlOrBr', holdon=False):
+            incMaxPost=True, cmap='YlOrBr', holdon=False, lw=1.5):
 
     """
 
@@ -337,7 +344,7 @@ def triplot(chain, color='k', weights=None, interpolate=False, smooth=True, \
                     # Make a 1D plot
                     makesubplot1d(axarr[ii][ii], chain[:,parameters[ii]], \
                                   weights=weights, interpolate=interpolate, \
-                                  smooth=smooth, color=color)
+                                  smooth=smooth, color=color, lw=lw)
                     axarr[ii][jj].set_ylim(ymin=0)
                     if incMaxPost:
                         mx = getMax(chain[:,parameters[ii]], weights=weights)
@@ -348,8 +355,8 @@ def triplot(chain, color='k', weights=None, interpolate=False, smooth=True, \
                 else:
                     # Make a 2D plot
                     makesubplot2d(axarr[jj][ii], chain[:,parameters[ii]], \
-                            chain[:,parameters[jj]], cmap=cmap, color=color, weights=weights, \
-                                  smooth=smooth)
+                            chain[:,parameters[jj]], cmap=cmap, color='k', weights=weights, \
+                                  smooth=smooth, lw=lw)
 
                     if inj is not None:
                         axarr[jj][ii].plot(inj[ii], inj[jj], 'x', color='k', markersize=12, \
@@ -382,6 +389,8 @@ def triplot(chain, color='k', weights=None, interpolate=False, smooth=True, \
     # make plots closer together 
     f.subplots_adjust(hspace=0.1)
     f.subplots_adjust(wspace=0.1)
+
+    return axarr
 
 
 def pol2cart(lon, lat): 
@@ -699,19 +708,6 @@ def makePostPlots(chain, labels, outDir='./postplots'):
         
         plt.savefig(outDir + '/' + labels[ii] + '_post.png', bbox_inches='tight', \
                    dpi=200)
-
-
-
-
-    
-
-
-
-
-
-
-
-
 
 
 
