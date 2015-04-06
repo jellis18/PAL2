@@ -209,7 +209,8 @@ class PTSampler(object):
 
         # write to file
         if iter % self.isave == 0 and iter > 1 and iter > self.resumeLength:
-            self._writeToFile(iter)
+            if self.writeHotChains or self.MPIrank == 0:
+                self._writeToFile(iter)
 
             # write output covariance matrix
             np.save(self.outDir + '/cov.npy', self.cov)
@@ -223,7 +224,7 @@ class PTSampler(object):
     def sample(self, p0, Niter, ladder=None, Tmin=1, Tmax=None, Tskip=100,
                isave=1000, covUpdate=1000, KDEupdate=1000, SCAMweight=20,
                AMweight=20, DEweight=20, KDEweight=0, burn=10000,
-               maxIter=None, thin=10, i0=0, neff=100000):
+               maxIter=None, thin=10, i0=0, neff=100000, writeHotChains=False):
         """
         Function to carry out PTMCMC sampling.
 
@@ -254,6 +255,8 @@ class PTSampler(object):
             maxIter = 2 * Niter
         elif maxIter is None and self.MPIrank == 0:
             maxIter = Niter
+
+        self.writeHotChains = writeHotChains
 
         # set up arrays to store lnprob, lnlike and chain
         N = int(maxIter / thin)

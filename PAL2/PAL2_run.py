@@ -54,6 +54,10 @@ parser.add_argument('--incRedBand', dest='incRedBand', action='store_true',defau
                    help='include band limited red noise')
 
 
+parser.add_argument('--Tspan', dest='Tspan', action='store', type=float, default=None,
+                   help='Tmax to use in red noise and GW expansion (default=None)')
+
+
 parser.add_argument('--incDM', dest='incDM', action='store_true',default=False,
                    help='include DM variations')
 parser.add_argument('--dmModel', dest='dmModel', action='store', type=str, default='powerlaw',
@@ -89,7 +93,7 @@ parser.add_argument('--noCorrelations', dest='noCorrelations', action='store_tru
 parser.add_argument('--GWBAmpPrior', dest='GWBAmpPrior', action='store', type=str, \
                     default='log', help='prior on GWB Amplitude [uniform, log]')
 parser.add_argument('--incORF', dest='incORF', action='store_true', \
-                    default='False', help='Include generic ORF')
+                    default=False, help='Include generic ORF')
 
 parser.add_argument('--incGWBAni', dest='incGWBAni', action='store_true',default=False,
                    help='include GWB')
@@ -321,6 +325,7 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     DMAmpPrior=args.DMAmpPrior, \
                     incGWB=incGWB, nfreqs=args.nfreqs, ndmfreqs=args.ndmfreqs, \
                     gwbModel=args.gwbModel, \
+                    Tmax = args.Tspan,
                     compression=args.compression, \
                     likfunc=likfunc)
 
@@ -364,10 +369,10 @@ if args.CWmass_ratio:
 if args.fixSi:
     print 'Fixing GWB spectral index to 4.33'
     for sig in fullmodel['signals']:
-        if sig['corr'] == 'gr':
+        if sig['corr'] == 'gr' and sig['stype'] == 'powerlaw':
             sig['bvary'][1] = False
             sig['pstart'][1] = 4.33
-        elif sig['corr'] == 'gr_sph':
+        elif sig['corr'] == 'gr_sph' and sig['stype'] == 'powerlaw':
             sig['bvary'][1] = False
             sig['pstart'][1] = 4.33
 
@@ -627,6 +632,8 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
             sampler.addProposalToCycle(model.drawFromRedNoiseBandPrior, 5)
         if args.incDMBand and args.dmModel=='powerlaw':
             sampler.addProposalToCycle(model.drawFromDMNoiseBandPrior, 5)
+        if args.incORF:
+            sampler.addProposalToCycle(model.drawFromORFPrior, 10)
         if args.incDM and args.dmModel=='powerlaw':
             sampler.addProposalToCycle(model.drawFromDMPrior, 5)
         if args.incRed and args.redModel=='spectrum':

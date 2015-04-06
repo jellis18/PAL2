@@ -172,7 +172,7 @@ class PTAmodels(object):
                       dmFrequencyLines=None,
                       orderFrequencyLines=False,
                       compression='None',
-                      targetAmp=1e-14,
+                      Tmax=None,
                       evalCompressionComplement=False,
                       likfunc='mark1'):
 
@@ -1325,11 +1325,11 @@ class PTAmodels(object):
             "numDMFreqs": [ndmfreqs for ii in range(len(self.psr))],
             "compression": compression,
             "logfrequencies": logf,
-            "targetAmp": targetAmp,
             "incDMX": incDMX,
             "orderFrequencyLines": orderFrequencyLines,
             "evalCompressionComplement": evalCompressionComplement,
             "likfunc": likfunc,
+            "Tmax":Tmax,
             "signals": signals
         })
 
@@ -1926,8 +1926,8 @@ class PTAmodels(object):
         orderFrequencyLines = fullmodel['orderFrequencyLines']
         likfunc = fullmodel['likfunc']
         signals = fullmodel['signals']
-        targetAmp = fullmodel['targetAmp']
         incDMX = fullmodel['incDMX']
+        dTmax = fullmodel['Tmax']
 
         if len(self.psr) < 1:
             raise IOError("No pulsars loaded")
@@ -1950,13 +1950,17 @@ class PTAmodels(object):
             Tfinish = np.max([np.max(p.toas), Tfinish])
         Tmax = Tfinish - Tstart
         #Tmax = 1/1.33950638e-09
-        self.Tmax = Tmax
         self.Tref = Tstart
 
         # print 'WARNING: Using seperate Tmax for each pulsar'
-        for p in self.psr:
-            #p.Tmax = p.toas.max() - p.toas.min()
-            p.Tmax = self.Tmax
+        if dTmax is None:
+            print 'WARNING: Using seperate Tmax for each pulsar'
+            for p in self.psr:
+                p.Tmax = p.toas.max() - p.toas.min()
+                #p.Tmax = self.Tmax
+        else:
+            print 'Using {0} yr for Tmax'.format(dTmax / 3.16e7)
+            p.Tmax = dTmax
 
         # If the compressionComplement is defined, overwrite the default
         if evalCompressionComplement != 'None':
@@ -1971,9 +1975,11 @@ class PTAmodels(object):
 
         # Find out how many single-frequency modes there are
         numSingleFreqs = self.getNumberOfSignalsFromDict(signals,
-                                                         stype='frequencyline', corr='single')
+                                                         stype='frequencyline',
+                                                         corr='single')
         numSingleDMFreqs = self.getNumberOfSignalsFromDict(signals,
-                                                           stype='dmfrequencyline', corr='single')
+                                                           stype='dmfrequencyline',
+                                                           corr='single')
 
         # Find out how many efac signals there are, and translate that to a
         # separateEfacs boolean array (for two-component noise analysis)
@@ -2519,7 +2525,7 @@ class PTAmodels(object):
         for ii in range(len(phi_els)):
             for jj in range(len(phi_els[ii])):
                 phi_els[ii][jj] = phi_corr[k]
-                k ++ 1
+                k += 1
 
         upper_triang[0, 0] = 1.0
         for ii in range(1, upper_triang.shape[1]):
@@ -6089,9 +6095,15 @@ class PTAmodels(object):
                     qxy += 0
 
                 elif sig['prior'][0] == 'uniform':
-                    q[parind] = np.log10(np.random.uniform(10 ** self.pmin[parind],
-                                                           10 ** self.pmax[parind]))
-                    qxy += np.log(10 ** parameters[parind] / 10 ** q[parind])
+                    
+                    # draw from log-uniform prior
+                    # to get more samples in right range
+                    q[parind] = np.random.uniform(
+                        self.pmin[parind], self.pmax[parind])
+                    qxy += 0
+                    #q[parind] = np.log10(np.random.uniform(10 ** self.pmin[parind],
+                    #                                       10 ** self.pmax[parind]))
+                    #qxy += np.log(10 ** parameters[parind] / 10 ** q[parind])
 
                 elif sig['prior'][0] == 'sesana':
                     m = -15
@@ -6195,6 +6207,40 @@ class PTAmodels(object):
                     q[parind + 2] = parameters[parind + 2]
 
         return q, qxy
+
+    def drawFromORFPrior(self, parameters, iter, beta):
+        
+        # post-jump parameters
+        q = parameters.copy()
+
+        # transition probability
+        qxy = 0
+
+        # find number of signals
+        nsigs = 1
+        signum = self.getSignalNumbersFromDict(
+            self.ptasignals, stype='ORF', corr='gr')
+
+        # which parameters to jump
+        ind = np.unique(np.random.randint(0, nsigs, nsigs))
+        
+        # draw params from prior
+        for ii in ind:
+
+            # get signal
+            sig = self.ptasignals[signum[ii]]
+            parind = sig['parindex']
+            npars = sig['npars']
+
+            # jump in amplitude if varying
+            for jj in range(npars):
+                if sig['bvary'][jj]:
+                    q[parind + jj] = np.random.uniform(self.pmin[parind + jj],
+                                                       self.pmax[parind + jj])
+                    qxy += 0
+
+        return q, qxy
+
 
     # CW draws from prior
     def drawFromCWPrior(self, parameters, iter, beta):

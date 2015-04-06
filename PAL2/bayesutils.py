@@ -10,6 +10,7 @@ from matplotlib.ticker import FormatStrFormatter, LinearLocator, NullFormatter, 
 import matplotlib.ticker
 import matplotlib.colors
 from optparse import OptionParser
+from statsmodels.distributions.empirical_distribution import ECDF
 import os
 
 """
@@ -18,13 +19,11 @@ the 1, 2, 3- sigma levels. The 2D matrix is usually either a 2D histogram or a
 likelihood scan
 
 """
-def getsigmalevels(hist2d):
+def getsigmalevels(hist2d, sig_levels=[0.68, 0.95, 0.997]):
   # We will draw contours with these levels
-  sigma1 = 0.68268949
+  sigma1, sigma2, sigma3 = sig_levels
   level1 = 0
-  sigma2 = 0.95449974
   level2 = 0
-  sigma3 = 0.99730024
   level3 = 0
 
   #
@@ -75,23 +74,23 @@ def confinterval(samples, sigma=0.68, onesided=False, weights=None, bins=40,
 
     """
 
-    # Create the histogram
-    hist, xedges = np.histogram(samples, bins=bins, weights=weights)
-    xedges = np.delete(xedges, -1) + 0.5*(xedges[1] - xedges[0])
+    ## Create the histogram
+    #hist, xedges = np.histogram(samples, bins=bins, weights=weights)
+    #xedges = np.delete(xedges, -1) + 0.5*(xedges[1] - xedges[0])
 
-    # CDF
-    cdf = np.cumsum(hist/hist.sum())
+    ## CDF
+    #cdf = np.cumsum(hist/hist.sum())
 
-    # interpolate
-    x = np.linspace(xedges.min(), xedges.max(), 10000)
-    ifunc = interp.interp1d(xedges, cdf, kind='linear')
-    y = ifunc(x)
+    ## interpolate
+    #x = np.linspace(xedges.min(), xedges.max(), 10000)
+    #ifunc = interp.interp1d(xedges, cdf, kind='cubic')
+    #y = ifunc(x)
     
-    #ecdf = sm.distributions.ECDF(samples)
+    ecdf = ECDF(samples)
 
     # Create the binning
-    #x = np.linspace(min(samples), max(samples), 1000)
-    #y = ecdf(x)
+    x = np.linspace(min(samples), max(samples), 1000)
+    y = ecdf(x)
 
     # Find the intervals
     if type == 'equalArea' or onesided:
@@ -130,10 +129,10 @@ def confinterval(samples, sigma=0.68, onesided=False, weights=None, bins=40,
 
 
 
-def makesubplot2d(ax, samples1, samples2, cmap=None, color='k', weights=None, 
-                  smooth=True, \
-                  bins=[40, 40], contours=True, x_range=None, y_range=None, \
-                  logx=False, logy=False, logz=False, lw=1.5):
+def makesubplot2d(ax, samples1, samples2, cmap=None, color='k', weights=None,
+                  smooth=True, bins=[40, 40], contours=True, x_range=None,
+                  y_range=None, logx=False, logy=False, logz=False, lw=1.5,
+                  conf_levels=[0.68, 0.95, 0.99]):
     
     if x_range is None:
         xmin = np.min(samples1)
@@ -175,18 +174,14 @@ def makesubplot2d(ax, samples1, samples2, cmap=None, color='k', weights=None,
 
     if contours:
         
-        level1, level2, level3 = getsigmalevels(hist2d)
+        level1, level2, level3 = getsigmalevels(hist2d, conf_levels)
         
         contourlevels = (level1, level2, level3)
         
-        #contourcolors = ('darkblue', 'darkblue', 'darkblue')
         contourcolors = (color, color, color)
         contourlinestyles = ('-', '--', '-.')
-        #contourlinewidths = (2.0, 2.0, 2.0)
         contourlinewidths = (lw, lw, lw)
-        contourlabels = [r'1 $\sigma$', r'2 $\sigma$',r'3 $\sigma$']
         
-        contlabels = (contourlabels[0], contourlabels[1], contourlabels[2])
 
         c1 = ax.contour(xedges,yedges,hist2d.T,contourlevels, \
                 colors=contourcolors, linestyles=contourlinestyles, \
