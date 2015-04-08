@@ -748,7 +748,8 @@ class Pulsar(object):
         # For creating the auxiliaries it does not really matter: we are now
         # creating all quantities per default
         self.twoComponentNoise = twoComponent
-        if likfunc == 'mark7' or likfunc == 'mark6' or likfunc == 'mark9':
+        if likfunc == 'mark7' or likfunc == 'mark6' or likfunc == 'mark9' \
+                or likfunc == 'mark10':
             self.twoComponentNoise = False
 
         # sorting index if not sorting
@@ -1016,7 +1017,7 @@ class Pulsar(object):
             self.norm = np.sqrt(np.sum(Mm ** 2, axis=0))
 
         self.Mmat_reduced = Mmat
-        if likfunc != 'mark6' or likfunc != 'mark9':
+        if likfunc != 'mark6' or likfunc != 'mark9' or likfunc != 'mark10':
             U, s, Vh = sl.svd(Mmat)
             self.Gmat = U[:, Mmat.shape[1]:].copy()
             self.Gcmat = U[:, :Mmat.shape[1]].copy()
@@ -1046,6 +1047,15 @@ class Pulsar(object):
                 print self.nDMX
                 self.Tmat = np.concatenate(
                     (self.Tmat, self.DMXDesignMat), axis=1)
+
+        # dense covariance likelihood
+        if likfunc == 'mark10':
+            self.avetoas, self.aveflags, U =  PALutils.exploderMatrix(
+                self.toas, flags=np.array(self.flags), dt=1)
+
+            self.tm = PALutils.createTimeLags(self.avetoas, self.avetoas)
+
+            self.Tmat = np.append(Mmat, U, axis=1)
 
         if likfunc == 'mark8':
             N = self.toaerrs ** 2

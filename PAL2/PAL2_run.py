@@ -181,6 +181,8 @@ parser.add_argument('--Tmatrix', dest='Tmatrix', action='store_true', \
                     default=False, help='Use T matrix formalism')
 parser.add_argument('--mark9', dest='mark9', action='store_true', \
                     default=False, help='Use mark9 likelihoodk')
+parser.add_argument('--mark10', dest='mark10', action='store_true', \
+                    default=False, help='Use mark10 likelihoodk')
 
 parser.add_argument('--Tmin', dest='Tmin', type=float, action='store', \
                      default=1, help='Minimum temperature for parallel tempering')
@@ -262,6 +264,8 @@ if args.Tmatrix or args.margShapelet:
     likfunc = 'mark6'
 if args.mark9:
     likfunc = 'mark9'
+if args.mark10:
+    likfunc = 'mark10'
 
 if args.margShapelet:
     dmEventModel = 'shapeletmarg'
@@ -509,6 +513,8 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         loglike = model.mark7LogLikelihood
     if args.mark9:
         loglike = model.mark9LogLikelihood
+    if args.mark10:
+        loglike = model.mark10LogLikelihood
                                 
 
     # if zero log-likeihood
@@ -530,7 +536,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
     else:
         loglkwargs['incCorrelations'] = True
         print 'Running model with GWB correlations'
-    if args.incJitterEquad and args.Tmatrix:
+    if args.incJitterEquad and np.any([args.Tmatrix, args.mark10]):
         loglkwargs['incJitter'] = True
     if args.fixNoise and not args.fixWhite:
         loglkwargs['varyNoise'] = False

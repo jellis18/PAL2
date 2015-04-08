@@ -397,7 +397,7 @@ class PTAmodels(object):
                     prior = [redSpectrumPrior] * nfreqs
                 elif noiseModel == 'powerlaw':
                     bvary = [True, True, False]
-                    pmin = [-20.0, 0.02, 1.0e-11]
+                    pmin = [-20.0, 1.02, 1.0e-11]
                     pmax = [-11.0, 6.98, 3.0e-9]
                     pstart = [-19.0, 2.01, 1.0e-10]
                     pwidth = [0.1, 0.1, 5.0e-11]
@@ -2330,7 +2330,8 @@ class PTAmodels(object):
                 p.nSingleFreqs * 2 + p.nSingleDMFreqs * 2
             self.ntmpars += len(p.ptmdescription)
 
-            if self.likfunc == 'mark6' or self.likfunc == 'mark8' or self.likfunc == 'mark9':
+            if self.likfunc == 'mark6' or self.likfunc == 'mark8' or \
+                self.likfunc == 'mark9' or self.likfunc == 'mark10':
                 p.Ttmat = p.Tmat.copy()
                 nphiTmat += p.Tmat.shape[1] + p.nSingleFreqs * 2 + p.nSingleDMFreqs * 2 + \
                     p.ndmEventCoeffs
@@ -2344,7 +2345,7 @@ class PTAmodels(object):
         self.ngwf = np.max(self.npf)
         self.gwfreqs = self.psr[np.argmax(self.npf)].Ffreqs
         nftot = np.max(self.npftot)
-        if self.likfunc == 'mark6' or self.likfunc == 'mark9':
+        if self.likfunc == 'mark6' or self.likfunc == 'mark9' or self.likfunc == 'mark10':
             self.Phiinv = np.zeros((nphiTmat, nphiTmat))
             self.TNT = np.zeros((nphiTmat, nphiTmat))
             self.Phi = np.zeros((nphiTmat, nphiTmat))
@@ -2353,6 +2354,8 @@ class PTAmodels(object):
             self.Phiinv = np.zeros((nftot * self.npsr, nftot * self.npsr))
             self.Phi = np.zeros((nftot * self.npsr, nftot * self.npsr))
             self.Sigma = np.zeros((nftot * self.npsr, nftot * self.npsr))
+
+
 
         # for ii in range(self.npsr):
         #    if not self.likfunc in ['mark2']:
@@ -3036,6 +3039,8 @@ class PTAmodels(object):
 
                     # fill in kappa
                     self.psr[psrind].kappa = pcdoubled
+                    Tmax = self.psr[psrind].toas.max() - self.psr[psrind].toas.min()
+                    self.psr[psrind].kappa[freqpy < 1/Tmax] = -40
 
                 # correlated signals
                 if sig['corr'] in ['gr', 'uniform', 'dipole']:
@@ -3055,6 +3060,9 @@ class PTAmodels(object):
                                    fgw ** (-gamma) / sig['Tmax'])
                     # rho = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
                     #                     fgw**(-gamma))
+                    
+                    Tmax = self.psr[psrind].toas.max() - self.psr[psrind].toas.min()
+                    rho[fgw < 1/Tmax] = -40
 
                 if sig['corr'] in ['gr_sph']:
 
@@ -3442,6 +3450,76 @@ class PTAmodels(object):
                 ind1 = np.arange(ii * nftot, ii * nftot + nftot)
                 for jj in range(0, self.npsr):
                     self.Phiinv[ind1, ind2[jj]] = smallMatrix[:, ii, jj]
+
+    
+    def construct_dense_cov_matrix(self, parameters, incJitter=False):
+        """
+        WARNING: ONLY WORKS FOR A SINGLE PULSAR
+        """
+
+        # fill in timing model part
+        ntmpars = self.psr[0].Mmat.shape[1]
+        nepoch = len(self.psr[0].avetoas)
+        self.Phiinv[:ntmpars, :ntmpars] = 0
+        self.Phi[:] = 0
+
+        for ss, sig in enumerate(self.ptasignals):
+
+            # short hand
+            psrind = sig['pulsarind']
+            parind = sig['parindex']
+            npars = sig['npars']
+
+            psr = self.psr[psrind]
+
+            # parameters for this signal
+            sparameters = sig['pstart'].copy()
+
+            # which ones are varying
+            sparameters[sig['bvary']] = parameters[parind:parind + npars]
+
+            # powerlaw spectrum
+            if sig['stype'] == 'powerlaw':
+
+                # pulsar independend red noise powerlaw
+                if sig['corr'] == 'single':
+
+                    # get Amplitude and spectral index
+                    Amp = 10 ** sparameters[0]
+                    gamma = sparameters[1]
+
+                    self.Phi[ntmpars:nepoch+ntmpars, ntmpars:nepoch+ntmpars] += \
+                            PALutils.createRedNoiseCovarianceMatrix(
+                                psr.tm, Amp, gamma, fast=True, fH=1.3e-7)
+
+
+                # correlated signals
+                if sig['corr'] in ['gr', 'uniform', 'dipole']:
+
+                    # correlation matrix
+                    self.corrmat = sig['corrmat']
+
+                    # get Amplitude and spectral index
+                    Amp = 10 ** sparameters[0]
+                    gamma = sparameters[1]
+                    
+                    self.Phi[ntmpars:nepoch+ntmpars, ntmpars:nepoch+ntmpars] += \
+                            PALutils.createRedNoiseCovarianceMatrix(
+                                psr.tm, Amp, gamma, fast=True, fH=1.3e-7)
+
+        # add jitter
+        if incJitter:
+            self.Phi[ntmpars:nepoch+ntmpars, ntmpars:nepoch+ntmpars] += \
+                    np.diag(self.psr[0].Qamp)
+
+        # invert C
+        cf = sl.cho_factor(self.Phi[ntmpars:nepoch+ntmpars, ntmpars:nepoch+ntmpars])
+        self.Phiinv[ntmpars:nepoch+ntmpars, ntmpars:nepoch+ntmpars] = \
+                sl.cho_solve(cf, np.eye(nepoch))
+
+        # log determinant
+        self.logdetPhi = np.sum(2 * np.log(np.diag(cf[0])))
+
 
     """
     Function to contruct non-gaussian signal
@@ -5174,6 +5252,96 @@ class PTAmodels(object):
                 (self.logdetPhi + self.logdet_Sigma) + \
                 0.5 * (np.dot(d, expval2))
         return loglike
+    
+    """
+    mark 10 log likelihood. Note that this is not the same as mark6 in piccard
+
+    EFAC + EQUAD + Red noise + DMV + GWs
+
+
+    Uses Woodbury lemma and "T" matrix formalism with coarse-grained covariance
+    matrix for red noise and jitter
+
+    """
+
+    def mark10LogLikelihood(self, parameters, incJitter=False, incCorrelations=False):
+
+        loglike = 0
+
+
+        # set pulsar white noise parameters
+        self.setPsrNoise(parameters, incJitter=False)
+        
+        # construct dense coarse grained covariance matrix
+        try:
+            self.construct_dense_cov_matrix(parameters, incJitter=incJitter)
+        except np.linalg.LinAlgError:
+            return -np.inf
+
+        # set deterministic sources
+        if self.haveDetSources:
+            self.updateDetSources(parameters)
+
+        # compute the white noise terms in the log likelihood
+        TNT = []
+        nfref = 0
+        for ct, p in enumerate(self.psr):
+
+            # check for nans or infs
+            if np.any(np.isnan(p.detresiduals)) or np.any(
+                    np.isinf(p.detresiduals)):
+                return -np.inf
+
+            # equivalent to T^T N^{-1} \delta t
+            if ct == 0:
+                d = np.dot(p.Tmat.T, p.detresiduals / p.Nvec)
+            else:
+                d = np.append(d, np.dot(p.Tmat.T, p.detresiduals / p.Nvec))
+
+            # compute T^T N^{-1} T
+            right = ((1 / p.Nvec) * p.Tmat.T).T
+            TNT.append(np.dot(p.Tmat.T, right))
+
+            # log determinant of G^TNG
+            logdet_N = np.sum(np.log(p.Nvec))
+
+            # triple product in likelihood function
+            rNr = np.sum(p.detresiduals ** 2 / p.Nvec)
+
+            # first component of likelihood function
+            loglike += -0.5 * (logdet_N + rNr)
+
+            # calculate red noise piece
+            if not incCorrelations:
+
+                # compute sigma
+                nf = p.Tmat.shape[1]
+                dd = d[nfref:(nfref + nf)]
+
+                self.Sigma[nfref:(nfref + nf), nfref:(nfref + nf)] = \
+                    TNT[ct] + \
+                    self.Phiinv[nfref:(nfref + nf), nfref:(nfref + nf)]
+
+                # cholesky decomp for maximum likelihood fourier components
+                try:
+                    cf = sl.cho_factor(
+                        self.Sigma[nfref:(nfref + nf), nfref:(nfref + nf)])
+                    expval2 = sl.cho_solve(cf, dd)
+                    self.logdet_Sigma = np.sum(2 * np.log(np.diag(cf[0])))
+                except np.linalg.LinAlgError:
+                    return -np.inf
+                    raise ValueError("ERROR: Sigma singular according to SVD")
+
+                loglike += 0.5 * (np.dot(dd, expval2))
+
+                # increment frequency counter
+                nfref += nf
+
+        if not incCorrelations:
+            loglike += -0.5 * (self.logdetPhi + self.logdet_Sigma)
+
+
+        return loglike
 
     # compute F_p statistic
     def fpStat(self, f0):
@@ -5607,8 +5775,8 @@ class PTAmodels(object):
                         (self.psr[psrind].Tmax / 3.16e7) ** ((gam - 1) / 2)
                 else:
                     sig_red = 0
-                if sig_red > sig_data:
-                    prior += -np.inf
+                #if sig_red > sig_data:
+                #    prior += -np.inf
 
             if sig['corr'] in ['gr_sph']:
                 if sig['stype'] == 'powerlaw':

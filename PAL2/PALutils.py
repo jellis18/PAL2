@@ -6,7 +6,7 @@ import scipy.integrate as si
 import scipy.interpolate as interp
 import healpy as hp
 import numpy.polynomial.hermite as herm
-#import numexpr as ne
+import numexpr as ne
 import sys,os
 
 def innerProduct_rr(x, y, Nvec, Tmat, Sigma, TNx=None, TNy=None):
@@ -878,7 +878,7 @@ def createGHmatrix(toa, err, res, G, fidelity, Amp = None):
 
 
 
-def createRedNoiseCovarianceMatrix(tmcopy, Amp, gam, fH=None, fast=False):
+def createRedNoiseCovarianceMatrix(tm, Amp, gam, fH=None, fast=False):
     """
     Create red noise covariance matrix. If fH is None, then
     return standard power law covariance matrix. If fH is not
@@ -899,12 +899,8 @@ def createRedNoiseCovarianceMatrix(tmcopy, Amp, gam, fH=None, fast=False):
     # conversion from seconds to years
     s2yr = 1/3.16e7
     
-    # convert tm to yr
-    tm = tmcopy.copy()
-    tm *= s2yr
-
     # compute high frequency cutoff
-    Tspan = tm.max()
+    Tspan = tm.max() * s2yr
     fL = 1/(10*Tspan)
 
 
@@ -913,12 +909,14 @@ def createRedNoiseCovarianceMatrix(tmcopy, Amp, gam, fH=None, fast=False):
         # convert amplitude to correct units
         A = Amp**2/24/np.pi**2
         if fast:
-            x = 2*np.pi*fL*tm
-            corr = (2*A/(fL**(gam-1)))*((ss.gamma(1-gam)*np.sin(np.pi*gam/2)*ne.evaluate("x**(gam-1)")) \
-                            -sumTermCovarianceMatrix_fast(tm, fL, gam))
+            x = 2 *np.pi * fL * tm * s2yr
+            corr = (2*A/(fL**(gam-1)))*((ss.gamma(1-gam)* \
+                np.sin(np.pi*gam/2)*ne.evaluate("x**(gam-1)")) \
+                -sumTermCovarianceMatrix_fast(tm*s2yr, fL, gam))
         else:
-            corr = (2*A/(fL**(gam-1)))*((ss.gamma(1-gam)*np.sin(np.pi*gam/2)*(2*np.pi*fL*tm)**(gam-1)) \
-                            -sumTermCovarianceMatrix(tm, fL, gam, 5))
+            corr = (2*A/(fL**(gam-1)))*((ss.gamma(1-gam)* \
+                np.sin(np.pi*gam/2)*(2*np.pi*fL*tm)**(gam-1)) \
+                -sumTermCovarianceMatrix(tm*s2yr, fL, gam, 5))
 
     elif fH is not None:
 
@@ -929,12 +927,13 @@ def createRedNoiseCovarianceMatrix(tmcopy, Amp, gam, fH=None, fast=False):
  
         EulerGamma=0.577
 
-        x = 2*np.pi*fL*tm
+        x = 2*np.pi*fL*tm * s2yr
 
-        norm = (fL**(2*alpha - 2)) * 2**(alpha - 3) / (3 * np.pi**1.5 * ss.gamma(1.5 - alpha))
+        norm = (fL**(2*alpha - 2)) * 2**(alpha - 3) / \
+            (3 * np.pi**1.5 * ss.gamma(1.5 - alpha))
 
         # introduce a high-frequency cutoff
-        xi = fH/fL
+        xi = (fH/s2yr)/fL
         
         # avoid the gamma singularity at alpha = 1
         if np.abs(alpha - 1) < 1e-6:
