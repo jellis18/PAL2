@@ -848,9 +848,8 @@ class Pulsar(object):
         # Create the Fourier design matrices for noise
         if nf > 0:
             self.incRed = True
-            (self.Fmat, self.Ffreqs) = PALutils.createfourierdesignmatrix(self.toas,
-                                                                          nf, Tspan=Tmax, freq=True,
-                                                                          logf=False)
+            (self.Fmat, self.Ffreqs) = PALutils.createfourierdesignmatrix(
+                self.toas, nf, Tspan=Tmax, freq=True, logf=False)
             #self.Fmat /= np.sqrt(Tmax)
             # self.Ffreqs, self.Fmat = rr.get_rr_rep(self.toas, Tmax, 1/4.7/Tmax, nf, \
             #                                20, simpson=False)
@@ -1199,6 +1198,7 @@ class Pulsar(object):
             self.Hocmat = None
             self.Hmat = None
             self.Amat = None
+
 
     """
     For every pulsar, quite a few Auxiliary quantities (like GtF etc.) are

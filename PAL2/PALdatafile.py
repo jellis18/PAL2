@@ -559,16 +559,22 @@ class DataFile(object):
 
             # convert via pyephem
             #print elong, elat
-            ec = ephem.Ecliptic(elong, elat)
-            
-            # check for B name
-            if 'B' in psr.name:
-                epoch = '1950'
-            else:
-                epoch = '2000'
-            eq = ephem.Equatorial(ec, epoch=epoch)
-            psr.raj = np.float(eq.ra)
-            psr.decj = np.float(eq.dec)
+            try:
+                ec = ephem.Ecliptic(elong, elat)
+                
+                # check for B name
+                if 'B' in psr.name:
+                    epoch = '1950'
+                else:
+                    epoch = '2000'
+                eq = ephem.Equatorial(ec, epoch=epoch)
+                psr.raj = np.float(eq.ra)
+                psr.decj = np.float(eq.dec)
+            except TypeError:
+                print 'WARNING: Cannot find sky location coordinates.' \
+                        'Setting to 0.'
+                psr.raj = 0.0
+                psr.decj = 0.0
 
         else:
             psr.raj = np.array(self.getData(psrname, 'tmp_valpost'))[rajind]

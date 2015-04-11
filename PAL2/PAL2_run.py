@@ -556,7 +556,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
     if MPIrank == 0:
         pstart = True
     startSpectrumMin = False
-    fixpstart = True
+    #fixpstart = True
     while not(inRange):
         p0 = model.initParameters(startEfacAtOne=True, fixpstart=fixpstart)
         startSpectrumMin = True
@@ -564,6 +564,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
             if logprior(p0) != -np.inf and loglike(p0) != -np.inf:
                 inRange = True
         else:
+            print loglike(p0, **loglkwargs)
             if logprior(p0) != -np.inf and loglike(p0, **loglkwargs) != -np.inf:
                 inRange = True
     

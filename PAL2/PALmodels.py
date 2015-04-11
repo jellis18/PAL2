@@ -1353,7 +1353,7 @@ class PTAmodels(object):
                              Keys: {0}. Required: {1}".format(signal.keys(), keys))
 
         # Determine the time baseline of the array of pulsars
-        if not 'Tmax' in signal:
+        if not 'Tmax' in signal and Tmax is None:
             Tstart = np.min(self.psr[0].toas)
             Tfinish = np.max(self.psr[0].toas)
             for p in self.psr:
@@ -3036,11 +3036,8 @@ class PTAmodels(object):
                                          freqpy ** (-gamma) / sig['Tmax'])
                     # pcdoubled = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
                     #                     freqpy**(-gamma))
-
                     # fill in kappa
                     self.psr[psrind].kappa = pcdoubled
-                    Tmax = self.psr[psrind].toas.max() - self.psr[psrind].toas.min()
-                    self.psr[psrind].kappa[freqpy < 1/Tmax] = -40
 
                 # correlated signals
                 if sig['corr'] in ['gr', 'uniform', 'dipole']:
@@ -3061,8 +3058,6 @@ class PTAmodels(object):
                     # rho = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
                     #                     fgw**(-gamma))
                     
-                    Tmax = self.psr[psrind].toas.max() - self.psr[psrind].toas.min()
-                    rho[fgw < 1/Tmax] = -40
 
                 if sig['corr'] in ['gr_sph']:
 
