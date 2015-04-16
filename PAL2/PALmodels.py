@@ -6141,30 +6141,33 @@ class PTAmodels(object):
             npars = sig['npars']
 
             # jump in amplitude if varying
-            for jj in range(npars):
-                if sig['bvary'][jj]:
+            #for jj in range(npars):
+            jj = np.random.randint(0, np.sum(sig['bvary']))
+            if sig['bvary'][jj]:
 
-                    # log prior
-                    if sig['prior'][jj] == 'log':
-                        q[parind + jj] = np.random.uniform(self.pmin[parind + jj],
-                                                           self.pmax[parind + jj])
-                        qxy += 0
+                # log prior
+                if sig['prior'][jj] == 'log':
+                    q[parind + jj] = np.random.uniform(self.pmin[parind + jj],
+                                                       self.pmax[parind + jj])
+                    qxy += 0
 
-                    elif sig['prior'][jj] == 'uniform':
-                        q[parind + jj] = np.log10(np.random.uniform(10 ** self.pmin[parind + jj],
-                                                                    10 ** self.pmax[parind + jj]))
-                        qxy += np.log(10 **
-                                      parameters[parind + jj] / 10 ** q[parind + jj])
+                elif sig['prior'][jj] == 'uniform':
+                    q[parind + jj] = np.log10(np.random.uniform(
+                        10 ** self.pmin[parind + jj], 
+                        10 ** self.pmax[parind + jj]))
+                    qxy += np.log(10 ** parameters[parind + jj] 
+                                  / 10 ** q[parind + jj])
 
-                    elif sig['prior'][jj] == 'sqrt':
-                        q[parind + jj] = np.log10(np.random.uniform(10 ** (self.pmin[parind + jj] / 2),
-                                                                    10 ** (self.pmax[parind + jj] / 2)) ** 2)
-                        qxy += np.log(10 **
-                                      (parameters[parind + jj] / 2) / 10 ** (q[parind + jj] / 2))
+                elif sig['prior'][jj] == 'sqrt':
+                    q[parind + jj] = np.log10(np.random.uniform(
+                        10 ** (self.pmin[parind + jj] / 2), 
+                        10 ** (self.pmax[parind + jj] / 2)) ** 2)
+                    qxy += np.log(10 ** (parameters[parind + jj] / 2) 
+                                  / 10 ** (q[parind + jj] / 2))
 
-                    else:
-                        print 'Prior type not recognized for parameter'
-                        q[parind + jj] = parameters[parind + jj]
+                else:
+                    print 'Prior type not recognized for parameter'
+                    q[parind + jj] = parameters[parind + jj]
 
         return q, qxy
 

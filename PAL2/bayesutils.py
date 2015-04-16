@@ -117,6 +117,9 @@ def confinterval(samples, sigma=0.68, onesided=False, weights=None, bins=40,
                 break
 
     if type == 'equalProb' and not(onesided):
+        hist, xedges = np.histogram(samples, bins=bins, weights=weights)
+        xedges = np.delete(xedges, -1) + 0.5*(xedges[1] - xedges[0])
+        x = np.linspace(xedges.min(), xedges.max(), 10000)
         ifunc = interp.interp1d(xedges, hist, kind='linear')
         sortlik = np.sort(ifunc(x))
         sortlik /= sortlik.sum()
