@@ -1353,13 +1353,13 @@ class PTAmodels(object):
                              Keys: {0}. Required: {1}".format(signal.keys(), keys))
 
         # Determine the time baseline of the array of pulsars
-        if not 'Tmax' in signal and Tmax is None:
-            Tstart = np.min(self.psr[0].toas)
-            Tfinish = np.max(self.psr[0].toas)
-            for p in self.psr:
-                Tstart = np.min([np.min(p.toas), Tstart])
-                Tfinish = np.max([np.max(p.toas), Tfinish])
-            Tmax = Tfinish - Tstart
+        #if not 'Tmax' in signal and Tmax is None:
+        #    Tstart = np.min(self.psr[0].toas)
+        #    Tfinish = np.max(self.psr[0].toas)
+        #    for p in self.psr:
+        #        Tstart = np.min([np.min(p.toas), Tstart])
+        #        Tfinish = np.max([np.max(p.toas), Tfinish])
+        #    Tmax = Tfinish - Tstart
 
         # Adjust some basic details about the signal
         signal['Tmax'] = Tmax
@@ -1958,9 +1958,13 @@ class PTAmodels(object):
             for p in self.psr:
                 p.Tmax = p.toas.max() - p.toas.min()
                 #p.Tmax = self.Tmax
+        elif dTmax == 0:
+            for p in self.psr:
+                p.Tmax = Tmax
         else:
             print 'Using {0} yr for Tmax'.format(dTmax / 3.16e7)
-            p.Tmax = dTmax
+            for p in self.psr:
+                p.Tmax = dTmax
 
         # If the compressionComplement is defined, overwrite the default
         if evalCompressionComplement != 'None':
@@ -2333,6 +2337,10 @@ class PTAmodels(object):
             if self.likfunc == 'mark6' or self.likfunc == 'mark8' or \
                 self.likfunc == 'mark9' or self.likfunc == 'mark10':
                 p.Ttmat = p.Tmat.copy()
+                if p.nSingleFreqs != 0:
+                    p.Ttmat = np.append(p.Ttmat, np.zeros((p.Tmat.shape[0], 
+                                                           p.nSingleFreqs * 2)),
+                                       axis=1)
                 nphiTmat += p.Tmat.shape[1] + p.nSingleFreqs * 2 + p.nSingleDMFreqs * 2 + \
                     p.ndmEventCoeffs
 
@@ -2677,7 +2685,7 @@ class PTAmodels(object):
                     f1yr = 1 / 3.16e7
                     #f1yr = 1/self.psr[psrind].Tmax
                     rho = np.log10(Amp ** 2 / 12 / np.pi ** 2 * f1yr ** (gamma - 3) *
-                                   freqpy ** (-gamma) / sig['Tmax'])
+                                   freqpy ** (-gamma) / self.psr[psrind].Tmax)
 
                     # get corresponding fourier modes
                     ind = self.getSignalNumbersFromDict(self.ptasignals,
@@ -2856,6 +2864,15 @@ class PTAmodels(object):
                     else:
                         psr.Ttmat = np.append(psr.Ttmat, sig, axis=1)
 
+            if sig['stype'] == 'frequencyline':
+                findex = sig['npsrfreqindex']
+                psr.SFfreqs[findex] = 10 ** sparameters[0]
+                SFmat = PALutils.singlefourierdesignmatrix(
+                        psr.toas, psr.SFfreqs)
+                ntm = psr.Mmat_reduced.shape[1]
+                nf = len(psr.Ffreqs)
+                psr.Ttmat[:,ntm+nf:ntm+nf+2] = SFmat
+
     """
     Update fourier design matrices to include free floating spectral lines.
 
@@ -3014,7 +3031,7 @@ class PTAmodels(object):
                     fc = 10 ** sparameters[2] / PAL_spy
                     freqpy = self.psr[psrind].Ffreqs
 
-                    pcdoubled = np.log10((Amp * PAL_spy ** 3 / sig['Tmax']) *
+                    pcdoubled = np.log10((Amp * PAL_spy ** 3 / self.psr[psrind].Tmax) *
                                          ((1 + (freqpy / fc) ** 2) ** (-0.5 * alpha)))
 
                     # fill in kappa
@@ -3033,7 +3050,9 @@ class PTAmodels(object):
                     freqpy = self.psr[psrind].Ffreqs
                     f1yr = 1 / 3.16e7
                     pcdoubled = np.log10(Amp ** 2 / 12 / np.pi ** 2 * f1yr ** (gamma - 3) *
-                                         freqpy ** (-gamma) / sig['Tmax'])
+                                         freqpy ** (-gamma) / self.psr[psrind].Tmax)
+                    print self.psr[psrind].name, 1/self.psr[psrind].Ffreqs[0], \
+                            self.psr[psrind].Tmax
                     # pcdoubled = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
                     #                     freqpy**(-gamma))
                     # fill in kappa
@@ -3054,7 +3073,7 @@ class PTAmodels(object):
 
                     f1yr = 1 / 3.16e7
                     rho = np.log10(Amp ** 2 / 12 / np.pi ** 2 * f1yr ** (gamma - 3) *
-                                   fgw ** (-gamma) / sig['Tmax'])
+                                   fgw ** (-gamma) / self.psr[psrind].Tmax)
                     # rho = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
                     #                     fgw**(-gamma))
                     
@@ -3074,7 +3093,7 @@ class PTAmodels(object):
 
                     f1yr = 1 / 3.16e7
                     rho = np.log10(Amp ** 2 / 12 / np.pi ** 2 * f1yr ** (gamma - 3) *
-                                   fgw ** (-gamma) / sig['Tmax'])
+                                   fgw ** (-gamma) / self.psr[psrind].Tmax)
                     # rho = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
                     #                     fgw**(-gamma))
 
@@ -3091,7 +3110,7 @@ class PTAmodels(object):
                     freqpy = self.psr[psrind].Ffreqs
                     f1yr = 1 / 3.16e7
                     pcdoubled = np.log10(Amp ** 2 / 12 / np.pi ** 2 * f1yr ** (gamma - 3) *
-                                         freqpy ** (-gamma) / sig['Tmax'])
+                                         freqpy ** (-gamma) / self.psr[psrind].Tmax)
 
                     # fill in kappa
                     self.psr[psrind].band.append(pcdoubled)
@@ -3113,7 +3132,7 @@ class PTAmodels(object):
                 hcf = Amp * (freqpy / f1yr) ** ((3 - gamma) / 2) / \
                     (1 + (f0 / freqpy) ** kappa) ** (1 / 2)
                 rho = np.log10(
-                    hcf ** 2 / 12 / np.pi ** 2 / freqpy ** 3 / sig['Tmax'])
+                    hcf ** 2 / 12 / np.pi ** 2 / freqpy ** 3 / self.psr[psrind].Tmax)
                 #rho = np.log10(hcf**2/12/np.pi**2 / freqpy**3)
 
       # DM spectrum
@@ -3142,7 +3161,7 @@ class PTAmodels(object):
                     freqpy = self.psr[psrind].Fdmfreqs
                     f1yr = 1 / 3.16e7
                     pcdoubled = np.log10(Amp ** 2 / 12 / np.pi ** 2 * f1yr ** (gamma - 3) *
-                                         freqpy ** (-gamma) / sig['Tmax'])
+                                         freqpy ** (-gamma) / self.psr[psrind].Tmax)
 
                     # fill in kappa
                     self.psr[psrind].kappadm = pcdoubled
@@ -3160,7 +3179,7 @@ class PTAmodels(object):
                     freqpy = self.psr[psrind].Fdmfreqs
                     f1yr = 1 / 3.16e7
                     pcdoubled = np.log10(Amp ** 2 / 12 / np.pi ** 2 * f1yr ** (gamma - 3) *
-                                         freqpy ** (-gamma) / sig['Tmax'])
+                                         freqpy ** (-gamma) /self.psr[psrind].Tmax)
 
                     # fill in kappa
                     self.psr[psrind].dmband.append(pcdoubled)
