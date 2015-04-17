@@ -3051,8 +3051,6 @@ class PTAmodels(object):
                     f1yr = 1 / 3.16e7
                     pcdoubled = np.log10(Amp ** 2 / 12 / np.pi ** 2 * f1yr ** (gamma - 3) *
                                          freqpy ** (-gamma) / self.psr[psrind].Tmax)
-                    print self.psr[psrind].name, 1/self.psr[psrind].Ffreqs[0], \
-                            self.psr[psrind].Tmax
                     # pcdoubled = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
                     #                     freqpy**(-gamma))
                     # fill in kappa
