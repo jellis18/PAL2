@@ -1214,7 +1214,8 @@ def computeNormalizedCovarianceMatrix(cov):
     return cnorm 
 
 
-def createfourierdesignmatrix(t, nmodes, freq=False, Tspan=None, logf=False):
+def createfourierdesignmatrix(t, nmodes, freq=False, Tspan=None,
+                              logf=False, fmin=None, fmax=None):
     """
     Construct fourier design matrix from eq 11 of Lentati et al, 2013
 
@@ -1238,7 +1239,10 @@ def createfourierdesignmatrix(t, nmodes, freq=False, Tspan=None, logf=False):
         T = t.max() - t.min()
 
     # define sampling frequencies
-    f = np.linspace(1/T, nmodes/T, nmodes)
+    if fmin is not None and fmax is not None:
+        f = np.linspace(fmin, fmax, nmodes)
+    else:
+        f = np.linspace(1/T, nmodes/T, nmodes)
     if logf:
         f = np.logspace(np.log10(1/T), np.log10(nmodes/T), nmodes)
         #f = np.logspace(np.log10(1/2/T), np.log10(nmodes/T), nmodes)
@@ -1690,14 +1694,15 @@ def python_block_shermor_2D(Z, Nvec, Jvec, Uinds):
     ni = 1.0 / Nvec
     zNz = np.dot(Z.T*ni, Z)
 
-    for cc, jv in enumerate(Jvec):
-        if jv > 0.0:
-            Zblock = Z[Uinds[cc,0]:Uinds[cc,1], :]
-            niblock = ni[Uinds[cc,0]:Uinds[cc,1]]
+    if len(Jvec) > 1:
+        for cc, jv in enumerate(Jvec):
+            if jv > 0.0:
+                Zblock = Z[Uinds[cc,0]:Uinds[cc,1], :]
+                niblock = ni[Uinds[cc,0]:Uinds[cc,1]]
 
-            beta = 1.0 / (np.einsum('i->', niblock)+1.0/jv)
-            zn = np.dot(niblock, Zblock)
-            zNz -= beta * np.outer(zn.T, zn)
+                beta = 1.0 / (np.einsum('i->', niblock)+1.0/jv)
+                zn = np.dot(niblock, Zblock)
+                zNz -= beta * np.outer(zn.T, zn)
 
     return zNz
 
@@ -1716,13 +1721,14 @@ def python_block_shermor_0D(r, Nvec, Jvec, Uinds):
     ni = 1/Nvec
     Nx = r/Nvec
 
-    for cc, jv in enumerate(Jvec):
-        if jv > 0.0:
-            rblock = r[Uinds[cc,0]:Uinds[cc,1]]
-            niblock = ni[Uinds[cc,0]:Uinds[cc,1]]
+    if len(Jvec) > 1:
+        for cc, jv in enumerate(Jvec):
+            if jv > 0.0:
+                rblock = r[Uinds[cc,0]:Uinds[cc,1]]
+                niblock = ni[Uinds[cc,0]:Uinds[cc,1]]
 
-            beta = 1.0 / (np.einsum('i->', niblock)+1.0/jv)
-            Nx[Uinds[cc,0]:Uinds[cc,1]] -= beta * np.dot(niblock, rblock) * niblock
+                beta = 1.0 / (np.einsum('i->', niblock)+1.0/jv)
+                Nx[Uinds[cc,0]:Uinds[cc,1]] -= beta * np.dot(niblock, rblock) * niblock
 
     return Nx
 
@@ -1746,15 +1752,16 @@ def python_block_shermor_1D(r, Nvec, Jvec, Uinds):
     ni = 1.0 / Nvec
     Jldet = np.einsum('i->', np.log(Nvec))
     xNx = np.dot(r, r * ni)
+    
+    if len(Jvec) > 1:
+        for cc, jv in enumerate(Jvec):
+            if jv > 0.0:
+                rblock = r[Uinds[cc,0]:Uinds[cc,1]]
+                niblock = ni[Uinds[cc,0]:Uinds[cc,1]]
 
-    for cc, jv in enumerate(Jvec):
-        if jv > 0.0:
-            rblock = r[Uinds[cc,0]:Uinds[cc,1]]
-            niblock = ni[Uinds[cc,0]:Uinds[cc,1]]
-
-            beta = 1.0 / (np.einsum('i->', niblock)+1.0/jv)
-            xNx -= beta * np.dot(rblock, niblock)**2
-            Jldet += np.log(jv) - np.log(beta)
+                beta = 1.0 / (np.einsum('i->', niblock)+1.0/jv)
+                xNx -= beta * np.dot(rblock, niblock)**2
+                Jldet += np.log(jv) - np.log(beta)
 
     return Jldet, xNx
 

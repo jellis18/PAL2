@@ -743,7 +743,8 @@ class Pulsar(object):
                                 compression='None', likfunc='mark1', write='no',
                                 tmpars=None, memsave=True, incJitter=False, incDMX=False,
                                 incRedBand=False, incDMBand=False, incRedGroup=False,
-                                redGroups=None):
+                                redGroups=None, incRedExt=False, nfredExt=20,
+                                redExtFx=None):
 
         # For creating the auxiliaries it does not really matter: we are now
         # creating all quantities per default
@@ -918,6 +919,19 @@ class Pulsar(object):
                     Ftemp.append(self.Fmat.copy())
                     Ftemp[-1][~mask, :] = 0.0
 
+            self.Fmat = np.hstack(Ftemp)
+        if incRedExt:
+            Ftemp = [self.Fmat.copy()]
+            df = 1 / self.Tmax
+            fmin = self.Ffreqs[-1] + df
+            fmax = (nf + nfredExt) * df
+            self.Fext, self.Fextfreqs = PALutils.createfourierdesignmatrix(
+                self.toas, nfredExt, freq=True, Tspan=self.Tmax,
+                fmin=fmin, fmax=fmax)
+            Ftemp.append(self.Fext)
+            #print self.Ffreqs
+            #print self.Fextfreqs
+            #print np.linspace(1/self.Tmax, (nf+nfredExt)/self.Tmax, nf+nfredExt)
             self.Fmat = np.hstack(Ftemp)
 
         if incDMBand:

@@ -584,9 +584,9 @@ def upperlimitplot2d(x, y, sigma=0.95, ymin=None, ymax=None, bins=40, log=False,
 Given an mcmc chain, plot the log-spectrum
 
 """
-def makespectrumplot(chain, parstart=1, numfreqs=10, freqs=None, \
+def makespectrumplot(ax, chain, parstart=1, numfreqs=10, freqs=None, \
         Apl=None, gpl=None, Asm=None, asm=None, fcsm=0.1, plotlog=False, \
-        lcolor='black', Tmax=None, Aref=None, holdon=False, title=None, \
+        lcolor='black', Tmax=None, Aref=None, title=None, \
         values=False):
 
     if freqs is None:
@@ -611,8 +611,6 @@ def makespectrumplot(chain, parstart=1, numfreqs=10, freqs=None, \
         retvals.append(yval)
         retvals.append(yerr)
     
-    if not(holdon):
-        fig = plt.figure()
 
     # For plotting reference spectra
     pfreqs = 10 ** ufreqs
@@ -621,24 +619,24 @@ def makespectrumplot(chain, parstart=1, numfreqs=10, freqs=None, \
 
     if plotlog:
         pic_spy = 3.16e7
-        plt.errorbar(ufreqs, yval, yerr=yerr, fmt='.', c=lcolor)
+        ax.errorbar(ufreqs, yval, yerr=yerr, fmt='.', c=lcolor)
         # outmatrix = np.array([ufreqs, yval, yerr]).T
         # np.savetxt('spectrumplot.txt', outmatrix)
 
         if Apl is not None and gpl is not None and Tmax is not None:
             Apl = 10**Apl
             ypl = (Apl**2 * pic_spy**3 / (12*np.pi*np.pi * (Tmax))) * ((pfreqs * pic_spy) ** (-gpl))
-            plt.plot(np.log10(pfreqs), np.log10(ypl), 'g--', linewidth=2.0)
+            ax.plot(np.log10(pfreqs), np.log10(ypl), 'g--', linewidth=2.0)
 
         if Asm is not None and asm is not None and Tmax is not None:
             Asm = 10**Asm
             fcsm = fcsm / pic_spy
             ysm = (Asm * pic_spy**3 / Tmax) * ((1 + (pfreqs/fcsm)**2)**(-0.5*asm))
-            plt.plot(np.log10(pfreqs), np.log10(ysm), 'r--', linewidth=2.0)
+            ax.plot(np.log10(pfreqs), np.log10(ysm), 'r--', linewidth=2.0)
 
 
         #plt.axis([np.min(ufreqs)-0.1, np.max(ufreqs)+0.1, np.min(yval-yerr)-1, np.max(yval+yerr)+1])
-        plt.xlabel("Frequency [log(f/Hz)]")
+        ax.set_xlabel("Frequency [log(f/Hz)]")
         #if True:
         #    #freqs = likobhy.ptapsrs[0].Ffreqs
         #    Tmax = 156038571.88061461
@@ -653,16 +651,16 @@ def makespectrumplot(chain, parstart=1, numfreqs=10, freqs=None, \
         #    plt.plot(np.log10(freqs), np.log10(pcpl), 'g--', linewidth=2.0)
 
     else:
-        plt.errorbar(10**ufreqs, yval, yerr=yerr, fmt='.', c='black')
+        ax.errorbar(10**ufreqs, yval, yerr=yerr, fmt='.', c='black')
         if Aref is not None:
-            plt.plot(10**ufreqs, np.log10(yinj), 'k--')
+            ax.plot(10**ufreqs, np.log10(yinj), 'k--')
         plt.axis([np.min(10**ufreqs)*0.9, np.max(10**ufreqs)*1.01, np.min(yval-yerr)-1, np.max(yval+yerr)+1])
         plt.xlabel("Frequency [Hz]")
 
     #plt.title("Power spectrum")
     if title is not None:
-        plt.title(title)
-    plt.ylabel("Power Spectrum [s^2]")
+        ax.set_title(title)
+    ax.set_ylabel("Power Spectrum [s^2]")
     plt.grid(True)
 
     return retvals

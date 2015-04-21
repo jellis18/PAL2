@@ -82,6 +82,9 @@ class PTAmodels(object):
         self.orderFrequencyLines = False
         self.haveStochSources = False
         self.haveDetSources = False
+        self.haveEnvelope = False
+        self.haveScat = False
+        self.haveExt = False
         self.haveFrequencyLines = False
         self.skipUpdateToggle = False
 
@@ -136,6 +139,8 @@ class PTAmodels(object):
     def makeModelDict(self, nfreqs=20, ndmfreqs=None,
                       incRedNoise=False, noiseModel='powerlaw', fc=None, logf=False,
                       incRedBand=False, incRedGroups=False, redGroups=None,
+                      incRedExt=False, redExtModel='powerlaw', redExtFtrans=3e-8,
+                      redExtNf=30,
                       incDMBand=False,
                       incORF=False,
                       incDM=False, dmModel='powerlaw',
@@ -143,6 +148,7 @@ class PTAmodels(object):
                       incRedFourierMode=False, incDMFourierMode=False,
                       incGWFourierMode=False,
                       incScattering=False, scatteringModel='powerlaw',
+                      nscatfreqs=None,
                       incGWB=False, gwbModel='powerlaw',
                       incGWBAni=False, lmax=2,
                       incBWM=False, incDMX=False,
@@ -156,6 +162,7 @@ class PTAmodels(object):
                       addPars=None, subPars=None,
                       incJitterEpoch=False, nepoch=None,
                       incNonGaussian=False, nnongaussian=3,
+                      incEnvelope=False, envelopeModel='powerlaw',
                       incJitterEquad=False, separateJitterEquad=False,
                       separateJitterEquadByFreq=False,
                       efacPrior='uniform', equadPrior='log', jitterPrior='uniform',
@@ -188,6 +195,12 @@ class PTAmodels(object):
                     ndmfreqs = nfreqs
             else:
                 ndmfreqs = 0
+
+            if incScattering:
+                if nscatfreqs is None:
+                    nscatfreqs = nfreqs
+            else:
+                nscatfreqs = 0
 
             if incDMEvent and dmEventModel == 'shapeletmarg':
                 p.ndmEventCoeffs = ndmEventCoeffs
@@ -397,7 +410,7 @@ class PTAmodels(object):
                     prior = [redSpectrumPrior] * nfreqs
                 elif noiseModel == 'powerlaw':
                     bvary = [True, True, False]
-                    pmin = [-20.0, 1.02, 1.0e-11]
+                    pmin = [-20.0, 0.02, 1.0e-11]
                     pmax = [-11.0, 6.98, 3.0e-9]
                     pstart = [-19.0, 2.01, 1.0e-10]
                     pwidth = [0.1, 0.1, 5.0e-11]
@@ -422,6 +435,97 @@ class PTAmodels(object):
                     "pwidth": pwidth,
                     "pstart": pstart,
                     "prior": prior
+                })
+                signals.append(newsignal)
+            
+            if incRedExt:
+                if redExtModel == 'spectrum':
+                    nf = redExtNf
+                    bvary = [True] * nf
+                    pmin = [-18.0] * nf
+                    pmax = [-7.0] * nf
+                    pstart = [-18.0] * nf
+                    pwidth = [0.1] * nf
+                    prior = [redSpectrumPrior] * nf
+                    parids = ['rho_ext_' + str(f) for f in range(nf)]
+                    noiseModel = 'ext_spectrum'
+                elif redExtModel == 'powerlaw':
+                    bvary = [True, True, False]
+                    pmin = [-20.0, 1.02, 1.0e-11]
+                    pmax = [-11.0, 6.98, 3.0e-9]
+                    pstart = [-19.0, 2.01, 1.0e-10]
+                    pwidth = [0.1, 0.1, 5.0e-11]
+                    prior = [redAmpPrior, redSiPrior, 'log']
+                    parids = ['RN-Amp-ext', 'RN-Si-ext', 'RN-fL-ext']
+                    noiseModel='ext_powerlaw'
+
+                newsignal = OrderedDict({
+                    "stype": noiseModel,
+                    "corr": "single",
+                    "pulsarind": ii,
+                    "flagname": "pulsarname",
+                    "flagvalue": p.name,
+                    "bvary": bvary,
+                    "pmin": pmin,
+                    "pmax": pmax,
+                    "pwidth": pwidth,
+                    "pstart": pstart,
+                    "prior": prior,
+                    "parids":parids
+                })
+                signals.append(newsignal)
+            
+            if incEnvelope:
+                if envelopeModel == 'spectrum':
+                    model = 'env_spectrum'
+                    bvary = [True] * 2
+                    bvary += [True] * nfreqs
+                    pmin = [p.toas.min() / 86400, np.log10(14 * 86400)]
+                    pmin += [-18.0] * nfreqs
+                    pmax = [p.toas.max() / 86400, np.log10(
+                        (p.toas.max() + p.toas.min()) / 2)]
+                    pmax += [-7.0] * nfreqs
+                    pstart = [(p.toas.max() + p.toas.min()) / 2 / 86400,
+                              np.log10(100.0*86400)]
+                    pstart += [-18.0] * nfreqs
+                    pwidth = [10.0, 10.0]
+                    pwidth += [0.1] * nfreqs
+                    prior = ['uniform', 'log']
+                    prior += [redSpectrumPrior] * nfreqs
+                    parids = ['env_tmean', 'env_sigma']
+                    parids += ['rho_env_' + str(f) for f in range(nfreqs)]
+                elif envelopeModel == 'powerlaw':
+                    model = 'env_powerlaw'
+                    bvary = [True] * 2
+                    bvary += [True, True, False]
+                    pmin = [p.toas.min() / 86400, np.log10(14 * 86400)]
+                    pmin += [-20.0, 1.02, 1.0e-11]
+                    pmax = [p.toas.max() / 86400, np.log10(
+                        (p.toas.max() - p.toas.min()) / 2)]
+                    pmax += [-11.0, 6.98, 3.0e-9]
+                    pstart = [(p.toas.max() + p.toas.min()) / 2 / 86400,
+                              np.log10(100.0*86400)]
+                    pstart += [-19.0, 2.01, 1.0e-10]
+                    pwidth = [10.0, 10.0]
+                    pwidth += [0.1, 0.1, 5.0e-11]
+                    prior = ['uniform', 'log']
+                    prior += [redAmpPrior, redSiPrior, 'log']
+                    parids = ['env_tmean', 'env_sigma']
+                    parids += ['env-RN-Amplitude', 'env-RN-Si', 'env-RN-fL']
+
+                newsignal = OrderedDict({
+                    "stype": model,
+                    "corr": "single",
+                    "pulsarind": ii,
+                    "flagname": "pulsarname",
+                    "flagvalue": p.name,
+                    "bvary": bvary,
+                    "pmin": pmin,
+                    "pmax": pmax,
+                    "pwidth": pwidth,
+                    "pstart": pstart,
+                    "prior": prior,
+                    "parids":parids
                 })
                 signals.append(newsignal)
 
@@ -470,7 +574,7 @@ class PTAmodels(object):
                     DMModel = 'dmspectrum'
                 elif dmModel == 'powerlaw':
                     bvary = [True, True, False]
-                    pmin = [-14.0, 0.02, 1.0e-11]
+                    pmin = [-20.0, 0.02, 1.0e-11]
                     pmax = [-6.5, 6.98, 3.0e-9]
                     pstart = [-13.0, 2.01, 1.0e-10]
                     pwidth = [0.1, 0.1, 5.0e-11]
@@ -535,21 +639,30 @@ class PTAmodels(object):
 
             if incScattering:
                 if scatteringModel == 'spectrum':
-                    #nfreqs = ndmfreqs
-                    bvary = [True] * ndmfreqs
-                    pmin = [-14.0] * ndmfreqs
-                    pmax = [-3.0] * ndmfreqs
-                    pstart = [-7.0] * ndmfreqs
-                    pwidth = [0.1] * ndmfreqs
-                    prior = [DMSpectrumPrior] * nfreqs
+                    bvary = [True]
+                    bvary += [True] * nscatfreqs
+                    pmin = [0.01]
+                    pmin += [-18.0] * nscatfreqs
+                    pmax = [7.0]
+                    pmax += [-8.0] * nscatfreqs
+                    pstart = [2.0]
+                    pstart += [-15.0] * nscatfreqs
+                    pwidth = [0.1]
+                    pwidth += [0.1] * nscatfreqs
+                    prior = ['uniform']
+                    prior += [DMSpectrumPrior] * nscatfreqs
+                    parids = ['scat-beta']
+                    parids += ['rho_scat_' + str(f) for f in range(nscatfreqs)]
                     ScatteringModel = 'scatspectrum'
                 elif scatteringModel == 'powerlaw':
-                    bvary = [True, True, False]
-                    pmin = [-14.0, 1.02, 1.0e-11]
-                    pmax = [-6.5, 6.98, 3.0e-9]
-                    pstart = [-13.0, 2.01, 1.0e-10]
-                    pwidth = [0.1, 0.1, 5.0e-11]
-                    prior = [DMAmpPrior, DMSiPrior, 'log']
+                    bvary = [True, True, True, False]
+                    pmin = [2.5, -20.0, 0.02, 1.0e-11]
+                    pmax = [7.0, -11, 6.98, 3.0e-9]
+                    pstart = [4.0, -15.0, 2.01, 1.0e-10]
+                    pwidth = [0.1, 0.1, 0.1, 5.0e-11]
+                    prior = ['uniform', DMAmpPrior, DMSiPrior, 'log']
+                    parids = ['scat-beta', 'scat-Amplitude',
+                              'scat-spectral-index', 'scat_fL']
                     ScatteringModel = 'scatpowerlaw'
 
                 newsignal = OrderedDict({
@@ -563,7 +676,9 @@ class PTAmodels(object):
                     "pmax": pmax,
                     "pwidth": pwidth,
                     "pstart": pstart,
-                    "prior": prior
+                    "prior": prior,
+                    "parids": parids,
+                    "nscatfreqs": nscatfreqs * 2
                 })
                 signals.append(newsignal)
 
@@ -1323,6 +1438,7 @@ class PTAmodels(object):
             "pulsarnames": [self.psr[ii].name for ii in range(len(self.psr))],
             "numNoiseFreqs": [nfreqs for ii in range(len(self.psr))],
             "numDMFreqs": [ndmfreqs for ii in range(len(self.psr))],
+            "numScatFreqs":nscatfreqs,
             "compression": compression,
             "logfrequencies": logf,
             "incDMX": incDMX,
@@ -1330,6 +1446,8 @@ class PTAmodels(object):
             "evalCompressionComplement": evalCompressionComplement,
             "likfunc": likfunc,
             "Tmax":Tmax,
+            "redExtNf":redExtNf,
+            "incRedExt":incRedExt,
             "signals": signals
         })
 
@@ -1404,8 +1522,21 @@ class PTAmodels(object):
             # pulsar distance parameters used with CW sigal
             self.ptasignals.append(signal)
 
+        elif signal['stype'] in ['env_powerlaw', 'env_spectrum']:
+            self.haveEnvelope = True
+            for pp in self.psr:
+                pp.kappa_env = np.zeros(len(pp.Ffreqs))
+            self.ptasignals.append(signal)
+
+        elif signal['stype'] in ['scatpowerlaw', 'scatspectrum']:
+            self.haveScat = True
+            for pp in self.psr:
+                pp.kappa_scat = np.zeros(signal['nscatfreqs'] + 3)
+            self.ptasignals.append(signal)
+
         elif signal['stype'] in ['powerlaw', 'spectrum', 'spectralModel',
-                                 'powerlaw_band', 'turnover']:
+                                 'powerlaw_band', 'turnover', 'ext_powerlaw',
+                                 'ext_spectrum']:
             # Any time-correlated signal
             self.addSignalTimeCorrelated(signal)
             self.haveStochSources = True
@@ -1415,6 +1546,11 @@ class PTAmodels(object):
                 lmax = signal['lmax']
                 self.harm_sky_vals = PALutils.SetupPriorSkyGrid(lmax)
                 self.AniBasis = ani.CorrBasis(psr_locs, lmax)
+
+            if signal['stype'] in ['ext_powerlaw', 'ext_spectrum']:
+                for pp in self.psr:
+                    pp.kappa_ext = np.zeros(len(pp.Fextfreqs))
+                self.haveExt = True
 
         elif signal['stype'] in ['dmpowerlaw', 'dmspectrum', 'dmpowerlaw_band']:
             # A DM variation signal
@@ -1928,6 +2064,9 @@ class PTAmodels(object):
         signals = fullmodel['signals']
         incDMX = fullmodel['incDMX']
         dTmax = fullmodel['Tmax']
+        nfredExt = fullmodel['redExtNf']
+        incRedExt = fullmodel['incRedExt']
+        numScatFreqs = fullmodel['numScatFreqs']
 
         if len(self.psr) < 1:
             raise IOError("No pulsars loaded")
@@ -2000,6 +2139,7 @@ class PTAmodels(object):
         incJitter = np.array(numJitter) > 0
         incRedBand = np.array(numRedBand) > 0
         incDMBand = np.array(numDMBand) > 0
+        print incRedExt
         if self.likfunc == 'mark9':
             incJitter = [False] * numJitter
         separateEfacs = np.logical_or(numEfacs > 1, numEquads > 1)
@@ -2060,7 +2200,9 @@ class PTAmodels(object):
                                           incJitter=incJitter[
                                               pindex], incDMX=incDMX,
                                           incRedBand=incRedBand[pindex],
-                                          incDMBand=incDMBand[pindex])
+                                          incDMBand=incDMBand[pindex],
+                                         incRedExt=incRedExt,
+                                         nfredExt=nfredExt)
 
         # Initialise the ptasignal objects
         self.ptasignals = []
@@ -2199,6 +2341,18 @@ class PTAmodels(object):
                         sig['stype'] == 'nonlineartimingmodel':
                     flagname = sig['stype']
                     flagvalue = sig['parid'][jj]
+
+                elif sig['stype'] in ['env_powerlaw', 'env_spectrum']:
+                    flagname = sig['stype']
+                    flagvalue = sig['parids'][jj]
+
+                elif sig['stype'] in ['scatpowerlaw', 'scatspectrum']:
+                    flagname = sig['stype']
+                    flagvalue = sig['parids'][jj]
+
+                elif sig['stype'] in ['ext_powerlaw', 'ext_spectrum']:
+                    flagname = sig['stype']
+                    flagvalue = sig['parids'][jj]
 
                 elif sig['stype'] == 'dmshapeletmarg':
                     flagname = sig['stype']
@@ -2341,6 +2495,16 @@ class PTAmodels(object):
                     p.Ttmat = np.append(p.Ttmat, np.zeros((p.Tmat.shape[0], 
                                                            p.nSingleFreqs * 2)),
                                        axis=1)
+                if self.haveEnvelope:
+                    p.Ttmat = np.append(p.Ttmat, np.zeros((p.Tmat.shape[0], self.npf[ii])),
+                                        axis=1)
+                    nphiTmat += self.npf[ii]
+
+                if self.haveScat:
+                    p.Ttmat = np.append(p.Ttmat, np.zeros((
+                        p.Tmat.shape[0], len(p.kappa_scat))), axis=1)
+                    nphiTmat += len(p.kappa_scat) 
+
                 nphiTmat += p.Tmat.shape[1] + p.nSingleFreqs * 2 + p.nSingleDMFreqs * 2 + \
                     p.ndmEventCoeffs
 
@@ -2364,86 +2528,6 @@ class PTAmodels(object):
             self.Sigma = np.zeros((nftot * self.npsr, nftot * self.npsr))
 
 
-
-        # for ii in range(self.npsr):
-        #    if not self.likfunc in ['mark2']:
-        #        self.npf[ii] = len(self.psr[ii].Ffreqs)
-        #        self.npff[ii] = self.npf[ii]
-
-        #    if self.likfunc in ['mark4ln', 'mark9', 'mark10']:
-        #        self.npff[ii] += len(self.psr[ii].SFfreqs)
-
-        #    if self.likfunc in ['mark4', 'mark4ln']:
-        #        self.npu[ii] = len(self.psr[ii].avetoas)
-
-        #    if self.likfunc in ['mark1', 'mark4', 'mark4ln', 'mark6', 'mark6fa', 'mark8', 'mark10']:
-        #        self.npfdm[ii] = len(self.psr[ii].Fdmfreqs)
-        #        self.npffdm[ii] = len(self.psr[ii].Fdmfreqs)
-
-        #    if self.likfunc in ['mark10']:
-        #        self.npffdm[ii] += len(self.psr[ii].SFdmfreqs)
-
-        #    self.npobs[ii] = len(self.psr[ii].toas)
-        #    self.npgs[ii] = self.psr[ii].Hmat.shape[1]
-        #    self.npgos[ii] = self.psr[ii].Homat.shape[1]
-        #    self.psr[ii].Nvec = np.zeros(len(self.psr[ii].toas))
-        #    self.psr[ii].Nwvec = np.zeros(self.psr[ii].Hmat.shape[1])
-        #    self.psr[ii].Nwovec = np.zeros(self.psr[ii].Homat.shape[1])
-
-        #self.Phi = np.zeros((np.sum(self.npf), np.sum(self.npf)))
-        #self.Thetavec = np.zeros(np.sum(self.npfdm))
-
-        # if self.likfunc == 'mark1':
-        #    self.GNGldet = np.zeros(self.npsr)
-        #    self.rGr = np.zeros(self.npsr)
-
-        #    self.Gr = np.zeros(np.sum(self.npgs))
-        #    self.GCG = np.zeros((np.sum(self.npgs), np.sum(self.npgs)))
-        # elif self.likfunc == 'mark2':
-        #    self.GNGldet = np.zeros(self.npsr)
-        #    self.rGr = np.zeros(self.npsr)
-        # elif self.likfunc == 'mark3' or self.likfunc == 'mark7' \
-        #        or self.likfunc == 'mark3fa':
-        #    self.Sigma = np.zeros((np.sum(self.npf), np.sum(self.npf)))
-        #    self.GNGldet = np.zeros(self.npsr)
-        #    self.rGr = np.zeros(self.npsr)
-        #    self.rGF = np.zeros(np.sum(self.npf))
-        #    self.FGGNGGF = np.zeros((np.sum(self.npf), np.sum(self.npf)))
-        # elif self.likfunc == 'mark4':
-        #    self.Sigma = np.zeros((np.sum(self.npu), np.sum(self.npu)))
-        #    self.GNGldet = np.zeros(self.npsr)
-        #    self.rGr = np.zeros(self.npsr)
-        #    self.rGU = np.zeros(np.sum(self.npu))
-        #    self.UGGNGGU = np.zeros((np.sum(self.npu), np.sum(self.npu)))
-        # elif self.likfunc == 'mark4ln':
-        #    self.Sigma = np.zeros((np.sum(self.npu), np.sum(self.npu)))
-        #    self.GNGldet = np.zeros(self.npsr)
-        #    self.rGr = np.zeros(self.npsr)
-        #    self.rGU = np.zeros(np.sum(self.npu))
-        #    self.UGGNGGU = np.zeros((np.sum(self.npu), np.sum(self.npu)))
-        # elif self.likfunc == 'mark6' or self.likfunc == 'mark8' \
-        #        or self.likfunc == 'mark6fa':
-        #    self.Sigma = np.zeros((np.sum(self.npf)+np.sum(self.npfdm), \
-        #            np.sum(self.npf)+np.sum(self.npfdm)))
-        #    self.Thetavec = np.zeros(np.sum(self.npfdm))
-        #    self.GNGldet = np.zeros(self.npsr)
-        #    self.rGr = np.zeros(self.npsr)
-        #    self.rGE = np.zeros(np.sum(self.npf)+np.sum(self.npfdm))
-        #    self.EGGNGGE = np.zeros((np.sum(self.npf)+np.sum(self.npfdm), np.sum(self.npf)+np.sum(self.npfdm)))
-        # elif self.likfunc == 'mark9':
-        #    self.Sigma = np.zeros((np.sum(self.npff), np.sum(self.npff)))
-        #    self.GNGldet = np.zeros(self.npsr)
-        #    self.rGr = np.zeros(self.npsr)
-        #    self.rGF = np.zeros(np.sum(self.npff))
-        #    self.FGGNGGF = np.zeros((np.sum(self.npff), np.sum(self.npff)))
-        # elif self.likfunc == 'mark10':
-        #    self.Sigma = np.zeros((np.sum(self.npff)+np.sum(self.npffdm), \
-        #            np.sum(self.npff)+np.sum(self.npffdm)))
-        #    self.GNGldet = np.zeros(self.npsr)
-        #    self.rGr = np.zeros(self.npsr)
-        #    self.rGE = np.zeros(np.sum(self.npff)+np.sum(self.npffdm))
-        #    self.EGGNGGE = np.zeros((np.sum(self.npff)+np.sum(self.npffdm), \
-        #            np.sum(self.npff)+np.sum(self.npffdm)))
 
     """
     Fill in vector or Fourier amplitudes for all sources
@@ -2873,6 +2957,35 @@ class PTAmodels(object):
                 nf = len(psr.Ffreqs)
                 psr.Ttmat[:,ntm+nf:ntm+nf+2] = SFmat
 
+            if sig['stype'] in ['env_powerlaw', 'env_spectrum']:
+                nf = len(psr.Ffreqs)
+                t0, width = sparameters[0] * 86400, 10**sparameters[1]
+                window = np.exp(-(psr.toas - t0)**2 / 2 / width**2)
+                psr.Ttmat[:,-nf:] = (psr.Fmat.T * window).T
+
+            if sig['stype'] in ['scatpowerlaw', 'scatspectrum']:
+                nfscat = sig['nscatfreqs']
+                nf = psr.Tmat.shape[1]
+                Fmat, psr.Fscatfreqs = \
+                        PALutils.createfourierdesignmatrix(
+                            psr.toas, int(nfscat/2), freq=True,
+                            Tspan=psr.Tmax)
+                Svec =  (psr.freqs / 1400.0) ** -sparameters[0]
+                Fscatmat = (Svec * Fmat.T).T
+
+                # add Quadratic
+                psr.Ttmat[:, nf] = Svec
+                psr.Ttmat[:, nf+1] = Svec * psr.toas
+                psr.Ttmat[:, nf+2] = Svec * psr.toas**2
+
+                norm = np.sqrt(np.sum(psr.Ttmat[:,nf:nf+3] ** 2, axis=0))
+                psr.Ttmat[:,nf:nf+3] /= norm
+
+
+                # add fourier basis
+                psr.Ttmat[:, nf+3:nf+nfscat+3] = Fscatmat
+
+
     """
     Update fourier design matrices to include free floating spectral lines.
 
@@ -3051,6 +3164,7 @@ class PTAmodels(object):
                     f1yr = 1 / 3.16e7
                     pcdoubled = np.log10(Amp ** 2 / 12 / np.pi ** 2 * f1yr ** (gamma - 3) *
                                          freqpy ** (-gamma) / self.psr[psrind].Tmax)
+
                     # pcdoubled = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
                     #                     freqpy**(-gamma))
                     # fill in kappa
@@ -3238,6 +3352,73 @@ class PTAmodels(object):
                 phi_corr = sparameters
                 self.corrmat = self.computeSphORF(phi_corr)
 
+            if sig['stype'] == 'env_powerlaw':
+                # get Amplitude and spectral index
+                Amp = 10 ** sparameters[2]
+                gamma = sparameters[3]
+
+                freqpy = self.psr[psrind].Ffreqs
+                f1yr = 1 / 3.16e7
+                pcdoubled = np.log10(Amp ** 2 / 12 / np.pi ** 2 * f1yr ** (gamma - 3) *
+                                     freqpy ** (-gamma) / self.psr[psrind].Tmax)
+
+                # fill in kappa
+                self.psr[psrind].kappa_env = pcdoubled
+
+            if sig['stype'] == 'env_spectrum':
+                # doubled amplitudes
+                pcdoubled = np.array(
+                    [sparameters[2:], sparameters[2:]]).T.flatten()
+
+                # fill in kappa
+                self.psr[psrind].kappa_env = pcdoubled
+
+            if sig['stype'] == 'ext_powerlaw':
+                # get Amplitude and spectral index
+                Amp = 10 ** sparameters[0]
+                gamma = sparameters[1]
+
+                freqpy = self.psr[psrind].Fextfreqs
+                f1yr = 1 / 3.16e7
+                Tmax = 1 / self.psr[psrind].Fextfreqs[0]
+                pcdoubled = np.log10(Amp ** 2 / 12 / np.pi ** 2 * f1yr ** (gamma - 3) *
+                                     freqpy ** (-gamma) / Tmax)
+
+                # fill in kappa
+                self.psr[psrind].kappa_ext = pcdoubled
+
+            if sig['stype'] == 'ext_spectrum':
+                # doubled amplitudes
+                pcdoubled = np.array(
+                    [sparameters[:], sparameters[:]]).T.flatten()
+
+                # fill in kappa
+                self.psr[psrind].kappa_ext = pcdoubled
+
+            if sig['stype'] == 'scatpowerlaw':
+                # get Amplitude and spectral index
+                Amp = 10 ** sparameters[1]
+                gamma = sparameters[2]
+
+                freqpy = self.psr[psrind].Fscatfreqs
+                f1yr = 1 / 3.16e7
+                Tmax = self.psr[psrind].Tmax
+                pcdoubled = np.log10(Amp ** 2 / 12 / np.pi ** 2 * f1yr ** (gamma - 3) *
+                                     freqpy ** (-gamma) / Tmax)
+
+                # fill in kappa
+                self.psr[psrind].kappa_scat[:3] = 80
+                self.psr[psrind].kappa_scat[3:] = pcdoubled
+
+            if sig['stype'] == 'scatspectrum':
+                # doubled amplitudes
+                pcdoubled = np.array(
+                    [sparameters[1:], sparameters[1:]]).T.flatten()
+
+                # fill in kappa
+                self.psr[psrind].kappa_scat[:3] = 80
+                self.psr[psrind].kappa_scat[3:] = pcdoubled
+
         # now that we have obtained rho and kappa, we can construct Phiinv
         sigdiag = []
         sigoffdiag = []
@@ -3282,6 +3463,8 @@ class PTAmodels(object):
                         (p.kappa_tot, p.kappadmsingle))
 
                 # append to signal diagonal
+                if self.haveExt:
+                    p.kappa_tot = np.concatenate((p.kappa_tot, p.kappa_ext))
 
                 if incTM:
                     p.kappa_tot = np.concatenate((np.ones(p.Mmat_reduced.shape[1]) * 80,
@@ -3303,6 +3486,11 @@ class PTAmodels(object):
                             p.kappa_tot = np.concatenate(
                                 (p.kappa_tot, np.ones(p.nDMX) * 80))
                             p.kappa_tot[-p.nDMX] = -20
+                    if self.haveEnvelope:
+                        p.kappa_tot = np.concatenate((p.kappa_tot, p.kappa_env))
+
+                if self.haveScat:
+                    p.kappa_tot = np.concatenate((p.kappa_tot, p.kappa_scat))
 
                 sigdiag.append(10 ** p.kappa_tot)
 
@@ -3368,6 +3556,8 @@ class PTAmodels(object):
 
                 # append to signal diagonal
                 p.kappa_tot = np.log10(10 ** p.kappa_tot + self.gwamp)
+                if self.haveExt:
+                    p.kappa_tot = np.concatenate((p.kappa_tot, p.kappa_ext))
                 if incTM:
                     p.kappa_tot = np.concatenate((np.ones(p.Mmat.shape[1]) * 80,
                                                   p.kappa_tot))
@@ -3377,6 +3567,12 @@ class PTAmodels(object):
                     if incDMshapelet:
                         p.kappa_tot = np.concatenate(
                             (p.kappa_tot, np.ones(p.ndmEventCoeffs) * 80))
+
+                    if self.haveEnvelope:
+                        p.kappa_tot = np.concatenate((p.kappa_tot, p.kappa_env))
+
+                if self.haveScat:
+                    p.kappa_tot = np.concatenate((p.kappa_tot, p.kappa_scat))
 
                 # append to signal diagonal
                 sigdiag.append(10 ** p.kappa_tot)
@@ -4945,6 +5141,8 @@ class PTAmodels(object):
             # set pulsar white noise parameters
             self.setPsrNoise(parameters, incJitter=False)
 
+            self.updateTmatrix(parameters)
+
             # set red noise, DM and GW parameters
             try:
                 self.constructPhiMatrix(parameters, incCorrelations=incCorrelations,
@@ -4952,7 +5150,6 @@ class PTAmodels(object):
             except np.linalg.LinAlgError:
                 return -np.inf
 
-            self.updateTmatrix(parameters)
 
         # set deterministic sources
         if self.haveDetSources:
@@ -5154,11 +5351,12 @@ class PTAmodels(object):
             if not fixWhite:
                 self.setPsrNoise(parameters, incJitter=False)
 
+            self.updateTmatrix(parameters)
+
             # set red noise, DM and GW parameters
             self.constructPhiMatrix(parameters, incCorrelations=incCorrelations,
                                     incTM=True, incJitter=False)
 
-            self.updateTmatrix(parameters)
 
         # set deterministic sources
         if self.haveDetSources:
@@ -6130,7 +6328,7 @@ class PTAmodels(object):
 
         return q, qxy
 
-    # red noise sepctrum draws
+        # red noise sepctrum draws
     def drawFromRedNoiseSpectrumPrior(self, parameters, iter, beta):
 
         # post-jump parameters
@@ -6144,6 +6342,68 @@ class PTAmodels(object):
                                                        corr='single'))
         signum = self.getSignalNumbersFromDict(self.ptasignals, stype='spectrum',
                                                corr='single')
+
+        # which parameters to jump
+        ind = np.unique(np.random.randint(0, nsigs, nsigs))
+        ind = np.unique(np.random.randint(0, nsigs, 1))
+
+        # draw params from prior
+        for ii in ind:
+
+            # get signal
+            sig = self.ptasignals[signum[ii]]
+            parind = sig['parindex']
+            npars = sig['npars']
+
+            # jump in amplitude if varying
+            #for jj in range(npars):
+            jj = np.random.randint(0, np.sum(sig['bvary']))
+            if sig['bvary'][jj]:
+
+                # log prior
+                if sig['prior'][jj] == 'log':
+                    q[parind + jj] = np.random.uniform(self.pmin[parind + jj],
+                                                       self.pmax[parind + jj])
+                    qxy += 0
+
+                elif sig['prior'][jj] == 'uniform':
+                    q[parind + jj] = np.log10(np.random.uniform(
+                        10 ** self.pmin[parind + jj], 
+                        10 ** self.pmax[parind + jj]))
+                    qxy += np.log(10 ** parameters[parind + jj] 
+                                  / 10 ** q[parind + jj])
+
+                elif sig['prior'][jj] == 'sqrt':
+                    q[parind + jj] = np.log10(np.random.uniform(
+                        10 ** (self.pmin[parind + jj] / 2), 
+                        10 ** (self.pmax[parind + jj] / 2)) ** 2)
+                    qxy += np.log(10 ** (parameters[parind + jj] / 2) 
+                                  / 10 ** (q[parind + jj] / 2))
+
+                else:
+                    print 'Prior type not recognized for parameter'
+                    q[parind + jj] = parameters[parind + jj]
+
+        return q, qxy
+
+
+    # red noise sepctrum draws
+    def drawFromRedNoiseExtSpectrumPrior(self, parameters, iter, beta):
+
+        # post-jump parameters
+        q = parameters.copy()
+
+        # transition probability
+        qxy = 0
+
+        # find number of signals
+        nsigs = np.sum(self.getNumberOfSignalsFromDict(self.ptasignals,
+                                                       stype='ext_spectrum',
+                                                       corr='single'))
+        signum = self.getSignalNumbersFromDict(self.ptasignals,
+                                               stype='ext_spectrum',
+                                               corr='single')
+
 
         # which parameters to jump
         ind = np.unique(np.random.randint(0, nsigs, nsigs))

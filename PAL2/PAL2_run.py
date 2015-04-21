@@ -52,6 +52,26 @@ parser.add_argument('--incSingleRed', dest='incSingleRed', action='store_true',d
                    help='include single frequency red noise')
 parser.add_argument('--incRedBand', dest='incRedBand', action='store_true',default=False,
                    help='include band limited red noise')
+parser.add_argument('--incRedEnv', dest='incRedEnv', action='store_true',default=False,
+                   help='include Red Noise Envelope model')
+parser.add_argument('--redEnvModel', dest='redEnvModel', action='store', 
+                    type=str, default='powerlaw',
+                    help='red noise envelope model [powerlaw, spectrum]')
+parser.add_argument('--incRedExt', dest='incRedExt', action='store_true',default=False,
+                   help='include Red Noise Extended model')
+parser.add_argument('--redExtModel', dest='redExtModel', action='store', 
+                    type=str, default='powerlaw',
+                    help='red noise extended model [powerlaw, spectrum]')
+parser.add_argument('--nfext', dest='nfext', action='store', type=int, default=10,
+                   help='number of red noise frequencies to use in extended model(default=10)')
+
+parser.add_argument('--incScat', dest='incScat', action='store_true',default=False,
+                   help='include stochastic scattering process')
+parser.add_argument('--scatModel', dest='scatModel', action='store', 
+                    type=str, default='powerlaw',
+                    help='scattering model [powerlaw, spectrum]')
+parser.add_argument('--nfscat', dest='nfscat', action='store', type=int, default=10,
+                   help='number of frequencies for scattering model(default=10)')
 
 
 parser.add_argument('--Tspan', dest='Tspan', action='store', type=float, default=None,
@@ -303,6 +323,8 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     ndmEventCoeffs=args.nshape, \
                     incDMX=args.incDMX, \
                     incORF=args.incORF, \
+                    incScattering=args.incScat, scatteringModel=args.scatModel,
+                    nscatfreqs=args.nfscat,
                     incGWBAni=args.incGWBAni, lmax=args.nls,\
                     incDMXKernel=incDMXKernel, DMXKernelModel=DMXKernelModel, \
                     separateEfacs=separateEfacs, separateEfacsByFreq=separateEfacsByFreq, \
@@ -317,6 +339,9 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     addPars=args.addpars, subPars=args.delpars, \
                     fulltimingmodel=args.fullmodel, incNonGaussian=args.incNonGaussian, \
                     nnongaussian=args.nnongauss, \
+                    incRedExt=args.incRedExt, redExtModel=args.redExtModel, \
+                    redExtNf=args.nfext, \
+                    incEnvelope=args.incRedEnv, envelopeModel=args.redEnvModel,
                     incCW=args.incCW, incPulsarDistance=args.incPdist, \
                     CWupperLimit=args.CWupperLimit, \
                     mass_ratio=args.CWmass_ratio, \
@@ -564,7 +589,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
             if logprior(p0) != -np.inf and loglike(p0) != -np.inf:
                 inRange = True
         else:
-            print loglike(p0, **loglkwargs)
+            print loglike(p0, **loglkwargs), logprior(p0)
             if logprior(p0) != -np.inf and loglike(p0, **loglkwargs) != -np.inf:
                 inRange = True
     
@@ -645,6 +670,8 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
             sampler.addProposalToCycle(model.drawFromDMPrior, 5)
         if args.incRed and args.redModel=='spectrum':
             sampler.addProposalToCycle(model.drawFromRedNoiseSpectrumPrior, 10)
+        if args.incRedExt and args.redExtModel=='spectrum':
+            sampler.addProposalToCycle(model.drawFromRedNoiseExtSpectrumPrior, 10)
         if args.incEquad:
             sampler.addProposalToCycle(model.drawFromEquadPrior, 5)
         if args.incJitterEquad:
