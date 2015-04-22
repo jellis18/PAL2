@@ -1720,7 +1720,6 @@ def python_block_shermor_0D(r, Nvec, Jvec, Uinds):
     
     ni = 1/Nvec
     Nx = r/Nvec
-
     if len(Jvec) > 1:
         for cc, jv in enumerate(Jvec):
             if jv > 0.0:

@@ -2818,7 +2818,7 @@ class PTAmodels(object):
                 p.Nwovec[:] = 0
 
             p.Nvec[:] = 0
-            p.Qamp = 0
+            p.Qamp = np.array([0])
 
         # Loop over all white noise signals, and fill the pulsar Nvec
         for ss, sig in enumerate(self.ptasignals):
