@@ -581,7 +581,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
     if MPIrank == 0:
         pstart = True
     startSpectrumMin = False
-    fixpstart = True
+    #fixpstart = True
     while not(inRange):
         p0 = model.initParameters(startEfacAtOne=True, fixpstart=fixpstart)
         startSpectrumMin = True
@@ -627,7 +627,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
                     or 'red_' in par or 'dm_' in par or 'GWB' in par])]
             ind += [idx[(ind[-1][-1]+1):]]
         elif args.incCW:
-            if args.fixNoise:
+            if args.fixNoise or args.noVaryEfac:
                 ind = []
             else:
                 ind = [np.array([ct for ct, par in enumerate(par_out) if 'efac' in par or \

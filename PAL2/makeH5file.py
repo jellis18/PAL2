@@ -31,6 +31,10 @@ except OSError:
 parFiles = glob.glob(args.pardir + '/*.par')
 timFiles = glob.glob(args.timdir + '/*.tim')
 
+# sort
+parFiles.sort()
+timFiles.sort()
+
 
 df = PALdatafile.DataFile(args.h5file)
 for t,p in zip(timFiles, parFiles):

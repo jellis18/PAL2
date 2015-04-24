@@ -656,9 +656,9 @@ class PTAmodels(object):
                     ScatteringModel = 'scatspectrum'
                 elif scatteringModel == 'powerlaw':
                     bvary = [True, True, True, False]
-                    pmin = [2.5, -20.0, 0.02, 1.0e-11]
+                    pmin = [3.01, -20.0, 0.02, 1.0e-11]
                     pmax = [7.0, -11, 6.98, 3.0e-9]
-                    pstart = [4.0, -15.0, 2.01, 1.0e-10]
+                    pstart = [4.0, -16.0, 2.01, 1.0e-10]
                     pwidth = [0.1, 0.1, 0.1, 5.0e-11]
                     prior = ['uniform', DMAmpPrior, DMSiPrior, 'log']
                     parids = ['scat-beta', 'scat-Amplitude',
@@ -2818,7 +2818,7 @@ class PTAmodels(object):
                 p.Nwovec[:] = 0
 
             p.Nvec[:] = 0
-            p.Qamp = np.array([0])
+            p.Qamp = 0
 
         # Loop over all white noise signals, and fill the pulsar Nvec
         for ss, sig in enumerate(self.ptasignals):
@@ -2975,12 +2975,11 @@ class PTAmodels(object):
 
                 # add Quadratic
                 psr.Ttmat[:, nf] = Svec
-                psr.Ttmat[:, nf+1] = Svec * psr.toas
-                psr.Ttmat[:, nf+2] = Svec * psr.toas**2
+                psr.Ttmat[:, nf+1] = Svec * (psr.toas - self.Tref)
+                psr.Ttmat[:, nf+2] = Svec * (psr.toas - self.Tref)**2
 
                 norm = np.sqrt(np.sum(psr.Ttmat[:,nf:nf+3] ** 2, axis=0))
                 psr.Ttmat[:,nf:nf+3] /= norm
-
 
                 # add fourier basis
                 psr.Ttmat[:, nf+3:nf+nfscat+3] = Fscatmat
@@ -3924,8 +3923,8 @@ class PTAmodels(object):
                     self.psr, sparameters[0], sparameters[1],
                     mc, dist, 10 ** sparameters[4],
                     sparameters[5], sparameters[6], sparameters[7],
-                    pdist=pdist, psrTerm=incPterm, phase_approx=False,
-                    evolve=True, tref=self.Tref)
+                    pdist=pdist, psrTerm=incPterm, phase_approx=True,
+                    tref=self.Tref)
 
                 # loop over all pulsars and subtract off CW signal
                 for ct, p in enumerate(self.psr):
@@ -5207,8 +5206,8 @@ class PTAmodels(object):
                     if varyNoise:
                         self.logdet_Sigma += np.sum(2 * np.log(np.diag(cf[0])))
                 except np.linalg.LinAlgError:
+                    #raise ValueError("ERROR: Sigma singular according to SVD")
                     return -np.inf
-                    raise ValueError("ERROR: Sigma singular according to SVD")
 
                 loglike += 0.5 * (np.dot(dd, expval2))
 
@@ -5357,7 +5356,6 @@ class PTAmodels(object):
             self.constructPhiMatrix(parameters, incCorrelations=incCorrelations,
                                     incTM=True, incJitter=False)
 
-
         # set deterministic sources
         if self.haveDetSources:
             self.updateDetSources(parameters)
@@ -5402,6 +5400,7 @@ class PTAmodels(object):
             loglike += -0.5 * (logdet_N + rNr) - 0.5 * \
                 len(p.toas) * np.log(2 * np.pi)
 
+
             # calculate red noise piece
             if not incCorrelations:
 
@@ -5424,7 +5423,6 @@ class PTAmodels(object):
                     if varyNoise:
                         self.logdet_Sigma += np.sum(2 * np.log(np.diag(cf[0])))
                 except np.linalg.LinAlgError:
-
                     return -np.inf
                     #raise ValueError("ERROR: Sigma singular according to SVD")
 
@@ -6764,8 +6762,10 @@ class PTAmodels(object):
         L0 = np.array(L0)
         pdisterr = np.array(pdisterr)
 
-        L_new = np.random.multivariate_normal(L0, np.diag(pdisterr ** 2))
-        q[pdist_inds] = L_new
+        #L_new = np.random.multivariate_normal(L0, np.diag(pdisterr ** 2))
+        ind = np.random.randint(0, len(pdist_inds), 1)
+        L_new = L0[ind] + np.random.rand() * pdisterr[ind]
+        q[pdist_inds[ind]] = L_new
         qxy -= np.sum((L0 - parameters[pdist_inds]) ** 2 / 2 / pdisterr ** 2 -
                       (L0 - q[pdist_inds]) ** 2 / 2 / pdisterr ** 2)
 
@@ -6838,29 +6838,33 @@ class PTAmodels(object):
         # size of phase jump
         prob = np.random.rand()
         if prob > 0.8:
-            sigma = 0.1 * np.random.randn(self.npsr)
+            sigma = 0.5 * np.random.randn(self.npsr)
 
         elif prob > 0.6:
-            sigma = 0.02 * np.random.randn(self.npsr)
+            sigma = 0.1 * np.random.randn(self.npsr)
 
         elif prob > 0.4:
-            sigma = 0.002 * np.random.randn(self.npsr)
+            sigma = 0.02 * np.random.randn(self.npsr)
 
         else:
-            sigma = 0.005 * np.random.randn(self.npsr)
+            sigma = 0.05 * np.random.randn(self.npsr)
 
         deltaL = (np.mod(phase1, 2 * np.pi) - np.mod(phase0, 2 * np.pi)
                   + sigma * np.sqrt(1 / beta)) / (omegap1 * (1 - cosMu1))
-
         L_new = (L1 + deltaL) / 1.0267e11
         post[pdist_inds] = L_new
+
         #L1 = L_new * 1.0267e11
         #omegap1 = omega1 * (1+256/5*mc1**(5/3)*omega1**(8/3)*L1*(1-cosMu1))**(-3/8)
 
-        # pulsar phase
+        ## pulsar phase
         #phase1 = 1/32/mc1**(5/3) * (omega1**(-5/3) - omegap1**(-5/3))
 
-        # print np.mod(phase0, 2*np.pi), np.mod(phase1, 2*np.pi)
+        #for p1, p2, l1, l2, cm in zip(phase0, phase1, L0/1.0267e11, L_new, cosMu1):
+        #    print np.mod(p1, 2*np.pi), np.mod(p2, 2*np.pi), \
+        #        np.abs(l1-l2) / ((l1+l2)/2), 1-cm
+
+        #print '\n'
 
         return post, 0
 
