@@ -12,7 +12,7 @@ import time
 try:
     from mpi4py import MPI
 except ImportError:
-    from . import nompi4py as MPI
+    from nompi4py as MPI
 
 try:
     import acor
