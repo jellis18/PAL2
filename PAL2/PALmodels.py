@@ -641,11 +641,11 @@ class PTAmodels(object):
                 if scatteringModel == 'spectrum':
                     bvary = [True]
                     bvary += [True] * nscatfreqs
-                    pmin = [0.01]
-                    pmin += [-18.0] * nscatfreqs
+                    pmin = [0.1]
+                    pmin += [-20.0] * nscatfreqs
                     pmax = [7.0]
                     pmax += [-8.0] * nscatfreqs
-                    pstart = [2.0]
+                    pstart = [4.0]
                     pstart += [-15.0] * nscatfreqs
                     pwidth = [0.1]
                     pwidth += [0.1] * nscatfreqs
@@ -656,7 +656,7 @@ class PTAmodels(object):
                     ScatteringModel = 'scatspectrum'
                 elif scatteringModel == 'powerlaw':
                     bvary = [True, True, True, False]
-                    pmin = [3.01, -20.0, 0.02, 1.0e-11]
+                    pmin = [0.01, -20.0, 0.02, 1.0e-11]
                     pmax = [7.0, -11, 6.98, 3.0e-9]
                     pstart = [4.0, -16.0, 2.01, 1.0e-10]
                     pwidth = [0.1, 0.1, 0.1, 5.0e-11]
@@ -678,7 +678,8 @@ class PTAmodels(object):
                     "pstart": pstart,
                     "prior": prior,
                     "parids": parids,
-                    "nscatfreqs": nscatfreqs * 2
+                    "nscatfreqs": nscatfreqs * 2,
+                    "bwflags": p.bwflags
                 })
                 signals.append(newsignal)
 
@@ -1238,13 +1239,15 @@ class PTAmodels(object):
             pwidth = [0.1, 0.1, 0.1, 0.1, 0.0001, 0.1, 0.1, 0.1]
             prior = ['cos', 'uniform', 'log', 'log',
                      'log', 'uniform', 'uniform', 'cos']
-            parids = [
-                'theta', 'phi', 'logmc', 'logd', 'logf', 'phase', 'pol', 'inc']
+            parids = ['theta', 'phi', 'logmc', 'logd',
+                      'logf', 'phase', 'pol', 'inc']
 
             newsignal = OrderedDict({
                 "stype": "cw",
                 "corr": "gr",
                 "pulsarind": -1,
+                "mu": mu,
+                "sigma": sigma,
                 "bvary": bvary,
                 "pmin": pmin,
                 "pmax": pmax,
@@ -2970,7 +2973,8 @@ class PTAmodels(object):
                         PALutils.createfourierdesignmatrix(
                             psr.toas, int(nfscat/2), freq=True,
                             Tspan=psr.Tmax)
-                Svec =  (psr.freqs / 1400.0) ** -sparameters[0]
+                bw = np.array(sig['bwflags']) / 16
+                Svec =  (psr.freqs  / bw / 1400.0 / 4.0) ** -sparameters[0]
                 Fscatmat = (Svec * Fmat.T).T
 
                 # add Quadratic
@@ -3166,6 +3170,7 @@ class PTAmodels(object):
 
                     # pcdoubled = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
                     #                     freqpy**(-gamma))
+                    #print 1/self.psr[psrind].Ffreqs[0], self.psr[psrind].Tmax
                     # fill in kappa
                     self.psr[psrind].kappa = pcdoubled
 
@@ -3627,12 +3632,6 @@ class PTAmodels(object):
             nftot = self.ngwf + np.max(self.npfdm)
             smallMatrix = np.zeros((nftot, self.npsr, self.npsr))
             for ii in range(self.npsr):
-                #smallMatrix[:,ii,ii] = self.corrmat[ii,ii] * sigdiag[ii]
-                # if ii < self.npsr -1:
-                #    jj = np.arange(ii+1, self.npsr)
-                #    print type(jj)
-                #    smallMatrix[:,ii,jj] = self.corrmat[ii,jj] * sigoffdiag[ii]
-                #    smallMatrix[:,jj,ii] = smallMatrix[:,ii,jj]
 
                 for jj in range(ii, self.npsr):
                     if ii == jj:
@@ -5880,9 +5879,9 @@ class PTAmodels(object):
 
     def mark3LogPrior(self, parameters):
         prior = 0
-        # for ct, pp in enumerate(parameters):
-        #    print pp, self.pmin[ct], pp >= self.pmin[ct]
-        #    print pp, self.pmin[ct], pp <= self.pmax[ct]
+        #for ct, pp in enumerate(parameters):
+        #   print pp, self.pmin[ct], pp >= self.pmin[ct]
+        #   print pp, self.pmin[ct], pp <= self.pmax[ct]
         if np.all(parameters >= self.pmin) and np.all(parameters <= self.pmax):
             prior += -np.sum(np.log(self.pmax - self.pmin))
 
@@ -5949,8 +5948,8 @@ class PTAmodels(object):
                 sig_data = self.psr[psrind].sig_data * 10
                 sig_red = np.sqrt(np.sum(10 ** sparameters))
                 # print sig_red, sig_data
-                if sig_red > sig_data:
-                    prior += -np.inf
+                #if sig_red > sig_data:
+                #    prior += -np.inf
 
             if sig['corr'] == 'gr' and sig['stype'] == 'spectrum':
                 if np.any(np.array(sig['prior']) == 'sqrt'):
@@ -5966,8 +5965,8 @@ class PTAmodels(object):
                 sig_data = self.psr[psrind].sig_data * 10
                 sig_red = np.sqrt(np.sum(10 ** sparameters))
                 # print sig_red, sig_data
-                if sig_red > sig_data:
-                    prior += -np.inf
+                #if sig_red > sig_data:
+                #    prior += -np.inf
 
             if sig['stype'] in ['powerlaw'] and sig['corr'] == 'single':
                 if sig['bvary'][0]:

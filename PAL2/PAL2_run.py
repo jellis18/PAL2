@@ -488,6 +488,7 @@ if args.fromFile:
     write = True
 else:
     write = 'no'
+#args.fromFile = False
 model.initModel(fullmodel, memsave=memsave, fromFile=args.fromFile, verbose=True, write=write)
 
 if args.CWmass_ratio:
@@ -640,6 +641,9 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
                         'RN' not in par and 'DM' not in par and \
                         'red_' not in par and 'dm_' not in par and \
                         'GWB' not in par]))
+            
+            ind.append(np.array([ct for ct, par in enumerate(par_out) if \
+                        'pdist' not in par]))
         else:
             ind = None
         #ind = None
