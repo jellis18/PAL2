@@ -6764,8 +6764,8 @@ class PTAmodels(object):
         pdisterr = np.array(pdisterr)
 
         #L_new = np.random.multivariate_normal(L0, np.diag(pdisterr ** 2))
-        ind = np.random.randint(0, len(pdist_inds), 1)
-        L_new = L0[ind] + np.random.rand() * pdisterr[ind]
+        ind = np.random.randint(0, len(pdist_inds), len(pdist_inds))
+        L_new = L0[ind] + np.random.randn() * pdisterr[ind]
         q[pdist_inds[ind]] = L_new
         qxy -= np.sum((L0 - parameters[pdist_inds]) ** 2 / 2 / pdisterr ** 2 -
                       (L0 - q[pdist_inds]) ** 2 / 2 / pdisterr ** 2)

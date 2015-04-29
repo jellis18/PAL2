@@ -142,6 +142,8 @@ parser.add_argument('--separateJitterEquad', dest='separateJitterEquad', action=
                     help='separate Jitter Equad [None, backend, frequencies]')
 parser.add_argument('--fixNoise', dest='fixNoise', action='store_true',\
                     default=False, help='fix Noise values')
+parser.add_argument('--noVaryNoise', dest='noVaryNoise', action='store_true',\
+                    default=False, help='fix Noise values to default values')
 parser.add_argument('--fixWhite', dest='fixWhite', action='store_true',\
                     default=False, help='fix White Noise values')
 parser.add_argument('--noisedir', dest='noisedir', action='store', type=str,
@@ -197,7 +199,7 @@ parser.add_argument('--neff', dest='neff', type=int, action='store', \
 parser.add_argument('--resume', dest='resume', action='store_true', \
                     default=False, help='resume from previous run')
 
-parser.add_argument('--Tmatrix', dest='Tmatrix', action='store_true', \
+parser.add_argument('--mark6', dest='mark6', action='store_true', \
                     default=False, help='Use T matrix formalism')
 parser.add_argument('--mark9', dest='mark9', action='store_true', \
                     default=False, help='Use mark9 likelihoodk')
@@ -280,7 +282,7 @@ else:
 if args.noMarg:
     likfunc = 'mark7'
 
-if args.Tmatrix or args.margShapelet:
+if args.mark6 or args.margShapelet:
     likfunc = 'mark6'
 if args.mark9:
     likfunc = 'mark9'
@@ -453,6 +455,16 @@ if args.noVaryEfac:
             sig['bvary'][0] = False
             sig['pstart'][0] = 1
 
+if args.noVaryNoise:
+    print 'Fixing Noise values to defaults'
+    nflags = ['efac', 'equad', 'jitter', 'jitter_equad']
+    for sig in fullmodel['signals']:
+        if sig['stype'] in nflags:
+            sig['bvary'][0] = False
+            print '{0} for {1} set to {2}'.format(sig['stype'],
+                                                 sig['flagvalue'],
+                                                 sig['pstart'])
+
 
 if args.fixNoise:
     #noisedir = '/Users/jaellis/Work/pulsars/NANOGrav/9yr/noisefiles/'
@@ -533,7 +545,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
     else:
         loglike = model.mark1LogLikelihood
 
-    if args.Tmatrix or args.margShapelet:
+    if args.mark6 or args.margShapelet:
         loglike = model.mark6LogLikelihood
     if args.noMarg:
         loglike = model.mark7LogLikelihood
@@ -562,9 +574,9 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
     else:
         loglkwargs['incCorrelations'] = True
         print 'Running model with GWB correlations'
-    if args.incJitterEquad and np.any([args.Tmatrix, args.mark10]):
+    if args.incJitterEquad and np.any([args.mark6, args.mark10]):
         loglkwargs['incJitter'] = True
-    if args.fixNoise and not args.fixWhite:
+    if np.any([args.fixNoise, args.noVaryNoise]) and not args.fixWhite:
         loglkwargs['varyNoise'] = False
     elif args.fixNoise and args.fixWhite:
         loglkwargs['varyNoise'] = True
@@ -577,7 +589,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
     inRange = False
     pstart = False
     fixpstart=False
-    if args.incTimingModel or args.fixNoise:
+    if args.incTimingModel or args.fixNoise or args.noVaryNoise:
         fixpstart=True
     if MPIrank == 0:
         pstart = True
@@ -586,7 +598,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
     while not(inRange):
         p0 = model.initParameters(startEfacAtOne=True, fixpstart=fixpstart)
         startSpectrumMin = True
-        if args.fixWhite or args.fixNoise:
+        if args.fixWhite or args.fixNoise or args.noVaryNoise:
             if logprior(p0) != -np.inf and loglike(p0) != -np.inf:
                 inRange = True
         else:
@@ -595,7 +607,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
                 inRange = True
     
     # if fixed noise, must call likelihood once to initialize matrices
-    if args.fixNoise or args.fixWhite:
+    if args.fixNoise or args.fixWhite or args.noVaryNoise:
         if not args.zerologlike:
             loglike(p0, incCorrelations=False)
 
@@ -628,7 +640,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
                     or 'red_' in par or 'dm_' in par or 'GWB' in par])]
             ind += [idx[(ind[-1][-1]+1):]]
         elif args.incCW:
-            if args.fixNoise or args.noVaryEfac:
+            if args.fixNoise or args.noVaryEfac or args.noVaryNoise:
                 ind = []
             else:
                 ind = [np.array([ct for ct, par in enumerate(par_out) if 'efac' in par or \
@@ -643,7 +655,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
                         'GWB' not in par]))
             
             ind.append(np.array([ct for ct, par in enumerate(par_out) if \
-                        'pdist' not in par]))
+                        'pdist' in par]))
         else:
             ind = None
         #ind = None
@@ -686,8 +698,8 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
             sampler.addProposalToCycle(model.drawFromTMfisherMatrix, 40)
             #sampler.addProposalToCycle(model.drawFromTMPrior, 5)
         if args.incCW:
-            sampler.addProposalToCycle(model.drawFromCWPrior, 5)
-            sampler.addProposalToCycle(model.massDistanceJump, 5)
+            sampler.addProposalToCycle(model.drawFromCWPrior, 2)
+            sampler.addProposalToCycle(model.massDistanceJump, 2)
             if args.incPdist:
                 sampler.addAuxilaryJump(model.pulsarPhaseFix)
                 sampler.addProposalToCycle(model.pulsarDistanceJump, 10)
@@ -699,7 +711,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
 
         # run MCMC
         print 'Engage!'
-        sampler.sample(p0, args.niter, covUpdate=1000, AMweight=15, SCAMweight=30, \
+        sampler.sample(p0, args.niter, covUpdate=1000, AMweight=15, SCAMweight=50, \
                        DEweight=20, neff=args.neff, KDEweight=0, Tmin=args.Tmin,
                        Tmax=args.Tmax)
 
