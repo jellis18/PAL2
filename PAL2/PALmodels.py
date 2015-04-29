@@ -1241,6 +1241,8 @@ class PTAmodels(object):
                      'log', 'uniform', 'uniform', 'cos']
             parids = ['theta', 'phi', 'logmc', 'logd',
                       'logf', 'phase', 'pol', 'inc']
+            mu = [None] * 8
+            sigma = [None] * 8
 
             newsignal = OrderedDict({
                 "stype": "cw",
