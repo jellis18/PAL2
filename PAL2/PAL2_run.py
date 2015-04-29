@@ -653,8 +653,9 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
                         'RN' not in par and 'DM' not in par and \
                         'red_' not in par and 'dm_' not in par and \
                         'GWB' not in par]))
-            
-            ind.append(np.array([ct for ct, par in enumerate(par_out) if \
+
+            if args.incPdist:
+                ind.append(np.array([ct for ct, par in enumerate(par_out) if \
                         'pdist' in par]))
         else:
             ind = None
