@@ -9,7 +9,6 @@ from scipy.optimize import fmin
 import scipy.special as ss
 import PALpsr
 import glob
-import pyswarm
 import PALutils
 import time, os
 
@@ -614,6 +613,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
             loglike(p0, incCorrelations=False)
 
     if args.sampler == 'minimize':
+        import pyswarm
 
         # define function
         def fun(x):
