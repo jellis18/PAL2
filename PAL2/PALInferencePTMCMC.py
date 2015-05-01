@@ -103,7 +103,7 @@ class PTSampler(object):
         self.propCycle = []
 
         # indicator for auxilary jumps
-        self.aux = None
+        self.aux = []
 
     def initialize(self, Niter, ladder=None, Tmin=1, Tmax=None, Tskip=100,
                    isave=1000, covUpdate=1000, KDEupdate=10000, SCAMweight=20,
@@ -915,7 +915,7 @@ class PTSampler(object):
         """
 
         # set auxilary jump
-        self.aux = func
+        self.aux.append(func)
 
     # randomized proposal cycle
     def randomizeProposalCycle(self):
@@ -950,9 +950,10 @@ class PTSampler(object):
             x, iter, 1 / self.temp)
 
         # axuilary jump
-        if self.aux is not None:
-            q, qxy_aux = self.aux(x, q, iter, 1 / self.temp)
-            qxy += qxy_aux
+        if len(self.aux) > 0:
+            for aux in self.aux:
+                q, qxy_aux = aux(x, q, iter, 1 / self.temp)
+                qxy += qxy_aux
 
         # increment proposal cycle counter and re-randomize if at end of cycle
         if iter % length == 0:

@@ -201,6 +201,8 @@ parser.add_argument('--resume', dest='resume', action='store_true', \
 
 parser.add_argument('--mark6', dest='mark6', action='store_true', \
                     default=False, help='Use T matrix formalism')
+parser.add_argument('--Tmatrix', dest='Tmatrix', action='store_true', \
+                    default=False, help='Use T matrix formalism')
 parser.add_argument('--mark9', dest='mark9', action='store_true', \
                     default=False, help='Use mark9 likelihoodk')
 parser.add_argument('--mark10', dest='mark10', action='store_true', \
@@ -282,7 +284,7 @@ else:
 if args.noMarg:
     likfunc = 'mark7'
 
-if args.mark6 or args.margShapelet:
+if args.mark6 or args.margShapelet or args.Tmatrix:
     likfunc = 'mark6'
 if args.mark9:
     likfunc = 'mark9'
@@ -545,7 +547,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
     else:
         loglike = model.mark1LogLikelihood
 
-    if args.mark6 or args.margShapelet:
+    if args.mark6 or args.margShapelet or args.Tmatrix:
         loglike = model.mark6LogLikelihood
     if args.noMarg:
         loglike = model.mark7LogLikelihood
@@ -574,7 +576,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
     else:
         loglkwargs['incCorrelations'] = True
         print 'Running model with GWB correlations'
-    if args.incJitterEquad and np.any([args.mark6, args.mark10]):
+    if args.incJitterEquad and np.any([args.mark6, args.Tmatrix, args.mark10]):
         loglkwargs['incJitter'] = True
     if np.any([args.fixNoise, args.noVaryNoise]) and not args.fixWhite:
         loglkwargs['varyNoise'] = False
@@ -706,9 +708,27 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
                 sampler.addProposalToCycle(model.pulsarDistanceJump, 10)
 
         # always include draws from efac
-        if not args.noVaryEfac:
+        if not args.noVaryEfac and not args.noVaryNoise:
             sampler.addProposalToCycle(model.drawFromEfacPrior, 2)
 
+        if args.incCW and MPIrank == 0:
+
+            # call likelihood once to set noise
+            loglike(p0, **loglkwargs)
+            f = np.logspace(-9, -7, 1000)
+            fpstat = np.zeros(len(f))
+            for ii in range(1000):
+                fpstat[ii] = model.fpStat(f[ii])
+
+            ind = np.argmax(fpstat)
+            print 'Starting MCMC CW frequency at {0}'.format(f[ind])
+            lfstart = np.log10(f[ind])
+
+            for sig in fullmodel['signals']:
+                if sig['stype'] == 'cw':
+
+                    # start frequency
+                    sig['pstart'][4] = lfstart
 
         # run MCMC
         print 'Engage!'
