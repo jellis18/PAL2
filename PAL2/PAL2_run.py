@@ -197,6 +197,8 @@ parser.add_argument('--neff', dest='neff', type=int, action='store', \
                     default=1000, help='Number of effective samples')
 parser.add_argument('--resume', dest='resume', action='store_true', \
                     default=False, help='resume from previous run')
+parser.add_argument('--writeHotChains', dest='writeHotChains', action='store_true', \
+                    default=False, help='Write hot chains in MCMC sampler')
 
 parser.add_argument('--mark6', dest='mark6', action='store_true', \
                     default=False, help='Use T matrix formalism')
@@ -401,7 +403,7 @@ if args.CWmass_ratio:
 if args.fixSi:
     print 'Fixing GWB spectral index to 4.33'
     for sig in fullmodel['signals']:
-        if sig['corr'] == 'gr' and sig['stype'] == 'powerlaw':
+        if sig['corr'] == 'gr' and sig['stype'] in ['powerlaw', 'turnover']:
             sig['bvary'][1] = False
             sig['pstart'][1] = 4.33
         elif sig['corr'] == 'gr_sph' and sig['stype'] == 'powerlaw':
@@ -705,6 +707,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
             sampler.addProposalToCycle(model.massDistanceJump, 2)
             if args.incPdist:
                 sampler.addAuxilaryJump(model.pulsarPhaseFix)
+                sampler.addAuxilaryJump(model.fix_cyclic_pars)
                 sampler.addProposalToCycle(model.pulsarDistanceJump, 10)
 
         # always include draws from efac
@@ -734,7 +737,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         print 'Engage!'
         sampler.sample(p0, args.niter, covUpdate=1000, AMweight=15, SCAMweight=50, \
                        DEweight=20, neff=args.neff, KDEweight=0, Tmin=args.Tmin,
-                       Tmax=args.Tmax)
+                       Tmax=args.Tmax, writeHotChains=args.writeHotChains)
 
     if args.sampler == 'polychord':
         print 'Using PolyChord Sampler'

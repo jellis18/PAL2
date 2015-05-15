@@ -515,7 +515,7 @@ def createQSDdesignmatrix(toas):
 
     return designmatrix
 
-def createDesignmatrix(toas, freqs, RADEC=False, PX=False, DMX=False):
+def createDesignmatrix(toas, freqs=None, RADEC=False, PX=False, DMX=False):
     """
     Return designmatrix for QSD model
 
@@ -549,7 +549,7 @@ def createDesignmatrix(toas, freqs, RADEC=False, PX=False, DMX=False):
             designmatrix[:,ii] = np.cos(2*np.pi/3.16e7*toas)
         if model[ii] == 'PX': 
             designmatrix[:,ii] = np.cos(4*np.pi/3.16e7*toas)
-        if model[ii] == 'DMX':
+        if model[ii] == 'DMX' and freqs is not None:
             designmatrix[:,ii:] = DMXDesignMatrix(toas, freqs, dt=43200)
             break
 
@@ -914,8 +914,9 @@ def createRedNoiseCovarianceMatrix(tm, Amp, gam, fH=None, fast=False):
                 np.sin(np.pi*gam/2)*ne.evaluate("x**(gam-1)")) \
                 -sumTermCovarianceMatrix_fast(tm*s2yr, fL, gam))
         else:
+            x = 2 *np.pi * fL * tm * s2yr
             corr = (2*A/(fL**(gam-1)))*((ss.gamma(1-gam)* \
-                np.sin(np.pi*gam/2)*(2*np.pi*fL*tm)**(gam-1)) \
+                np.sin(np.pi*gam/2)*(x)**(gam-1)) \
                 -sumTermCovarianceMatrix(tm*s2yr, fL, gam, 5))
 
     elif fH is not None:

@@ -912,7 +912,7 @@ class PTAmodels(object):
                     newptmdescription = p.getNewTimingModelParameterList(keep=True,
                                         tmpars=['Offset', 'F0', 'F1', 'RAJ', 'DECJ',
                                                 'LAMBDA','ELONG', 'ELAT',
-                                                'BETA', 'PMELONG',
+                                                'BETA', 'PMELONG', 'PMRA', 'PMDEC',
                                                 'PMELAT', 'DM', 'DM1','DM2'] + \
                                                 jumps + dmx + fds)
                     # newptmdescription = p.getNewTimingModelParameterList(keep=True, \
@@ -1018,7 +1018,7 @@ class PTAmodels(object):
 
                         # physical priors
                         if parid == 'SINI':
-                            pmin += [-1.0]
+                            pmin += [0.0]
                             pmax += [1.0]
                             pwidth += [tmperrs[jj]]
                             if tmpest[jj] <= -1.0 or tmpest[jj] >= 1.0:
@@ -1026,10 +1026,18 @@ class PTAmodels(object):
                             else:
                                 pstart += [tmpest[jj]]
                         elif parid == 'STIG':
-                            pmin += [-1.0]
+                            pmin += [0.0]
                             pmax += [1.0]
                             pwidth += [tmperrs[jj]]
                             if tmpest[jj] <= -1.0 or tmpest[jj] >= 1.0:
+                                pstart += [0.5]
+                            else:
+                                pstart += [tmpest[jj]]
+                        elif parid == 'H3':
+                            pmin += [0.0]
+                            pmax += [500.0 * tmperrs[jj] + tmpest[jj]]
+                            pwidth += [tmperrs[jj]]
+                            if tmpest[jj] <= 0.0:
                                 pstart += [0.5]
                             else:
                                 pstart += [tmpest[jj]]
@@ -2103,6 +2111,7 @@ class PTAmodels(object):
                 p.Tmax = p.toas.max() - p.toas.min()
                 #p.Tmax = self.Tmax
         elif dTmax == 0:
+            print 'Using longest timespan of {0} yr for Tmax'.format(Tmax/3.16e7)
             for p in self.psr:
                 p.Tmax = Tmax
         else:
@@ -3875,6 +3884,7 @@ class PTAmodels(object):
             # continuous wave signal
             elif sig['stype'] == 'cw':
 
+
                 # get pulsar distances
                 nsigs = self.getNumberOfSignalsFromDict(self.ptasignals,
                                                         stype='pulsardistance',
@@ -5582,9 +5592,9 @@ class PTAmodels(object):
             A[1, :] = 1 / f0 ** (1 / 3) * np.cos(2 * np.pi * f0 * p.toas)
 
             Sigma = self.Sigma[nfref:(nfref + nf), nfref:(nfref + nf)]
-            ip1 = PALutils.innerProduct_rr(A[0, :], p.detresiduals,
+            ip1 = PALutils.innerProduct_rr(A[0, :], p.residuals,
                                            p.Nvec, p.Tmat, Sigma)
-            ip2 = PALutils.innerProduct_rr(A[1, :], p.detresiduals,
+            ip2 = PALutils.innerProduct_rr(A[1, :], p.residuals,
                                            p.Nvec, p.Tmat, Sigma)
             N = np.array([ip1, ip2])
 
@@ -6001,7 +6011,7 @@ class PTAmodels(object):
             if sig['stype'] == 'lineartimingmodel' or sig[
                     'stype'] == 'nonlineartimingmodel':
 
-                ecc, edot, t0, sini, a1, m2, pb, kin = 0, 0, 0, 0, 0, 0, 0, 0
+                ecc, edot, t0, sini, a1, m2, pb, kin, stig, h3 = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
                 pindex = 0
                 for jj in range(sig['ntotpars']):
                     if sig['bvary'][jj]:
@@ -6022,6 +6032,10 @@ class PTAmodels(object):
                             m2 = sparameters[pindex]
                         elif sig['parid'][jj] == 'KIN':
                             kin = sparameters[pindex]
+                        elif sig['parid'][jj] == 'H3':
+                            h3 = sparameters[pindex]
+                        elif sig['parid'][jj] == 'STIG':
+                            stig = sparameters[pindex]
 
                         pindex += 1
 
@@ -6036,18 +6050,37 @@ class PTAmodels(object):
                 # flat in cosi prior
                 if sini:
                     prior += np.log(sini / np.sqrt(1 - sini ** 2))
+                    #prior += 0
 
                 if kin:
                     prior += np.log(np.abs(np.sin(kin * np.pi / 180)))
 
                 # prior on pulsar mass [0,3]
-               # if sini and pb and m2 and a1:
-               #     Pb = pb*86400
-               #     X = a1*299.79e6/3e8
-               #     M2 = m2*4.9e-6
-               #     mp = ((sini*(Pb/2/np.pi)**(2./3)*M2/X)**(3./2) - M2)/4.9e-6
-               #     ms = 1.4 * np.sqrt(2)
-               #     prior += np.log(mp/ms) - (mp/ms)**2
+                if sini and pb and m2 and a1:
+                    Pb = pb*86400
+                    X = a1*299.79e6/3e8
+                    M2 = m2*4.9e-6
+                    mp = ((sini*(Pb/2/np.pi)**(2./3)*M2/X)**(3./2) - M2)/4.9e-6
+                    #extra = ((Pb/2/np.pi)**(2./3)*M2/X)**(3./2) * 1.5 * np.abs(sini)**(1/2)
+                    #prior += np.log(extra)
+                    ms = 1.4 * np.sqrt(2)
+                    if mp < 0.5 or mp > 3:
+                        prior += -1e10
+                    #prior += np.log(mp/ms) - (mp/ms)**2
+
+                if stig and pb and h3 and a1:
+                    m2 = h3/stig**3 / 4.9e-6
+                    sini = 2 * stig / (1+stig**2)
+                    Pb = pb*86400
+                    X = a1*299.79e6/3e8
+                    M2 = m2*4.9e-6
+                    mp = ((sini*(Pb/2/np.pi)**(2./3)*M2/X)**(3./2) - M2)/4.9e-6
+                    #extra = ((Pb/2/np.pi)**(2./3)*M2/X)**(3./2) * 1.5 * np.abs(sini)**(1/2)
+                    #prior += np.log(extra)
+                    ms = 1.4 * np.sqrt(2)
+                    if mp < 0.5 or mp > 3:
+                        prior += -1e10
+                    #prior += np.log(mp/ms) - (mp/ms)**2
 
             # CW parameters
             if sig['stype'] == 'cw':
@@ -6132,9 +6165,13 @@ class PTAmodels(object):
                     qxy += 0
 
                 elif sig['prior'][0] == 'uniform':
-                    q[parind] = np.log10(np.random.uniform(10 ** self.pmin[parind],
-                                                           10 ** self.pmax[parind]))
-                    qxy += np.log(10 ** parameters[parind] / 10 ** q[parind])
+                    q[parind] = np.random.uniform(
+                        self.pmin[parind], self.pmax[parind])
+                    qxy += 0
+
+                    #q[parind] = np.log10(np.random.uniform(10 ** self.pmin[parind],
+                    #                                       10 ** self.pmax[parind]))
+                    #qxy += np.log(10 ** parameters[parind] / 10 ** q[parind])
 
                 else:
                     print 'Prior type not recognized for parameter'
@@ -6772,6 +6809,34 @@ class PTAmodels(object):
 
         return q, qxy
 
+    # phase wrapping fix
+    def fix_cyclic_pars(self, prepar, postpar, iter, beta):
+        """
+        Wrap cyclic parameters into 0 -> 2 pi range
+        """
+
+        pre = prepar.copy()
+        post = postpar.copy()
+        
+        signum = self.getSignalNumbersFromDict(
+            self.ptasignals,stype='cw',
+            corr='gr')
+
+        sig = self.ptasignals[signum]
+        parind = sig['parindex']
+        ntotpars = sig['ntotpars']
+        # wrap azimuthal angle
+        if sig['bvary'][1]:
+            ind = np.sum(sig['bvary'][:2])
+            post[parind+ind] = np.mod(post[parind+ind], 2*np.pi)
+        
+        # wrap phase angle
+        if sig['bvary'][5]:
+            ind = np.sum(sig['bvary'][:6])
+            post[parind+ind] = np.mod(post[parind+ind], 2*np.pi)
+
+        return post, 0
+
     # pulsar mode jump
     def pulsarPhaseFix(self, prepar, postpar, iter, beta):
 
@@ -6780,8 +6845,9 @@ class PTAmodels(object):
 
         # get pulsar distances
         L0, L1 = [], []
-        signum = self.getSignalNumbersFromDict(self.ptasignals,
-                                               stype='pulsardistance', corr='single')
+        signum = self.getSignalNumbersFromDict(
+            self.ptasignals,stype='pulsardistance',
+            corr='single')
 
         # check to make sure we have all distances
         if len(signum) != self.npsr:
@@ -6803,16 +6869,31 @@ class PTAmodels(object):
 
         # now get other relevant parameters
         for ct, sig in enumerate(self.ptasignals):
+            
+            # short hand
+            psrind = sig['pulsarind']
+            parind = sig['parindex']
+            npars = sig['npars']
 
             if sig['stype'] == 'cw':
 
-                par0 = pre[sig['parindex']:(sig['parindex'] + sig['npars'])]
-                par1 = post[sig['parindex']:(sig['parindex'] + sig['npars'])]
+                # parameters for this signal
+                par0 = sig['pstart'].copy()
+                par1 = sig['pstart'].copy()
+
+                # which ones are varying
+                par0[sig['bvary']] = pre[parind:parind + npars]
+                par1[sig['bvary']] = post[parind:parind + npars]
+
+                #par0 = pre[sig['parindex']:(sig['parindex'] + sig['ntotpars'])]
+                #par1 = post[sig['parindex']:(sig['parindex'] + sig['ntotpars'])]
 
                 theta0, phi0, mc0, omega0 = par0[0], par0[
                     1], 10 ** par0[2], 10 ** par0[4] * np.pi
                 theta1, phi1, mc1, omega1 = par1[0], par1[
                     1], 10 ** par1[2], 10 ** par1[4] * np.pi
+
+
 
         # get angular separations
         cosMu0 = np.array([p.cosMu(theta0, phi0) for p in self.psr]).flatten()

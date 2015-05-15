@@ -1030,7 +1030,7 @@ class Pulsar(object):
             self.norm = np.sqrt(np.sum(Mm ** 2, axis=0))
 
         self.Mmat_reduced = Mmat
-        if likfunc != 'mark6' or likfunc != 'mark9' or likfunc != 'mark10':
+        if likfunc not in ['mark6', 'mark9', 'mark10']:
             U, s, Vh = sl.svd(Mmat)
             self.Gmat = U[:, Mmat.shape[1]:].copy()
             self.Gcmat = U[:, :Mmat.shape[1]].copy()
@@ -1093,8 +1093,8 @@ class Pulsar(object):
             self.Uinds = PALutils.quant2ind(self.Umat)
             self.aveflags = self.flags[self.Uinds[:, 0]]
 
-            print PALutils.checkTOAsort(self.toas, self.flags, which='jitterext', dt=1.0)
-            print PALutils.checkquant(self.Umat, self.flags, uflagvals=aveflags)
+            #print PALutils.checkTOAsort(self.toas, self.flags, which='jitterext', dt=1.0)
+            #print PALutils.checkquant(self.Umat, self.flags, uflagvals=aveflags)
 
         # Construct the compression matrix
         self.constructCompressionMatrix(compression, nfmodes=2 * nf,

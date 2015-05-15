@@ -9,6 +9,7 @@ import matplotlib.mlab as ml
 from matplotlib.ticker import FormatStrFormatter, LinearLocator, NullFormatter, NullLocator
 import matplotlib.ticker
 import matplotlib.colors
+from scipy.stats import gaussian_kde
 from optparse import OptionParser
 from statsmodels.distributions.empirical_distribution import ECDF
 import os
@@ -58,7 +59,7 @@ def getsigmalevels(hist2d, sig_levels=[0.68, 0.95, 0.997]):
   return level1, level2, level3
 
 def confinterval(samples, sigma=0.68, onesided=False, weights=None, bins=40,
-                type='equalArea'):
+                type='equalArea', kde=False):
     """
 
     Given a list of samples, return the desired cofidence intervals.
@@ -85,12 +86,18 @@ def confinterval(samples, sigma=0.68, onesided=False, weights=None, bins=40,
     #x = np.linspace(xedges.min(), xedges.max(), 10000)
     #ifunc = interp.interp1d(xedges, cdf, kind='cubic')
     #y = ifunc(x)
-    
+
     ecdf = ECDF(samples)
 
     # Create the binning
     x = np.linspace(min(samples), max(samples), 1000)
-    y = ecdf(x)
+
+    if kde:
+        kd = gaussian_kde(samples)
+        y = np.cumsum(kd.pdf(x) / np.sum(kd.pdf(x)))
+    else:
+        ecdf = ECDF(samples)
+        y = ecdf(x)
 
     # Find the intervals
     if type == 'equalArea' or onesided:
