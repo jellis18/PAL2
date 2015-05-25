@@ -705,6 +705,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         if args.incCW:
             sampler.addProposalToCycle(model.drawFromCWPrior, 2)
             sampler.addProposalToCycle(model.massDistanceJump, 2)
+            sampler.addProposalToCycle(model.phaseAndPolarizationReverseJump, 5)
             if args.incPdist:
                 sampler.addAuxilaryJump(model.pulsarPhaseFix)
                 sampler.addAuxilaryJump(model.fix_cyclic_pars)

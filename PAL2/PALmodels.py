@@ -1242,7 +1242,7 @@ class PTAmodels(object):
         if incCW and not CWupperLimit and not mass_ratio:
             bvary = [True] * 8
             pmin = [0, 0, 7, 0.1, -9, 0, 0, 0]
-            pmax = [np.pi, 2 * np.pi, 10, 3, -7, np.pi, np.pi, np.pi]
+            pmax = [np.pi, 2 * np.pi, 10, 3, -7, 2*np.pi, np.pi, np.pi]
             pstart = [np.pi / 2, np.pi / 2, 8, 1, -8, np.pi, np.pi, np.pi / 2]
             pwidth = [0.1, 0.1, 0.1, 0.1, 0.0001, 0.1, 0.1, 0.1]
             prior = ['cos', 'uniform', 'log', 'log',
@@ -1273,7 +1273,7 @@ class PTAmodels(object):
         elif incCW and CWupperLimit and not mass_ratio:
             bvary = [True] * 8
             pmin = [0, 0, 7, -17, -9, 0, 0, 0]
-            pmax = [np.pi, 2 * np.pi, 10, -12, -7, np.pi, np.pi, np.pi]
+            pmax = [np.pi, 2 * np.pi, 10, -12, -7, 2*np.pi, np.pi, np.pi]
             pstart = [
                 np.pi / 2, np.pi / 2, 8, -14, -8, np.pi, np.pi, np.pi / 2]
             pwidth = [0.1, 0.1, 0.1, 0.1, 0.0001, 0.1, 0.1, 0.1]
@@ -1301,7 +1301,7 @@ class PTAmodels(object):
         if incCW and mass_ratio:
             bvary = [True] * 9
             pmin = [0, 0, 7, 0.1, -9, 0, 0, 0, -3]
-            pmax = [np.pi, 2 * np.pi, 12, 3, -7, np.pi, np.pi, np.pi, 0]
+            pmax = [np.pi, 2 * np.pi, 12, 3, -7, 2*np.pi, np.pi, np.pi, 0]
             pstart = [np.pi / 2, np.pi / 2, 8, 1, -8, np.pi, np.pi, np.pi / 2, -1]
             pwidth = [0.1, 0.1, 0.1, 0.1, 0.0001, 0.1, 0.1, 0.1, 0.1]
             prior = ['cos', 'uniform', 'log', 'log',
@@ -3872,7 +3872,7 @@ class PTAmodels(object):
                 psr.detresiduals -= np.dot(psr.DF, a)
 
             # dm shapelet
-            elif sig['stype'] == 'dmshapelet':
+            if sig['stype'] == 'dmshapelet':
                 psr = self.psr[sig['pulsarind']]
                 t0, width, amps = sparameters[
                     0], sparameters[1], sparameters[2:]
@@ -3882,8 +3882,7 @@ class PTAmodels(object):
                 psr.detresiduals -= sig
 
             # continuous wave signal
-            elif sig['stype'] == 'cw':
-
+            if sig['stype'] == 'cw':
 
                 # get pulsar distances
                 nsigs = self.getNumberOfSignalsFromDict(self.ptasignals,
@@ -3928,6 +3927,7 @@ class PTAmodels(object):
                 else:
                     dist = 10 ** sparameters[3]
                     mc = 10**sparameters[2]
+
 
                 # construct CW signal
                 cwsig = PALutils.createResidualsFast(
@@ -5659,8 +5659,7 @@ class PTAmodels(object):
 
     """
 
-    def reconstructML_old(
-            self, parameters, incCorrelations=False, incJitter=False):
+    def reconstructML_old(self, parameters, incCorrelations=False, incJitter=False):
 
         loglike = 0
 
@@ -6802,7 +6801,7 @@ class PTAmodels(object):
 
         #L_new = np.random.multivariate_normal(L0, np.diag(pdisterr ** 2))
         ind = np.random.randint(0, len(pdist_inds), len(pdist_inds))
-        L_new = L0[ind] + np.random.randn() * pdisterr[ind]
+        L_new = L0[ind] + np.random.randn(len(ind)) * pdisterr[ind]
         q[pdist_inds[ind]] = L_new
         qxy -= np.sum((L0 - parameters[pdist_inds]) ** 2 / 2 / pdisterr ** 2 -
                       (L0 - q[pdist_inds]) ** 2 / 2 / pdisterr ** 2)
@@ -6817,23 +6816,28 @@ class PTAmodels(object):
 
         pre = prepar.copy()
         post = postpar.copy()
-        
-        signum = self.getSignalNumbersFromDict(
-            self.ptasignals,stype='cw',
-            corr='gr')
 
-        sig = self.ptasignals[signum]
-        parind = sig['parindex']
-        ntotpars = sig['ntotpars']
-        # wrap azimuthal angle
-        if sig['bvary'][1]:
-            ind = np.sum(sig['bvary'][:2])
-            post[parind+ind] = np.mod(post[parind+ind], 2*np.pi)
-        
-        # wrap phase angle
-        if sig['bvary'][5]:
-            ind = np.sum(sig['bvary'][:6])
-            post[parind+ind] = np.mod(post[parind+ind], 2*np.pi)
+        # now get other relevant parameters
+        for ct, sig in enumerate(self.ptasignals):
+            if sig['stype'] == 'cw':
+
+                # short hand
+                psrind = sig['pulsarind']
+                parind = sig['parindex']
+                npars = sig['npars']
+
+                # parameters for this signal
+                sparameters = sig['pstart'].copy()
+
+                # which ones are varying
+                sparameters[sig['bvary']] = post[parind:parind + npars]
+
+                if sig['bvary'][0]:
+                    post[parind] = np.mod(sparameters[0], 2*np.pi)
+
+                if sig['bvary'][5]:
+                    pind = np.sum(sig['bvary'][:5])
+                    post[parind+pind] = np.mod(sparameters[5], 2*np.pi)
 
         return post, 0
 
@@ -6888,11 +6892,22 @@ class PTAmodels(object):
                 #par0 = pre[sig['parindex']:(sig['parindex'] + sig['ntotpars'])]
                 #par1 = post[sig['parindex']:(sig['parindex'] + sig['ntotpars'])]
 
-                theta0, phi0, mc0, omega0 = par0[0], par0[
-                    1], 10 ** par0[2], 10 ** par0[4] * np.pi
-                theta1, phi1, mc1, omega1 = par1[0], par1[
-                    1], 10 ** par1[2], 10 ** par1[4] * np.pi
+                theta0, phi0, omega0 = par0[0], par0[1], \
+                    10 ** par0[4] * np.pi
+                theta1, phi1, omega1 = par1[0], par1[1], \
+                    10 ** par1[4] * np.pi
 
+                if sig['mass_ratio']:
+                    q = 10**par0[-1]
+                    Mtot = 10**par0[2]
+                    mc0 = Mtot * (q / (1+q)**2)**(3/5)
+
+                    q = 10**par1[-1]
+                    Mtot = 10**par1[2]
+                    mc1 = Mtot * (q / (1+q)**2)**(3/5)
+                else:
+                    mc0 = 10**par0[2]
+                    mc1 = 10**par1[2]
 
 
         # get angular separations
@@ -6979,6 +6994,41 @@ class PTAmodels(object):
                 q[sig['parindex'] + 3] = np.log10(dist1 / 1.0267e14)
 
         return q, qxy
+
+    # phase and polarization reversal
+    def phaseAndPolarizationReverseJump(self, parameters, iter, beta):
+
+        # post-jump parameters
+        q = parameters.copy()
+
+        # transition probability
+        qxy = 0
+
+        # now get other relevant parameters
+        for ct, sig in enumerate(self.ptasignals):
+            if sig['stype'] == 'cw':
+
+                # short hand
+                psrind = sig['pulsarind']
+                parind = sig['parindex']
+                npars = sig['npars']
+
+                # parameters for this signal
+                sparameters = sig['pstart'].copy()
+
+                # which ones are varying
+                sparameters[sig['bvary']] = parameters[parind:parind + npars]
+
+                if sig['bvary'][5] and sig['bvary'][6]:
+                    pind1 = np.sum(sig['bvary'][:5])
+                    pind2 = np.sum(sig['bvary'][:6])
+                    phase0, phi0 = sparameters[5], sparameters[6]
+                    q[parind+pind1] = np.mod(phase0+np.pi, 2*np.pi)
+                    q[parind+pind2] = np.mod(phi0+np.pi/2, np.pi)
+
+        return q, qxy
+
+
 
     # draws from equad prior
     def drawFromEquadPrior(self, parameters, iter, beta):
@@ -7518,3 +7568,33 @@ class PTAmodels(object):
             nfref += nf
 
         return eps, cov, chisq
+
+    def create_realization(self, pars, incJitter=True, signal='red'):
+        """
+        Very simple function to return ML realization
+        of linear signal.
+
+        """
+
+        ml_vals, ml_cov = self.reconstructML_old(pars, incJitter=incJitter)
+        mlreal = []
+        for ct, p in enumerate(self.psr):
+
+            nfred = len(p.Ffreqs)
+            nfdm = len(p.Fdmfreqs)
+            ntmpars = len(p.ptmdescription)
+            njitter = len(p.avetoas)
+
+            # index dictionary
+            ind = {}
+            ind['tm'] = (0, ntmpars)
+            ind['red'] = (ntmpars, ntmpars+nfred)
+            ind['dm'] = (ntmpars+nfred, ntmpars+nfred+nfdm)
+            ind['jitter'] = (ntmpars+nfred+nfdm, ntmpars+nfred+nfdm+njitter)
+
+            # ML realization
+            mlpars = ml_vals[ct][ind[signal][0]:ind[signal][1]]
+            mlreal.append(np.dot(p.Ttmat[:,ind[signal][0]:ind[signal][1]], mlpars))
+
+        return mlreal
+
