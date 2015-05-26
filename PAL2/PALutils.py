@@ -5,6 +5,7 @@ import scipy.linalg as sl
 import scipy.integrate as si
 import scipy.interpolate as interp
 import healpy as hp
+import math
 import numpy.polynomial.hermite as herm
 import numexpr as ne
 import sys,os
@@ -325,7 +326,7 @@ def createResidualsFast(psr, gwtheta, gwphi, mc, dist, fgw, phase0, psi, inc, pd
 
     
         # get values from pulsar object
-        toas = p.toas.copy() - tref
+        toas = p.toas - tref
         if pdist is None and pphase is None:
             pd = p.pdist
         elif pdist is None and pphase is not None:
@@ -397,6 +398,85 @@ def createResidualsFast(psr, gwtheta, gwphi, mc, dist, fgw, phase0, psi, inc, pd
             res.append(-fplus*rplus - fcross*rcross)
 
     return res
+
+def createResidualsFree(psr, gwtheta, gwphi, h, fgw, phase0, psi, inc,
+                               pphase0, pfgw, psrTerm=True, tref=0):
+    """
+    Function to create GW incuced residuals from a SMBMB as 
+    defined in Ellis et. al 2012,2013. Trys to be smart about it
+
+    @param psr: list of pulsar objects for all pulsars
+    @param gwtheta: Polar angle of GW source in celestial coords [radians]
+    @param gwphi: Azimuthal angle of GW source in celestial coords [radians]
+    @param h: GW strain
+    @param fgw: Frequency of GW (twice the orbital frequency) [Hz]
+    @param phase0: Initial Phase of GW source [radians]
+    @param psi: Polarization of GW source [radians]
+    @param pphase0: pulsar phase
+    @param pfgw: pulsar term frequency
+    @param inc: Inclination of GW source [radians]
+    @param psrTerm: Option to include pulsar term [boolean] 
+
+    @return: Vector of induced residuals
+
+    """
+
+    # define initial orbital frequency 
+    w0 = np.pi * fgw
+    phase0 /= 2 # orbital phase
+    wp = np.pi * pfgw
+    pphase0 /= 2
+
+    # define variable for later use
+    cosgwtheta, cosgwphi = np.cos(gwtheta), np.cos(gwphi)
+    singwtheta, singwphi = np.sin(gwtheta), np.sin(gwphi)
+    sin2psi, cos2psi = np.sin(2*psi), np.cos(2*psi)
+    incfac1, incfac2 = -0.5*(3+np.cos(2*inc)), 2*np.cos(inc)
+
+    # unit vectors to GW source
+    m = np.array([-singwphi, cosgwphi, 0.0])
+    n = np.array([-cosgwtheta*cosgwphi, -cosgwtheta*singwphi, singwtheta])
+    omhat = np.array([-singwtheta*cosgwphi, -singwtheta*singwphi, -cosgwtheta])
+
+    res = []
+    for ct, p in enumerate(psr):
+
+        # use definition from Sesana et al 2010 and Ellis et al 2012
+        phat = np.array([np.sin(p.theta)*np.cos(p.phi), np.sin(p.theta)*np.sin(p.phi),\
+                np.cos(p.theta)])
+
+        fplus = 0.5 * (np.dot(m, phat)**2 - np.dot(n, phat)**2) / (1+np.dot(omhat, phat))
+        fcross = (np.dot(m, phat)*np.dot(n, phat)) / (1 + np.dot(omhat, phat))
+        cosMu = -np.dot(omhat, phat)
+    
+        # phases
+        phase = phase0 + w0 * (p.toas - tref)
+        phase_p = pphase0[ct] + wp[ct] * (p.toas - tref)
+            
+        # define time dependent coefficients
+        At = np.sin(2*phase) * incfac1
+        Bt = np.cos(2*phase) * incfac2
+        At_p = np.sin(2*phase_p) * incfac1
+        Bt_p = np.cos(2*phase_p) * incfac2
+
+        # now define time dependent amplitudes
+        alpha = 0.5 * h / w0
+        alpha_p = 0.5 * h / w0**(2/3) / wp[ct]**(1/3)
+
+        # define rplus and rcross
+        rplus = alpha * (At*cos2psi - Bt*sin2psi)
+        rcross = alpha * (At*sin2psi + Bt*cos2psi)
+        rplus_p = alpha_p * (At_p*cos2psi - Bt_p*sin2psi)
+        rcross_p = alpha_p * (At_p*sin2psi + Bt_p*cos2psi)
+
+        # residuals
+        if psrTerm:
+            res.append(fplus*(rplus_p-rplus)+fcross*(rcross_p-rcross))
+        else:
+            res.append(-fplus*rplus - fcross*rcross)
+
+    return res
+
 
 def constructShapelet(times, t0, q, amps):
     """
@@ -1523,20 +1603,19 @@ def createGWB_clean(psr, Amp, gam, noCorr=False, seed=None, turnover=False, \
 
     return res_gw
 
-
 def real_sph_harm(ll, mm, phi, theta):
     """
     The real-valued spherical harmonics
     ADAPTED FROM vH piccard CODE
     """
     if mm>0:
-        ans = (1./np.sqrt(2)) * \
+        ans = (1./math.sqrt(2)) * \
                 (ss.sph_harm(mm, ll, phi, theta) + \
                 ((-1)**mm) * ss.sph_harm(-mm, ll, phi, theta))
     elif mm==0:
         ans = ss.sph_harm(0, ll, phi, theta)
     elif mm<0:
-        ans = (1./(np.sqrt(2)*complex(0.,1))) * \
+        ans = (1./(math.sqrt(2)*complex(0.,1))) * \
                 (ss.sph_harm(-mm, ll, phi, theta) - \
                 ((-1)**mm) * ss.sph_harm(mm, ll, phi, theta))
 
@@ -1559,6 +1638,7 @@ def SetupPriorSkyGrid(lmax):
     harm_sky_vals = [[0.0]*(2*ll+1) for ll in range(lmax+1)]
     for ll in range(len(harm_sky_vals)):
         for mm in range(len(harm_sky_vals[ll])):
+            print ll, mm-ll, real_sph_harm(ll,mm-ll,xx,yy)
             harm_sky_vals[ll][mm] = real_sph_harm(ll,mm-ll,xx,yy)
 
     return harm_sky_vals
@@ -1569,19 +1649,17 @@ def PhysPrior(clm,harm_sky_vals):
     angular-distribution of the metric-perturbation quadratic
     expectation-value.
     """
-    #ngrid_phi = 20
-    #ngrid_costheta = 20
-    #
-    #phi = np.arange(0.0,2.0*np.pi,2.0*np.pi/ngrid_phi)
-    #theta = np.arccos(np.arange(-1.0,1.0,2.0/ngrid_costheta))
-
-    #xx, yy = np.meshgrid(phi,theta)
-
-    #harm_sky_vals = [[0.0]*(2*ll+1) for ll in range(lmax+1)]
-    #for ll in range(len(harm_sky_vals)):
-    #    for mm in range(len(harm_sky_vals[ll])):
-    #        harm_sky_vals[ll][mm] = real_sph_harm(ll,mm-ll,xx,yy)
+    """ngrid_phi = 20
+    ngrid_costheta = 20
     
+    phi = np.arange(0.0,2.0*np.pi,2.0*np.pi/ngrid_phi)
+    theta = np.arccos(np.arange(-1.0,1.0,2.0/ngrid_costheta))
+    xx, yy = np.meshgrid(phi,theta)
+    harm_sky_vals = [[0.0]*(2*ll+1) for ll in range(lmax+1)]
+    for ll in range(len(harm_sky_vals)):
+        for mm in range(len(harm_sky_vals[ll])):
+            harm_sky_vals[ll][mm] = real_sph_harm(ll,mm-ll,xx,yy)
+    """
 
     Pdist=0.
     for ll in range(len(harm_sky_vals)):
@@ -1592,6 +1670,9 @@ def PhysPrior(clm,harm_sky_vals):
         return -np.inf
     else:
         return 0
+
+
+
 
 def fixNoiseValues(ptasignals, vals, pars, bvary=False, verbose=True):
     """

@@ -175,6 +175,9 @@ parser.add_argument('--nnongauss', dest='nnongauss', action='store', type=int, d
 
 parser.add_argument('--incCW', dest='incCW', action='store_true', \
                     default=False, help='Include CW signal in run')
+parser.add_argument('--cwModel', dest='cwModel', action='store', type=str, \
+                    default='standard', 
+                    help='Which CW model to use [standard, upperLimit, mass_ratio, free]')
 parser.add_argument('--incPdist', dest='incPdist', action='store_true', \
                     default=False, help='Include pulsar distances for CW signal in run')
 parser.add_argument('--CWupperLimit', dest='CWupperLimit', action='store_true', \
@@ -348,6 +351,7 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     redExtNf=args.nfext, \
                     incEnvelope=args.incRedEnv, envelopeModel=args.redEnvModel,
                     incCW=args.incCW, incPulsarDistance=args.incPdist, \
+                    CWModel=args.cwModel, \
                     CWupperLimit=args.CWupperLimit, \
                     mass_ratio=args.CWmass_ratio, \
                     incJitterEquad=args.incJitterEquad, \
@@ -581,7 +585,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         loglkwargs['incJitter'] = True
     if np.any([args.fixNoise, args.noVaryNoise]) and not args.fixWhite:
         loglkwargs['varyNoise'] = False
-    elif args.fixNoise and args.fixWhite:
+    elif np.any([args.fixNoise, args.noVaryNoise]) and args.fixWhite:
         loglkwargs['varyNoise'] = True
         loglkwargs['fixWhite'] = True
     
@@ -679,6 +683,8 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
                 sampler.addProposalToCycle(model.drawFromGWBSpectrumPrior, 10)
             elif args.gwbModel == 'turnover':
                 sampler.addProposalToCycle(model.drawFromGWBTurnoverPrior, 10)
+        if args.incGWBAni and args.gwbModel == 'powerlaw':
+                sampler.addProposalToCycle(model.drawFromaGWBPrior, 10)
         if args.incRed and args.redModel=='powerlaw':
             sampler.addProposalToCycle(model.drawFromRedNoisePrior, 5)
         if args.incRedBand and args.redModel=='powerlaw':
@@ -706,9 +712,9 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
             sampler.addProposalToCycle(model.drawFromCWPrior, 2)
             sampler.addProposalToCycle(model.massDistanceJump, 2)
             sampler.addProposalToCycle(model.phaseAndPolarizationReverseJump, 5)
+            sampler.addAuxilaryJump(model.fix_cyclic_pars)
             if args.incPdist:
                 sampler.addAuxilaryJump(model.pulsarPhaseFix)
-                sampler.addAuxilaryJump(model.fix_cyclic_pars)
                 sampler.addProposalToCycle(model.pulsarDistanceJump, 10)
 
         # always include draws from efac
