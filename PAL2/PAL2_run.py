@@ -601,7 +601,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
     if MPIrank == 0:
         pstart = True
     startSpectrumMin = False
-    #fixpstart = True
+    fixpstart = True
     while not(inRange):
         p0 = model.initParameters(startEfacAtOne=True, fixpstart=fixpstart)
         startSpectrumMin = True
@@ -660,11 +660,17 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
                         'equad' not in par and 'jitter' not in par and \
                         'RN' not in par and 'DM' not in par and \
                         'red_' not in par and 'dm_' not in par and \
-                        'GWB' not in par]))
+                        'GWB' not in par and 'lpfgw' not in par and \
+                        'pphase' not in par]))
 
             if args.incPdist:
                 ind.append(np.array([ct for ct, par in enumerate(par_out) if \
                         'pdist' in par]))
+            if args.cwModel == 'free':
+                ind.append(np.array([ct for ct, par in enumerate(par_out) if \
+                        'pphase' in par]))
+                ind.append(np.array([ct for ct, par in enumerate(par_out) if \
+                        'lpfgw' in par]))
         else:
             ind = None
         #ind = None
@@ -710,9 +716,11 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
             #sampler.addProposalToCycle(model.drawFromTMPrior, 5)
         if args.incCW:
             sampler.addProposalToCycle(model.drawFromCWPrior, 2)
-            sampler.addProposalToCycle(model.massDistanceJump, 2)
+            #sampler.addProposalToCycle(model.massDistanceJump, 2)
             sampler.addProposalToCycle(model.phaseAndPolarizationReverseJump, 5)
             sampler.addAuxilaryJump(model.fix_cyclic_pars)
+            if args.cwModel == 'free':
+                sampler.addProposalToCycle(model.pulsarPhaseJump, 5)
             if args.incPdist:
                 sampler.addAuxilaryJump(model.pulsarPhaseFix)
                 sampler.addProposalToCycle(model.pulsarDistanceJump, 10)
@@ -721,7 +729,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         if not args.noVaryEfac and not args.noVaryNoise:
             sampler.addProposalToCycle(model.drawFromEfacPrior, 2)
 
-        if args.incCW and MPIrank == 0:
+        if args.incCW and MPIrank == 0 and not args.zerologlike:
 
             # call likelihood once to set noise
             loglike(p0, **loglkwargs)

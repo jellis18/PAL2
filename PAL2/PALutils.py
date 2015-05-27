@@ -451,7 +451,7 @@ def createResidualsFree(psr, gwtheta, gwphi, h, fgw, phase0, psi, inc,
     
         # phases
         phase = phase0 + w0 * (p.toas - tref)
-        phase_p = pphase0[ct] + wp[ct] * (p.toas - tref)
+        phase_p = phase0 + pphase0[ct] + wp[ct] * (p.toas - tref)
             
         # define time dependent coefficients
         At = np.sin(2*phase) * incfac1
@@ -1609,13 +1609,13 @@ def real_sph_harm(ll, mm, phi, theta):
     ADAPTED FROM vH piccard CODE
     """
     if mm>0:
-        ans = (1./math.sqrt(2)) * \
+        ans = (1./np.sqrt(2)) * \
                 (ss.sph_harm(mm, ll, phi, theta) + \
                 ((-1)**mm) * ss.sph_harm(-mm, ll, phi, theta))
     elif mm==0:
         ans = ss.sph_harm(0, ll, phi, theta)
     elif mm<0:
-        ans = (1./(math.sqrt(2)*complex(0.,1))) * \
+        ans = (1./(np.sqrt(2)*complex(0.,1))) * \
                 (ss.sph_harm(-mm, ll, phi, theta) - \
                 ((-1)**mm) * ss.sph_harm(mm, ll, phi, theta))
 
@@ -1638,7 +1638,7 @@ def SetupPriorSkyGrid(lmax):
     harm_sky_vals = [[0.0]*(2*ll+1) for ll in range(lmax+1)]
     for ll in range(len(harm_sky_vals)):
         for mm in range(len(harm_sky_vals[ll])):
-            print ll, mm-ll, real_sph_harm(ll,mm-ll,xx,yy)
+            #print ll, mm-ll, real_sph_harm(ll,mm-ll,xx,yy)
             harm_sky_vals[ll][mm] = real_sph_harm(ll,mm-ll,xx,yy)
 
     return harm_sky_vals
@@ -2144,22 +2144,6 @@ def quantreduce(U, eat, flags, calci=False):
 
     return rv
 
-def real_sph_harm(mm, ll, phi, theta):
-    """
-    The real-valued spherical harmonics.
-    """
-    if mm>0:
-        ans = (1./math.sqrt(2)) * \
-                (ss.sph_harm(mm, ll, phi, theta) + \
-                ((-1)**mm) * ss.sph_harm(-mm, ll, phi, theta))
-    elif mm==0:
-        ans = ss.sph_harm(0, ll, phi, theta)
-    elif mm<0:
-        ans = (1./(math.sqrt(2)*complex(0.,1))) * \
-                (ss.sph_harm(-mm, ll, phi, theta) - \
-                ((-1)**mm) * ss.sph_harm(mm, ll, phi, theta))
-
-    return ans.real
 
 
 def signalResponse_fast(ptheta_a, pphi_a, gwtheta_a, gwphi_a):

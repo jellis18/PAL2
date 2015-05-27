@@ -7090,6 +7090,32 @@ class PTAmodels(object):
 
         return q, qxy
 
+    # pulsar phase prior draw
+    def pulsarPhaseJump(self, parameters, iter, beta):
+
+        q = parameters.copy()
+        qxy = 0
+
+        # loop over signals
+        for ct, sig in enumerate(self.ptasignals):
+
+            # short hand
+            psrind = sig['pulsarind']
+            parind = sig['parindex']
+            npars = sig['npars']
+
+            # parameters for this signal
+            sparameters = sig['pstart'].copy()
+
+            # which ones are varying
+            sparameters[sig['bvary']] = parameters[parind:parind + npars]
+
+            if sig['stype'] == 'pulsarTerm':
+                if sig['bvary'][0]:
+                    q[parind] = np.random.uniform(0, 2*np.pi)
+
+            return q, qxy
+
     # phase wrapping fix
     def fix_cyclic_pars(self, prepar, postpar, iter, beta):
         """
@@ -7101,25 +7127,34 @@ class PTAmodels(object):
 
         # now get other relevant parameters
         for ct, sig in enumerate(self.ptasignals):
+
+            # short hand
+            psrind = sig['pulsarind']
+            parind = sig['parindex']
+            npars = sig['npars']
+
+            # parameters for this signal
+            sparameters = sig['pstart'].copy()
+
+            # which ones are varying
+            sparameters[sig['bvary']] = post[parind:parind + npars]
+
             if sig['stype'] == 'cw':
 
-                # short hand
-                psrind = sig['pulsarind']
-                parind = sig['parindex']
-                npars = sig['npars']
+                ind = sig['parid'].index('phi')
+                if sig['bvary'][ind]:
+                    pind = np.sum(sig['bvary'][:ind])
+                    post[parind+pind] = np.mod(sparameters[ind], 2*np.pi)
 
-                # parameters for this signal
-                sparameters = sig['pstart'].copy()
+                ind = sig['parid'].index('phase')
+                if sig['bvary'][ind]:
+                    pind = np.sum(sig['bvary'][:ind])
+                    post[parind+pind] = np.mod(sparameters[ind], 2*np.pi)
 
-                # which ones are varying
-                sparameters[sig['bvary']] = post[parind:parind + npars]
-
+            if sig['stype'] == 'pulsarTerm':
                 if sig['bvary'][0]:
                     post[parind] = np.mod(sparameters[0], 2*np.pi)
 
-                if sig['bvary'][5]:
-                    pind = np.sum(sig['bvary'][:5])
-                    post[parind+pind] = np.mod(sparameters[5], 2*np.pi)
 
         return post, 0
 
