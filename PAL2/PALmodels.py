@@ -7897,7 +7897,7 @@ class PTAmodels(object):
         """
 
         ml_vals, ml_cov = self.reconstructML_old(pars, incJitter=incJitter)
-        mlreal = []
+        mlreal, mlerr = [], []
         for ct, p in enumerate(self.psr):
 
             nfred = len(p.Ffreqs)
@@ -7917,7 +7917,13 @@ class PTAmodels(object):
 
             # ML realization
             mlpars = ml_vals[ct][ind[signal][0]:ind[signal][1]]
-            mlreal.append(np.dot(p.Ttmat[:,ind[signal][0]:ind[signal][1]], mlpars))
+            mlcov = ml_cov[ct][ind[signal][0]:ind[signal][1],
+                               ind[signal][0]:ind[signal][1]]
+            Tmat = p.Ttmat[:,ind[signal][0]:ind[signal][1]]
 
-        return mlreal
+            mlreal.append(np.dot(Tmat, mlpars))
+            tmp = np.dot(Tmat, np.dot(mlcov, Tmat.T))
+            mlerr.append(np.sqrt(np.diag(tmp)))
+
+        return mlreal, mlerr
 
