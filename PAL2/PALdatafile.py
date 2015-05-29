@@ -270,7 +270,7 @@ class DataFile(object):
         os.chdir(savedir)
 
         # Get the pulsar group
-        psrGroup = self.getPulsarGroup(t2pulsar.name, delete=deletepsr)
+        psrGroup = self.getPulsarGroup(str(t2pulsar.name), delete=deletepsr)
 
         # Save the par-file and the tim-file to the HDF5 file
         self.writeData(psrGroup, 'parfile', parfile_content, overwrite=overwrite)
@@ -280,30 +280,20 @@ class DataFile(object):
         if iterations > 1:
             t2pulsar.fit(iters=iterations)
 
-        # determine whether or not to drop points
-        dat = t2pulsar.residuals()/t2pulsar.toaerrs/1e-6
-        t2pulsar.deleted = np.abs(dat) > sigma
-        if sigma < 10:
-            print 'Deleting {0} points for pulsar {1}'.format(np.sum(t2pulsar.deleted), \
-                                                                    t2pulsar.name)
-        
-        # fit again
-        t2pulsar.fit()
 
-        self.writeData(psrGroup, 'TOAs', np.double(np.array(t2pulsar.toas()[t2pulsar.deleted==0]))*86400, \
+        self.writeData(psrGroup, 'TOAs', np.double(np.array(t2pulsar.toas()))*86400,
                        overwrite=overwrite)    # Seconds
-        self.writeData(psrGroup, 'prefitRes', np.double(t2pulsar.prefit.residuals[t2pulsar.deleted==0]), \
+        self.writeData(psrGroup, 'postfitRes', np.double(t2pulsar.residuals()),
                        overwrite=overwrite)  # Seconds
-        self.writeData(psrGroup, 'postfitRes', np.double(t2pulsar.residuals()[t2pulsar.deleted==0]), \
-                       overwrite=overwrite)  # Seconds
-        self.writeData(psrGroup, 'toaErr', np.double(1e-6*t2pulsar.toaerrs[t2pulsar.deleted==0]),\
+        self.writeData(psrGroup, 'toaErr', np.double(1e-6*t2pulsar.toaerrs),
                        overwrite=overwrite)    # Seconds
-        self.writeData(psrGroup, 'freq', np.double(t2pulsar.ssbfreqs[t2pulsar.deleted==0]), \
+        self.writeData(psrGroup, 'freq', np.double(t2pulsar.ssbfreqs()),
                        overwrite=overwrite)    # MHz
 
-        # TODO: writing the design matrix should be done irrespective of the fitting flag
-        desmat = t2pulsar.designmatrix(fixunits=True)
-        self.writeData(psrGroup, 'designmatrix', desmat[t2pulsar.deleted==0, :], overwrite=overwrite)
+        # design matrix
+        desmat = t2pulsar.designmatrix()
+        self.writeData(psrGroup, 'designmatrix', np.double(desmat),
+                       overwrite=overwrite)
 
         # get pulsar distance and uncertainty (need pulsarDistances.txt file for this)
         try: 
@@ -327,7 +317,8 @@ class DataFile(object):
             self.writeData(psrGroup, 'pdist', pdist, overwrite=overwrite)
             self.writeData(psrGroup, 'pdistErr', pdistErr, overwrite=overwrite)
         except IOError:
-            print 'WARNING: cannot find pulsarDistances.txt file!, setting all pulsar distances to 1'    
+            print 'WARNING: cannot find pulsarDistances.txt file!,', \
+                    'setting all pulsar distances to 1'    
             pdist, pdistErr = 1.0, 0.2
         except KeyError:
             print 'WARNING: PAL2 environment variable not set. Not using pulsar distances'
@@ -336,46 +327,31 @@ class DataFile(object):
             self.writeData(psrGroup, 'pdistErr', pdistErr, overwrite=overwrite)
 
         # Now obtain and write the timing model parameters
-        tmpname = ['Offset'] + list(t2pulsar.pars)
-        tmpvalpre = np.zeros(len(tmpname))
+        tmpname = ['Offset'] + list(map(str,t2pulsar.pars()))
         tmpvalpost = np.zeros(len(tmpname))
-        tmperrpre = np.zeros(len(tmpname))
         tmperrpost = np.zeros(len(tmpname))
-        for i in range(len(t2pulsar.pars)):
-            tmpvalpre[i+1] = t2pulsar.prefit[tmpname[i+1]].val
+        for i in range(len(t2pulsar.pars())):
             tmpvalpost[i+1] = t2pulsar[tmpname[i+1]].val
-            tmperrpre[i+1] = t2pulsar.prefit[tmpname[i+1]].err
             tmperrpost[i+1] = t2pulsar[tmpname[i+1]].err
 
-        self.writeData(psrGroup, 'tmp_name', tmpname, overwrite=overwrite)          # TMP name
-        self.writeData(psrGroup, 'tmp_valpre', tmpvalpre, overwrite=overwrite)      # TMP pre-fit value
-        self.writeData(psrGroup, 'tmp_valpost', tmpvalpost, overwrite=overwrite)    # TMP post-fit value
-        self.writeData(psrGroup, 'tmp_errpre', tmperrpre, overwrite=overwrite)      # TMP pre-fit error
-        self.writeData(psrGroup, 'tmp_errpost', tmperrpost, overwrite=overwrite)    # TMP post-fit error
+        self.writeData(psrGroup, 'tmp_name', tmpname, 
+                       overwrite=overwrite) # TMP name
+        self.writeData(psrGroup, 'tmp_valpost', tmpvalpost,
+                       overwrite=overwrite) # TMP post-fit value
+        self.writeData(psrGroup, 'tmp_errpost', tmperrpost,
+                       overwrite=overwrite) # TMP post-fit error
 
         # Get the flag group for this pulsar. Create if not there
         flagGroup = psrGroup.require_group('Flags')
 
         # Obtain the unique flags in this dataset, and write to file
-        uflags = list(set(t2pulsar.flags))
+        uflags = np.unique(map(str, t2pulsar.flags()))
+        
         for flagid in uflags:
-            self.writeData(flagGroup, flagid, t2pulsar.flags[flagid][t2pulsar.deleted==0], \
+            self.writeData(flagGroup, flagid,
+                           map(str, t2pulsar.flagvals(flagid)),
                            overwrite=overwrite)
         
-        #if not "tobs_all" in flagGroup:
-        #    # look for tobs flag for integration time
-        #    tobs = []
-        #    nobs = len(t2pulsar.toas())
-        #    pulsarname = map(str, [t2pulsar.name] * nobs)
-        #    
-        #    #TODO: fix this to deal on a TOA by TOA basis
-        #    if "tobs" in flagGroup:
-        #        tobs = map(float, flagGroup['tobs'])
-        #    else:
-        #        print 'No tobs flag for PSR {0}, using 20 mins'.format(t2pulsar.name)
-        #    tobs = 1200.0*np.ones(nobs)
-
-        #    self.writeData(flagGroup, "tobs_all", tobs, overwrite=overwrite)
 
         if not "efacequad" in flagGroup:
             # Check if the sys-flag is present in this set. If it is, add an
@@ -408,9 +384,8 @@ class DataFile(object):
         
         if not "efacequad_freq" in flagGroup:
             efacequad_freq = []
-            nobs = len(t2pulsar.toas()[t2pulsar.deleted==0])
-            #pulsarname = map(str, [t2pulsar.name] * nobs)
-            pulsarname = t2pulsar.name
+            nobs = len(t2pulsar.toas())
+            pulsarname = str(t2pulsar.name)
 
 
             for ii in range(nobs):
@@ -444,9 +419,8 @@ class DataFile(object):
         
         if not "tobs_all" in flagGroup:
             tobs = []
-            nobs = len(t2pulsar.toas()[t2pulsar.deleted==0])
-            #pulsarname = map(str, [t2pulsar.name] * nobs)
-            pulsarname = t2pulsar.name
+            nobs = len(t2pulsar.toas())
+            pulsarname = str(t2pulsar.name)
 
 
             for ii in range(nobs):
@@ -538,7 +512,7 @@ class DataFile(object):
     """
     
     def readPulsar(self, psr, psrname):
-        psr.name = psrname
+        psr.name = str(psrname)
 
         # Read the content of the par/tim files in a string
         psr.parfile_content = str(self.getData(psrname, 'parfile', required=False))
@@ -607,9 +581,8 @@ class DataFile(object):
         # Obtain residuals, TOAs, etc.
         psr.toas = np.array(self.getData(psrname, 'TOAs'))
         psr.toaerrs = np.array(self.getData(psrname, 'toaErr'))
-        psr.prefitresiduals = np.array(self.getData(psrname, 'prefitRes'))
         psr.residuals = np.array(self.getData(psrname, 'postfitRes'))
-        psr.detresiduals = np.array(self.getData(psrname, 'prefitRes'))
+        psr.detresiduals = np.array(self.getData(psrname, 'postfitRes'))
         psr.freqs = np.array(self.getData(psrname, 'freq'))
         psr.Mmat = np.array(self.getData(psrname, 'designmatrix'))
         

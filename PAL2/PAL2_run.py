@@ -173,6 +173,11 @@ parser.add_argument('--incNonGaussian', dest='incNonGaussian', action='store_tru
 parser.add_argument('--nnongauss', dest='nnongauss', action='store', type=int, default=3,
                    help='number of non-guassian components (default=3)')
 
+parser.add_argument('--incGWwavelet', dest='incGWwavelet', action='store_true', \
+                    default=False, help='Include GWwavelt signal in run')
+parser.add_argument('--nGWwavelets', dest='nGWwavelets', action='store', type=int, default=1,
+                   help='Number of GW wavelets(default=1)')
+
 parser.add_argument('--incCW', dest='incCW', action='store_true', \
                     default=False, help='Include CW signal in run')
 parser.add_argument('--cwModel', dest='cwModel', action='store', type=str, \
@@ -332,6 +337,7 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     incDMX=args.incDMX, \
                     incORF=args.incORF, \
                     incScattering=args.incScat, scatteringModel=args.scatModel,
+                    incGWWavelet=args.incGWwavelet, nGWWavelets=args.nGWwavelets,
                     nscatfreqs=args.nfscat,
                     incGWBAni=args.incGWBAni, lmax=args.nls,\
                     incDMXKernel=incDMXKernel, DMXKernelModel=DMXKernelModel, \
@@ -648,7 +654,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
                     or 'red_' in par or 'dm_' in par or 'GWB' in par])]
             ind += [idx[(ind[-1][-1]+1):]]
         elif args.incCW:
-            if args.fixNoise or args.noVaryEfac or args.noVaryNoise:
+            if (args.fixNoise and not args.fixWhite) or args.noVaryEfac or args.noVaryNoise:
                 ind = []
             else:
                 ind = [np.array([ct for ct, par in enumerate(par_out) if 'efac' in par or \

@@ -264,6 +264,48 @@ def createResiduals(psr, gwtheta, gwphi, mc, dist, fgw, phase0, psi, inc, pdist=
 
     return res
 
+def constuct_wavelet(t, A, t0, f0, Q, phi0):
+    
+    return A * np.exp(-(2*np.pi*f0*(t-t0))**2/Q**2) * np.cos(2*np.pi*f0*(t-t0)+phi0)
+
+def construct_gw_wavelet(psr, gwtheta, gwphi, gwpsi, gweps, gwA, gwt0, gwf0, gwQ, gwphi0):
+    
+    # define variable for later use
+    cosgwtheta, cosgwphi = np.cos(gwtheta), np.cos(gwphi)
+    singwtheta, singwphi = np.sin(gwtheta), np.sin(gwphi)
+    sin2psi, cos2psi = np.sin(2*gwpsi), np.cos(2*gwpsi)
+
+    # unit vectors to GW source
+    m = np.array([-singwphi, cosgwphi, 0.0])
+    n = np.array([-cosgwtheta*cosgwphi, -cosgwtheta*singwphi, singwtheta])
+    omhat = np.array([-singwtheta*cosgwphi, -singwtheta*singwphi, -cosgwtheta])
+
+    res = []
+    for ct, p in enumerate(psr):
+
+        # use definition from Sesana et al 2010 and Ellis et al 2012
+        phat = np.array([np.sin(p.theta)*np.cos(p.phi), np.sin(p.theta)*np.sin(p.phi),\
+                np.cos(p.theta)])
+
+        fplus = 0.5 * (np.dot(m, phat)**2 - np.dot(n, phat)**2) / (1+np.dot(omhat, phat))
+        fcross = (np.dot(m, phat)*np.dot(n, phat)) / (1 + np.dot(omhat, phat))
+        cosMu = -np.dot(omhat, phat)
+
+        rr = 0
+        for A, t0, f0, Q, phi0 in zip(gwA, gwt0, gwf0, gwQ, gwphi0):
+
+            wplus = constuct_wavelet(p.toas, A, t0, f0, Q, phi0)
+            wcross = gweps * constuct_wavelet(p.toas, A, t0, f0, Q, phi0+3*np.pi/2)
+
+            rr += fplus * (wplus*cos2psi - wcross*sin2psi) + \
+                    fcross * (wplus*sin2psi + wcross*cos2psi)
+
+        res.append(rr)
+
+    return res
+
+        
+
 def createResidualsFast(psr, gwtheta, gwphi, mc, dist, fgw, phase0, psi, inc, pdist=None, \
                         pphase=None, psrTerm=True, evolve=True, phase_approx=False, tref=0):
     """

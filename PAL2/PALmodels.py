@@ -146,6 +146,8 @@ class PTAmodels(object):
                       incDM=False, dmModel='powerlaw',
                       incDMEvent=False, dmEventModel='shapelet', ndmEventCoeffs=3,
                       incRedFourierMode=False, incDMFourierMode=False,
+                      incWavelet=False, nWavelets=1,
+                      incGWWavelet=False, nGWWavelets=1,
                       incGWFourierMode=False,
                       incScattering=False, scatteringModel='powerlaw',
                       nscatfreqs=None,
@@ -854,9 +856,9 @@ class PTAmodels(object):
                                 if key == 'M2' and p.t2psr['M2'].val == 0:
                                     p.t2psr[key].val = 0.3
                         # p.t2psr.fit(iters=1)
-                        p.ptmdescription = ['Offset'] + list(p.t2psr.fitpars)
-                        p.ptmpars = np.array([0] + list(p.t2psr.fitvals))
-                        p.ptmparerrs = np.array([0] + list(p.t2psr.fiterrs))
+                        p.ptmdescription = ['Offset'] + map(str, p.t2psr.pars())
+                        p.ptmpars = np.array([0] + list(p.t2psr.vals()))
+                        p.ptmparerrs = np.array([0] + list(p.t2psr.errs()))
                         #p.residuals = p.t2psr.residuals()
                         p.Mmat = p.t2psr.designmatrix(fixunits=True)
 
@@ -874,9 +876,9 @@ class PTAmodels(object):
                                 p.t2psr[key].fit = False
                                 p.t2psr[key].val = 0.0
                         # p.t2psr.fit(iters=1)
-                        p.ptmdescription = ['Offset'] + list(p.t2psr.fitpars)
-                        p.ptmpars = np.array([0] + list(p.t2psr.fitvals))
-                        p.ptmparerrs = np.array([0] + list(p.t2psr.fiterrs))
+                        p.ptmdescription = ['Offset'] + map(str, p.t2psr.pars())
+                        p.ptmpars = np.array([0] + list(p.t2psr.vals()))
+                        p.ptmparerrs = np.array([0] + list(p.t2psr.errs()))
                         #p.residuals = p.t2psr.residuals()
                         p.Mmat = p.t2psr.designmatrix(fixunits=True)
 
@@ -1271,6 +1273,46 @@ class PTAmodels(object):
                     "parid": parids
                 })
                 signals.append(newsignal)
+
+        if incGWWavelet:
+            bvary = [True] * 4
+            pmin = [0, 0, 0, 0]
+            pmax = [np.pi, 2*np.pi, np.pi, 1]
+            pstart = [np.pi/2, np.pi, np.pi/2, 0.5]
+            pwidth = [0.1, 0.1, 0.1, 0.1]
+            prior = ['cos', 'uniform', 'uniform', 'uniform']
+            parids = ['wavetheta', 'wavephi', 'wavepsi', 'waveeps']
+            mu = [None] * 4
+            sigma = [None] * 4
+            for ww in range(nGWWavelets):
+                bvary += [True] * 5
+                pmin += [-10, -9, p.toas.min()/86400, 2, 0]
+                pmax += [-5, -7, p.toas.max()/86400, 100, 2*np.pi]
+                pstart += [-7, -8, (p.toas.max() + p.toas.min())/2/86400,
+                         30, np.pi]
+                pwidth += [0.1, 0.1, 10, 2, 0.1]
+                prior += ['log', 'log', 'uniform', 'uniform', 'uniform']
+                parids += ['waveAmp_'+str(ww), 'waveFreq_'+str(ww),
+                         'waveT0_'+str(ww), 'waveQ_'+str(ww),
+                         'wavePhase_'+str(ww)]
+                mu += [None] * 5
+                sigma += [None] * 5
+
+            newsignal = OrderedDict({
+                "stype": "gwwavelet",
+                "corr": "gr",
+                "pulsarind": -1,
+                "mu": mu,
+                "sigma": sigma,
+                "bvary": bvary,
+                "pmin": pmin,
+                "pmax": pmax,
+                "pwidth": pwidth,
+                "pstart": pstart,
+                "parid": parids,
+                "prior": prior,
+            })
+            signals.append(newsignal)
 
 
         if incCW:
@@ -1687,6 +1729,11 @@ class PTAmodels(object):
 
         elif signal['stype'] == 'cw':
             # a continuous GW signal
+            self.ptasignals.append(signal)
+            self.haveDetSources = True
+
+        elif signal['stype'] == 'gwwavelet':
+            # a GW wavelet signal
             self.ptasignals.append(signal)
             self.haveDetSources = True
 
@@ -2406,11 +2453,15 @@ class PTAmodels(object):
                 elif sig['stype'] == 'cw':
                     flagname = 'cw'
                     flagvalue = sig['parid'][jj]
-                
+
+                elif sig['stype'] == 'gwwavelet':
+                    flagname = 'gwwavelet'
+                    flagvalue = sig['parid'][jj]
+
                 elif sig['stype'] == 'pulsarTerm':
                     flagname = 'pulsarTerm'
                     flagvalue = sig['parid'][jj]
-                
+
                 elif sig['stype'] == 'ORF':
                     flagname = 'ORF'
                     flagvalue = sig['parid'][jj]
@@ -4028,6 +4079,25 @@ class PTAmodels(object):
                     4.15e3 / psr.freqs ** 2
 
                 psr.detresiduals -= sig
+
+            # GW wavelet signal
+            if sig['stype'] == 'gwwavelet':
+                theta = sparameters[0]
+                phi = sparameters[1]
+                psi = sparameters[2]
+                eps = sparameters[3]
+                A = 10**sparameters[4::5]
+                f0 = 10**sparameters[5::5]
+                t0 = sparameters[6::5] * 86400
+                Q = sparameters[7::5]
+                phase0 = sparameters[8::5]
+
+                wsig = PALutils.construct_gw_wavelet(
+                    self.psr, theta, phi, psi, eps, A, t0, f0,
+                    Q, phase0)
+
+                for ct, p in enumerate(self.psr):
+                    p.detresiduals -= wsig[ct]
 
             # continuous wave signal
             if sig['stype'] == 'cw':

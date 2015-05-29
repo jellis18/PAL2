@@ -53,7 +53,6 @@ class Pulsar(object):
     decj = 0
     toas = None
     toaerrs = None
-    prefitresiduals = None
     residuals = None
     # Residuals after subtraction of deterministic sources
     detresiduals = None
@@ -82,7 +81,6 @@ class Pulsar(object):
         self.decj = 0                   # psr declination
         self.toas = None                # psr TOAs
         self.toaerrs = None             # psr toaerrs
-        self.prefitresiduals = None     # psr prefit residuals
         self.residuals = None           # psr residuals
         # Residuals after subtraction of deterministic sources
         self.detresiduals = None
@@ -764,7 +762,6 @@ class Pulsar(object):
             # sort data
             self.toas = self.toas[self.isort]
             self.toaerrs = self.toaerrs[self.isort]
-            self.prefitresiduals = self.prefitresiduals[self.isort]
             self.residuals = self.residuals[self.isort]
             self.freqs = self.freqs[self.isort]
             self.flags = self.flags[self.isort]
@@ -1391,7 +1388,6 @@ class Pulsar(object):
             # sort data
             self.toas = self.toas[self.isort]
             self.toaerrs = self.toaerrs[self.isort]
-            self.prefitresiduals = self.prefitresiduals[self.isort]
             self.residuals = self.residuals[self.isort]
             self.freqs = self.freqs[self.isort]
             self.flags = self.flags[self.isort]
