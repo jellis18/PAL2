@@ -27,10 +27,9 @@ setup(
     zip_save=False,
     license='GPLv3',
     description='PTA analysis software',
-    long_description=open('README.md').read() + '\n\n'
-                    + '---------\n\n'
-                    + open('HISTORY.md').read(),
-    package_data={'PAL2': ['pulsarDistances.txt']},
+    package_data={'PAL2': ['pulsarDistances.txt',
+                           'data/mdc_open1/*',
+                          'data/NANOGrav_dfg+12_20120911/*']},
     install_requires=['numpy', 'scipy', 'h5py',
                       'ephem', 'healpy', 'numexpr',
                       'statsmodels',
