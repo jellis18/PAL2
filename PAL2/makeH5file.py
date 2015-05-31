@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from __future__ import division
-import PALdatafile
+from PAL2 import PALdatafile
 import os, glob
 
 import argparse

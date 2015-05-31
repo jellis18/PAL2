@@ -1,0 +1,8 @@
+numpy
+scipy
+h5py
+ephem
+healpy
+numexpr
+statsmodels
+libstempo>=2.2.2

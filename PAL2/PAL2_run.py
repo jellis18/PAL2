@@ -2,15 +2,15 @@
 
 from __future__ import division
 import numpy as np
-import PALdatafile
-import PALmodels
-import PALInferencePTMCMC
-from scipy.optimize import fmin
 import scipy.special as ss
-import PALpsr
 import glob
-import PALutils
 import time, os
+
+from PAL2 import PALdatafile
+from PAL2 import PALmodels
+from PAL2 import PALInferencePTMCMC
+from PAL2 import PALpsr
+from PAL2 import PALutils
 
 try:
     from mpi4py import MPI
@@ -19,7 +19,6 @@ except ImportError:
 
 
 import argparse
-
 
 parser = argparse.ArgumentParser(description = 'Run PAL2 Data analysis pipeline')
 
@@ -220,7 +219,7 @@ parser.add_argument('--mark10', dest='mark10', action='store_true', \
 parser.add_argument('--Tmin', dest='Tmin', type=float, action='store', \
                      default=1, help='Minimum temperature for parallel tempering')
 parser.add_argument('--Tmax', dest='Tmax', type=float, action='store', \
-                     default=1, help='Max temperature for parallel tempering')
+                     default=1, help='Max temperature for parallel tempering.')
 
 # parse arguments
 args = parser.parse_args()

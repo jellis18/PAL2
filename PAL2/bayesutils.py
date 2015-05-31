@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import scipy.interpolate as interp
 import scipy.ndimage.filters as filter
 import healpy as hp
-from bayestar import plot
+from PAL2 import plot
 import matplotlib.mlab as ml
 from matplotlib.ticker import FormatStrFormatter, LinearLocator, NullFormatter, NullLocator
 import matplotlib.ticker

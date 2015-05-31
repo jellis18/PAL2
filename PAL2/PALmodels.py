@@ -14,9 +14,9 @@ import scipy.special as ss
 from numpy.polynomial.hermite import hermval
 import AnisCoefficientsV2 as ani
 
-import PALutils
-import PALdatafile
-import PALpsr
+from PAL2 import PALutils
+from PAL2 import PALdatafile
+from PAL2 import PALpsr
 
 # In order to keep the dictionary in order
 try:

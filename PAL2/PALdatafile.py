@@ -17,9 +17,11 @@ import numpy as np
 import h5py as h5
 import os, sys
 import tempfile
-import PALutils
 import ephem
 import os
+
+import PAL2
+from PAL2 import PALutils
 
 try:    # If without libstempo, can still read hdf5 files
     import libstempo
@@ -296,35 +298,25 @@ class DataFile(object):
                        overwrite=overwrite)
 
         # get pulsar distance and uncertainty (need pulsarDistances.txt file for this)
-        try: 
-            fin = open(os.environ['PAL2']+'/pulsarDistances.txt', 'r')
-            lines = fin.readlines()
-            found = 0
-            for line in lines:
-                vals = line.split()
-                if t2pulsar.name in vals[0]:
-                    pdist, pdistErr = np.double(vals[1]), np.double(vals[2])
-                    found = True
-            if not(found):
-                print 'WARNING: Could not find pulsar distance for PSR {0}. \
-                        Setting value to 1 with 20% uncertainty'.format(t2pulsar.name)
-                pdist, pdistErr = 1.0, 0.2
-
-            # close file
-            fin.close()
-
-            # write to file
-            self.writeData(psrGroup, 'pdist', pdist, overwrite=overwrite)
-            self.writeData(psrGroup, 'pdistErr', pdistErr, overwrite=overwrite)
-        except IOError:
-            print 'WARNING: cannot find pulsarDistances.txt file!,', \
-                    'setting all pulsar distances to 1'    
+        fin = open(PAL2.__path__[0]+'/pulsarDistances.txt', 'r')
+        lines = fin.readlines()
+        found = 0
+        for line in lines:
+            vals = line.split()
+            if t2pulsar.name in vals[0]:
+                pdist, pdistErr = np.double(vals[1]), np.double(vals[2])
+                found = True
+        if not(found):
+            print 'WARNING: Could not find pulsar distance for PSR {0}.', \
+                    'Setting value to 1 with 20% uncertainty'.format(t2pulsar.name)
             pdist, pdistErr = 1.0, 0.2
-        except KeyError:
-            print 'WARNING: PAL2 environment variable not set. Not using pulsar distances'
-            pdist, pdistErr = 1.0, 0.2
-            self.writeData(psrGroup, 'pdist', pdist, overwrite=overwrite)
-            self.writeData(psrGroup, 'pdistErr', pdistErr, overwrite=overwrite)
+
+        # close file
+        fin.close()
+
+        # write to file
+        self.writeData(psrGroup, 'pdist', pdist, overwrite=overwrite)
+        self.writeData(psrGroup, 'pdistErr', pdistErr, overwrite=overwrite)
 
         # Now obtain and write the timing model parameters
         tmpname = ['Offset'] + list(map(str,t2pulsar.pars()))

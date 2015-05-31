@@ -26,8 +26,9 @@ import json
 import tempfile
 import libstempo as t2
 
-import PALutils
-import PALdatafile
+from PAL2 import PALutils
+from PAL2 import PALdatafile
+
 import matplotlib.pyplot as plt
 
 PAL_DMk = 4.15e3        # Units MHz^2 cm^3 pc sec
