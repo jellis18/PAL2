@@ -1248,18 +1248,28 @@ class PTAmodels(object):
                 signals.append(newsignal)
 
             # separate pulsar phase and frequency
-            if incCW and CWModel == 'free':
-                bvary = [True] * 2
-                pmin = [0, -9]
-                pmax = [2*np.pi, -7]
-                pstart = [np.pi, -8]
-                pwidth = [0.1, 0.1]
-                prior = ['uniform', 'log']
-                parids = ['pphase_' + str(p.name), 'lpfgw_' + str(p.name)]
+            if incCW and CWModel in ['free', 'freephase']:
+                if CWModel == 'free':
+                    bvary = [True] * 2
+                    pmin = [0, -9]
+                    pmax = [2*np.pi, -7]
+                    pstart = [np.pi, -8]
+                    pwidth = [0.1, 0.1]
+                    prior = ['uniform', 'log']
+                    parids = ['pphase_' + str(p.name), 'lpfgw_' + str(p.name)]
+
+                if CWModel == 'freephase':
+                    bvary = [True] 
+                    pmin = [0]
+                    pmax = [2*np.pi]
+                    pstart = [np.pi]
+                    pwidth = [0.1]
+                    prior = ['uniform']
+                    parids = ['pphase_' + str(p.name)]
 
                 newsignal = OrderedDict({
                     "stype": 'pulsarTerm',
-                    "model": 'free',
+                    "model": CWModel,
                     "corr": "single",
                     "pulsarind": ii,
                     "flagname": "pulsarname",
@@ -1316,7 +1326,7 @@ class PTAmodels(object):
 
 
         if incCW:
-            if CWModel == 'standard':
+            if CWModel in ['standard', 'freephase']:
                 bvary = [True] * 8
                 pmin = [0, 0, 7, 0.1, -9, 0, 0, 0]
                 pmax = [np.pi, 2 * np.pi, 10, 3, -7, 2*np.pi, np.pi, np.pi]
@@ -4144,7 +4154,8 @@ class PTAmodels(object):
                     for s0 in signum:
                         sig0 = self.ptasignals[s0]
                         pphase.append(parameters[sig0['parindex']])
-                        pfgw.append(parameters[sig0['parindex']+1])
+                        if sig0['model'] == 'free':
+                            pfgw.append(parameters[sig0['parindex']+1])
 
                 # upper limit (h=2M^{5/3}(\pi f)^{2/3}/d_L)
                 if sig['model'] == 'upperLimit':
@@ -4162,13 +4173,15 @@ class PTAmodels(object):
                     mc = 10**sparameters[2]
 
                 # construct CW signal
-                if sig['model'] != 'free':
+                if sig['model'] not in ['free']:
+                    if pphase == []:
+                        pphase = None
                     cwsig = PALutils.createResidualsFast(
                         self.psr, sparameters[0], sparameters[1],
                         mc, dist, 10 ** sparameters[4],
                         sparameters[5], sparameters[6], sparameters[7],
-                        pdist=pdist, psrTerm=incPterm, phase_approx=True,
-                        tref=self.Tref)
+                        pdist=pdist, pphase=pphase, psrTerm=incPterm,
+                        phase_approx=True, tref=self.Tref)
                 else:
                     cwsig = PALutils.createResidualsFree(
                         self.psr, sparameters[0], sparameters[1],
@@ -6363,7 +6376,7 @@ class PTAmodels(object):
                     (np.log(2 * np.pi * s ** 2) + (m - pdist) ** 2 / s ** 2)
 
             # pulsar frequency prior
-            if sig['stype'] == 'pulsarTerm':
+            if sig['stype'] == 'pulsarTerm' and sig['model'] == 'free':
 
                 # get GW frequency
                 signum = self.getSignalNumbersFromDict(

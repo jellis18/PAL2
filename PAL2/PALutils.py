@@ -158,7 +158,7 @@ def createAntennaPatternFuncs(psr, gwtheta, gwphi):
     return fplus, fcross, cosMu
 
 def createResiduals(psr, gwtheta, gwphi, mc, dist, fgw, phase0, psi, inc, pdist=None, \
-                        pphase=None, psrTerm=True, evolve=True, phase_approx=False):
+                        pphase=None, psrTerm=True, evolve=False, phase_approx=True):
     """
     Function to create GW incuced residuals from a SMBMB as 
     defined in Ellis et. al 2012,2013.
@@ -225,7 +225,11 @@ def createResiduals(psr, gwtheta, gwphi, mc, dist, fgw, phase0, psi, inc, pdist=
         
         # phases
         phase = phase0 + omega * toas
-        phase_p = phase0 + 1/32/mc**(5/3) * (w0**(-5/3) - omega_p**(-5/3)) + omega_p*toas
+        if pphase is not None:
+            print 'In here', pphase[ct]
+            phase_p = pphase[ct] + omega_p * toas
+        else:
+            phase_p = phase0 + 1/32/mc**(5/3) * (w0**(-5/3) - omega_p**(-5/3)) + omega_p*toas
           
     # no evolution
     else: 
@@ -307,7 +311,7 @@ def construct_gw_wavelet(psr, gwtheta, gwphi, gwpsi, gweps, gwA, gwt0, gwf0, gwQ
         
 
 def createResidualsFast(psr, gwtheta, gwphi, mc, dist, fgw, phase0, psi, inc, pdist=None, \
-                        pphase=None, psrTerm=True, evolve=True, phase_approx=False, tref=0):
+                        pphase=None, psrTerm=True, evolve=False, phase_approx=True, tref=0):
     """
     Function to create GW incuced residuals from a SMBMB as 
     defined in Ellis et. al 2012,2013. Trys to be smart about it
@@ -403,7 +407,10 @@ def createResidualsFast(psr, gwtheta, gwphi, mc, dist, fgw, phase0, psi, inc, pd
             
             # phases
             phase = phase0 + omega * toas
-            phase_p = phase0 + fac2 * (w053 - omega_p**(-5/3)) + omega_p*toas
+            if pphase is not None:
+                phase_p = pphase[ct] + omega_p * toas
+            else:
+                phase_p = phase0 + fac2 * (w053 - omega_p**(-5/3)) + omega_p*toas
               
         # no evolution
         else: 

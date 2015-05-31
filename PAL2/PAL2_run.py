@@ -671,11 +671,12 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
             if args.incPdist:
                 ind.append(np.array([ct for ct, par in enumerate(par_out) if \
                         'pdist' in par]))
-            if args.cwModel == 'free':
+            if args.cwModel in ['free', 'freephase']:
                 ind.append(np.array([ct for ct, par in enumerate(par_out) if \
                         'pphase' in par]))
-                ind.append(np.array([ct for ct, par in enumerate(par_out) if \
-                        'lpfgw' in par]))
+                if args.cwModel == 'free':
+                    ind.append(np.array([ct for ct, par in enumerate(par_out) if \
+                            'lpfgw' in par]))
         else:
             ind = None
         #ind = None
@@ -727,8 +728,9 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
             if args.cwModel == 'free':
                 sampler.addProposalToCycle(model.pulsarPhaseJump, 5)
             if args.incPdist:
-                sampler.addAuxilaryJump(model.pulsarPhaseFix)
                 sampler.addProposalToCycle(model.pulsarDistanceJump, 10)
+                if args.cwModel != 'freephase':
+                    sampler.addAuxilaryJump(model.pulsarPhaseFix)
 
         # always include draws from efac
         if not args.noVaryEfac and not args.noVaryNoise:
