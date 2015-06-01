@@ -156,7 +156,7 @@ class PTAmodels(object):
                       incBWM=False, incDMX=False,
                       incDMXKernel=False, DMXKernelModel='linear',
                       incCW=False, incPulsarDistance=False, CWupperLimit=False,
-                      mass_ratio=False, CWModel='standard',
+                      mass_ratio=False, CWModel='standard', nCW=1,
                       varyEfac=True, separateEfacs=False, separateEfacsByFreq=False,
                       incEquad=False, separateEquads=False, separateEquadsByFreq=False,
                       incJitter=False, separateJitter=False, separateJitterByFreq=False,
@@ -192,6 +192,11 @@ class PTAmodels(object):
             CWModel = 'upperLimit'
         if mass_ratio:
             CWModel = 'mass_ratio'
+
+        # check to make sure that we don't include more
+        # than 1 single source for some models
+        if nCW > 1 and CWModel not in ['free', 'freephase']:
+            raise NotImplementedError('Cant use multiple single sources with this model')
 
         # start loop over pulsars
         npsr = len(self.psr)
@@ -1249,40 +1254,42 @@ class PTAmodels(object):
 
             # separate pulsar phase and frequency
             if incCW and CWModel in ['free', 'freephase']:
-                if CWModel == 'free':
-                    bvary = [True] * 2
-                    pmin = [0, -9]
-                    pmax = [2*np.pi, -7]
-                    pstart = [np.pi, -8]
-                    pwidth = [0.1, 0.1]
-                    prior = ['cyclic', 'log']
-                    parids = ['pphase_' + str(p.name), 'lpfgw_' + str(p.name)]
+                for cc in range(nCW):
+                    if CWModel == 'free':
+                        bvary = [True] * 2
+                        pmin = [0, -9]
+                        pmax = [2*np.pi, -7]
+                        pstart = [np.pi, -8]
+                        pwidth = [0.1, 0.1]
+                        prior = ['cyclic', 'log']
+                        parids = ['pphase_' + str(cc) + '_' + str(p.name), 
+                                  'lpfgw_' + str(cc) + '_' + str(p.name)]
 
-                if CWModel == 'freephase':
-                    bvary = [True] 
-                    pmin = [0]
-                    pmax = [2*np.pi]
-                    pstart = [np.pi]
-                    pwidth = [0.1]
-                    prior = ['cyclic']
-                    parids = ['pphase_' + str(p.name)]
+                    if CWModel == 'freephase':
+                        bvary = [True] 
+                        pmin = [0]
+                        pmax = [2*np.pi]
+                        pstart = [np.pi]
+                        pwidth = [0.1]
+                        prior = ['cyclic']
+                        parids = ['pphase_' + str(cc) + '_' + str(p.name)]
 
-                newsignal = OrderedDict({
-                    "stype": 'pulsarTerm',
-                    "model": CWModel,
-                    "corr": "single",
-                    "pulsarind": ii,
-                    "flagname": "pulsarname",
-                    "flagvalue": p.name,
-                    "bvary": bvary,
-                    "pmin": pmin,
-                    "pmax": pmax,
-                    "pwidth": pwidth,
-                    "pstart": pstart,
-                    "prior": prior,
-                    "parid": parids
-                })
-                signals.append(newsignal)
+                    newsignal = OrderedDict({
+                        "stype": 'pulsarTerm',
+                        "model": CWModel,
+                        "corr": "single",
+                        "pulsarind": ii,
+                        "flagname": "pulsarname",
+                        "flagvalue": p.name,
+                        "bvary": bvary,
+                        "pmin": pmin,
+                        "pmax": pmax,
+                        "pwidth": pwidth,
+                        "pstart": pstart,
+                        "prior": prior,
+                        "parid": parids
+                    })
+                    signals.append(newsignal)
 
         if incGWWavelet:
             bvary = [True] * 4
@@ -1326,77 +1333,83 @@ class PTAmodels(object):
 
 
         if incCW:
-            if CWModel in ['standard', 'freephase']:
-                bvary = [True] * 8
-                pmin = [0, 0, 7, 0.1, -9, 0, 0, 0]
-                pmax = [np.pi, 2 * np.pi, 10, 3, -7, 2*np.pi, np.pi, np.pi]
-                pstart = [np.pi / 2, np.pi / 2, 8, 1, -8, np.pi,
-                          np.pi, np.pi / 2]
-                pwidth = [0.1, 0.1, 0.1, 0.1, 0.0001, 0.1, 0.1, 0.1]
-                prior = ['cos', 'cyclic', 'log', 'log',
-                         'log', 'cyclic', 'uniform', 'cos']
-                parids = ['theta', 'phi', 'logmc', 'logd',
-                          'logf', 'phase', 'pol', 'inc']
-                mu = [None] * 8
-                sigma = [None] * 8
+            for cc in range(nCW):
+                if CWModel in ['standard', 'freephase']:
+                    bvary = [True] * 8
+                    pmin = [0, 0, 7, 0.1, -9, 0, 0, 0]
+                    pmax = [np.pi, 2 * np.pi, 10, 3, -7, 2*np.pi, np.pi, np.pi]
+                    pstart = [np.pi / 2, np.pi / 2, 8, 1, -8, np.pi,
+                              np.pi, np.pi / 2]
+                    pwidth = [0.1, 0.1, 0.1, 0.1, 0.0001, 0.1, 0.1, 0.1]
+                    prior = ['cos', 'cyclic', 'log', 'log',
+                             'log', 'cyclic', 'uniform', 'cos']
+                    parids = ['theta', 'phi', 'logmc', 'logd',
+                              'logf', 'phase', 'pol', 'inc']
+                    if nCW > 1:
+                        parids = [pid + '_' + str(cc) for pid in parids]
+                    mu = [None] * 8
+                    sigma = [None] * 8
 
-            elif CWModel == 'upperLimit':
-                bvary = [True] * 8
-                pmin = [0, 0, 7, -17, -9, 0, 0, 0]
-                pmax = [np.pi, 2 * np.pi, 10, -12, -7, 2*np.pi, np.pi, np.pi]
-                pstart = [np.pi / 2, np.pi / 2, 8, -14, -8, np.pi,
-                          np.pi, np.pi / 2]
-                pwidth = [0.1, 0.1, 0.1, 0.1, 0.0001, 0.1, 0.1, 0.1]
-                prior = ['cos', 'cyclic', 'log', 'uniform',
-                         'log', 'cyclic', 'uniform', 'cos']
-                parids = ['theta', 'phi', 'logmc', 'logh',
-                          'logf', 'phase', 'pol', 'inc']
-                mu = [None] * 8
-                sigma = [None] * 8
+                elif CWModel == 'upperLimit':
+                    bvary = [True] * 8
+                    pmin = [0, 0, 7, -17, -9, 0, 0, 0]
+                    pmax = [np.pi, 2 * np.pi, 10, -12, -7, 2*np.pi, np.pi, np.pi]
+                    pstart = [np.pi / 2, np.pi / 2, 8, -14, -8, np.pi,
+                              np.pi, np.pi / 2]
+                    pwidth = [0.1, 0.1, 0.1, 0.1, 0.0001, 0.1, 0.1, 0.1]
+                    prior = ['cos', 'cyclic', 'log', 'uniform',
+                             'log', 'cyclic', 'uniform', 'cos']
+                    parids = ['theta', 'phi', 'logmc', 'logh',
+                              'logf', 'phase', 'pol', 'inc']
+                    mu = [None] * 8
+                    sigma = [None] * 8
 
-            elif CWModel == 'mass_ratio':
-                bvary = [True] * 9
-                pmin = [0, 0, 7, 0.1, -9, 0, 0, 0, -3]
-                pmax = [np.pi, 2 * np.pi, 12, 3, -7, 2*np.pi, np.pi, np.pi, 0]
-                pstart = [np.pi / 2, np.pi / 2, 8, 1, -8, np.pi, np.pi,
-                          np.pi / 2, -1]
-                pwidth = [0.1, 0.1, 0.1, 0.1, 0.0001, 0.1, 0.1, 0.1, 0.1]
-                prior = ['cos', 'cyclic', 'log', 'log',
-                         'log', 'cyclic', 'uniform', 'cos', 'log']
-                mu = [None] * 9
-                sigma = [None] * 9
-                parids = ['theta', 'phi', 'logmc', 'logd',
-                          'logf', 'phase','pol', 'inc', 'logq']
+                elif CWModel == 'mass_ratio':
+                    bvary = [True] * 9
+                    pmin = [0, 0, 7, 0.1, -9, 0, 0, 0, -3]
+                    pmax = [np.pi, 2 * np.pi, 12, 3, -7, 2*np.pi, np.pi, np.pi, 0]
+                    pstart = [np.pi / 2, np.pi / 2, 8, 1, -8, np.pi, np.pi,
+                              np.pi / 2, -1]
+                    pwidth = [0.1, 0.1, 0.1, 0.1, 0.0001, 0.1, 0.1, 0.1, 0.1]
+                    prior = ['cos', 'cyclic', 'log', 'log',
+                             'log', 'cyclic', 'uniform', 'cos', 'log']
+                    mu = [None] * 9
+                    sigma = [None] * 9
+                    parids = ['theta', 'phi', 'logmc', 'logd',
+                              'logf', 'phase','pol', 'inc', 'logq']
 
-            elif CWModel == 'free':
-                bvary = [True] * 7
-                pmin = [0, 0, -18, -9, 0, 0, 0]
-                pmax = [np.pi, 2 * np.pi, -11, -7, 2*np.pi, np.pi, np.pi]
-                pstart = [np.pi/2, np.pi/2, -15, -8, np.pi/2, np.pi/2, np.pi/2]
-                pwidth = [0.1, 0.1, 0.1, 1e-4, 0.1, 0.1, 0.1]
-                prior = ['cos', 'cyclic', 'log', 'log', 'cyclic', 'uniform',
-                         'cos']
-                mu = [None] * 7
-                sigma = [None] * 7
-                parids = ['theta', 'phi', 'logh', 'logf', 'phase',
-                          'pol', 'inc']
+                elif CWModel == 'free':
+                    bvary = [True] * 7
+                    pmin = [0, 0, -18, -9, 0, 0, 0]
+                    pmax = [np.pi, 2 * np.pi, -11, -7, 2*np.pi, np.pi, np.pi]
+                    pstart = [np.pi/2, np.pi/2, -15, -8, np.pi/2, np.pi/2, np.pi/2]
+                    pwidth = [0.1, 0.1, 0.1, 1e-4, 0.1, 0.1, 0.1]
+                    prior = ['cos', 'cyclic', 'log', 'log', 'cyclic', 'uniform',
+                             'cos']
+                    mu = [None] * 7
+                    sigma = [None] * 7
+                    parids = ['theta', 'phi', 'logh', 'logf', 'phase',
+                              'pol', 'inc']
+                    if nCW > 1:
+                        parids = [pid + '_' + str(cc) for pid in parids]
 
-            newsignal = OrderedDict({
-                "stype": "cw",
-                "model": CWModel,
-                "corr": "gr",
-                "pulsarind": -1,
-                "mu": mu,
-                "sigma": sigma,
-                "bvary": bvary,
-                "pmin": pmin,
-                "pmax": pmax,
-                "pwidth": pwidth,
-                "pstart": pstart,
-                "parid": parids,
-                "prior": prior,
-            })
-            signals.append(newsignal)
+                newsignal = OrderedDict({
+                    "stype": "cw",
+                    "model": CWModel,
+                    "nsig":cc,
+                    "corr": "gr",
+                    "pulsarind": -1,
+                    "mu": mu,
+                    "sigma": sigma,
+                    "bvary": bvary,
+                    "pmin": pmin,
+                    "pmax": pmax,
+                    "pwidth": pwidth,
+                    "pstart": pstart,
+                    "parid": parids,
+                    "prior": prior,
+                })
+                signals.append(newsignal)
 
         #if incCW and not CWupperLimit and not mass_ratio:
         #    bvary = [True] * 8
@@ -4173,10 +4186,22 @@ class PTAmodels(object):
                     dist = 10 ** sparameters[3]
                     mc = 10**sparameters[2]
 
+                # CW signal number
+                cwnum = sig['nsig']
+                if pphase != []:
+                    npsr = len(self.psr)
+                    pphase = pphase[cwnum*npsr:cwnum*npsr+npsr]
+                else: 
+                    pphase = None
+                
+                if pfgw != []:
+                    npsr = len(self.psr)
+                    pfgw = pfgw[cwnum*npsr:cwnum*npsr+npsr]
+                else: 
+                    pfgw = None
+
                 # construct CW signal
                 if sig['model'] not in ['free']:
-                    if pphase == []:
-                        pphase = None
                     cwsig = PALutils.createResidualsFast(
                         self.psr, sparameters[0], sparameters[1],
                         mc, dist, 10 ** sparameters[4],
@@ -7413,7 +7438,12 @@ class PTAmodels(object):
                 sparameters[sig['bvary']] = parameters[parind:parind + npars]
 
                 # parameter indices
-                ind1, ind2 = sig['parid'].index('phase'), sig['parid'].index('pol')
+                cwnum = sig['nsig']
+                try:
+                    ind1, ind2 = sig['parid'].index('phase'), sig['parid'].index('pol')
+                except ValueError:
+                    ind1 = sig['parid'].index('phase_{0}'.format(cwnum))
+                    ind2 = sig['parid'].index('pol_{0}'.format(cwnum))
 
                 if sig['bvary'][ind1] and sig['bvary'][ind2]:
                     pind1 = np.sum(sig['bvary'][:ind1])

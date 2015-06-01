@@ -408,7 +408,7 @@ def createResidualsFast(psr, gwtheta, gwphi, mc, dist, fgw, phase0, psi, inc, pd
             # phases
             phase = phase0 + omega * toas
             if pphase is not None:
-                phase_p = pphase[ct] + omega_p * toas
+                phase_p = phase0 + pphase[ct] + omega_p * toas
             else:
                 phase_p = phase0 + fac2 * (w053 - omega_p**(-5/3)) + omega_p*toas
               

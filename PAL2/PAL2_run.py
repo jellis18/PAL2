@@ -179,6 +179,8 @@ parser.add_argument('--nGWwavelets', dest='nGWwavelets', action='store', type=in
 
 parser.add_argument('--incCW', dest='incCW', action='store_true', \
                     default=False, help='Include CW signal in run')
+parser.add_argument('--nCW', dest='nCW', action='store', type=int, default=1,
+                   help='Number of CW sources (default=1)')
 parser.add_argument('--cwModel', dest='cwModel', action='store', type=str, \
                     default='standard', 
                     help='Which CW model to use [standard, upperLimit, mass_ratio, free]')
@@ -356,7 +358,7 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     redExtNf=args.nfext, \
                     incEnvelope=args.incRedEnv, envelopeModel=args.redEnvModel,
                     incCW=args.incCW, incPulsarDistance=args.incPdist, \
-                    CWModel=args.cwModel, \
+                    CWModel=args.cwModel, nCW=args.nCW, \
                     CWupperLimit=args.CWupperLimit, \
                     mass_ratio=args.CWmass_ratio, \
                     incJitterEquad=args.incJitterEquad, \
