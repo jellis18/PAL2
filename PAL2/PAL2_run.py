@@ -725,7 +725,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
             #sampler.addProposalToCycle(model.massDistanceJump, 2)
             sampler.addProposalToCycle(model.phaseAndPolarizationReverseJump, 5)
             sampler.addAuxilaryJump(model.fix_cyclic_pars)
-            if args.cwModel == 'free':
+            if args.cwModel in ['free', 'freephase']:
                 sampler.addProposalToCycle(model.pulsarPhaseJump, 5)
             if args.incPdist:
                 sampler.addProposalToCycle(model.pulsarDistanceJump, 10)

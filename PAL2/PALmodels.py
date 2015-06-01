@@ -1255,7 +1255,7 @@ class PTAmodels(object):
                     pmax = [2*np.pi, -7]
                     pstart = [np.pi, -8]
                     pwidth = [0.1, 0.1]
-                    prior = ['uniform', 'log']
+                    prior = ['cyclic', 'log']
                     parids = ['pphase_' + str(p.name), 'lpfgw_' + str(p.name)]
 
                 if CWModel == 'freephase':
@@ -1264,7 +1264,7 @@ class PTAmodels(object):
                     pmax = [2*np.pi]
                     pstart = [np.pi]
                     pwidth = [0.1]
-                    prior = ['uniform']
+                    prior = ['cyclic']
                     parids = ['pphase_' + str(p.name)]
 
                 newsignal = OrderedDict({
@@ -1333,8 +1333,8 @@ class PTAmodels(object):
                 pstart = [np.pi / 2, np.pi / 2, 8, 1, -8, np.pi,
                           np.pi, np.pi / 2]
                 pwidth = [0.1, 0.1, 0.1, 0.1, 0.0001, 0.1, 0.1, 0.1]
-                prior = ['cos', 'uniform', 'log', 'log',
-                         'log', 'uniform', 'uniform', 'cos']
+                prior = ['cos', 'cyclic', 'log', 'log',
+                         'log', 'cyclic', 'uniform', 'cos']
                 parids = ['theta', 'phi', 'logmc', 'logd',
                           'logf', 'phase', 'pol', 'inc']
                 mu = [None] * 8
@@ -1347,8 +1347,8 @@ class PTAmodels(object):
                 pstart = [np.pi / 2, np.pi / 2, 8, -14, -8, np.pi,
                           np.pi, np.pi / 2]
                 pwidth = [0.1, 0.1, 0.1, 0.1, 0.0001, 0.1, 0.1, 0.1]
-                prior = ['cos', 'uniform', 'log', 'uniform',
-                         'log', 'uniform', 'uniform', 'cos']
+                prior = ['cos', 'cyclic', 'log', 'uniform',
+                         'log', 'cyclic', 'uniform', 'cos']
                 parids = ['theta', 'phi', 'logmc', 'logh',
                           'logf', 'phase', 'pol', 'inc']
                 mu = [None] * 8
@@ -1361,8 +1361,8 @@ class PTAmodels(object):
                 pstart = [np.pi / 2, np.pi / 2, 8, 1, -8, np.pi, np.pi,
                           np.pi / 2, -1]
                 pwidth = [0.1, 0.1, 0.1, 0.1, 0.0001, 0.1, 0.1, 0.1, 0.1]
-                prior = ['cos', 'uniform', 'log', 'log',
-                         'log', 'uniform', 'uniform', 'cos', 'log']
+                prior = ['cos', 'cyclic', 'log', 'log',
+                         'log', 'cyclic', 'uniform', 'cos', 'log']
                 mu = [None] * 9
                 sigma = [None] * 9
                 parids = ['theta', 'phi', 'logmc', 'logd',
@@ -1374,7 +1374,7 @@ class PTAmodels(object):
                 pmax = [np.pi, 2 * np.pi, -11, -7, 2*np.pi, np.pi, np.pi]
                 pstart = [np.pi/2, np.pi/2, -15, -8, np.pi/2, np.pi/2, np.pi/2]
                 pwidth = [0.1, 0.1, 0.1, 1e-4, 0.1, 0.1, 0.1]
-                prior = ['cos', 'uniform', 'log', 'log', 'uniform', 'uniform',
+                prior = ['cos', 'cyclic', 'log', 'log', 'cyclic', 'uniform',
                          'cos']
                 mu = [None] * 7
                 sigma = [None] * 7
@@ -4145,12 +4145,13 @@ class PTAmodels(object):
                 nsigs = self.getNumberOfSignalsFromDict(
                     self.ptasignals, stype='pulsarTerm',
                     corr='single')
+                
+                pphase, pfgw = [], []
                 if np.any(nsigs):
                     signum = self.getSignalNumbersFromDict(
                         self.ptasignals, stype='pulsarTerm',
                         corr='single')
 
-                    pphase, pfgw = [], []
                     for s0 in signum:
                         sig0 = self.ptasignals[s0]
                         pphase.append(parameters[sig0['parindex']])
@@ -7221,23 +7222,15 @@ class PTAmodels(object):
 
             # which ones are varying
             sparameters[sig['bvary']] = post[parind:parind + npars]
+            
+            if 'prior' in sig and np.any(np.array(sig['prior']) == 'cyclic'):
+                pindex = 0
+                for jj in range(sig['ntotpars']):
+                    if sig['bvary'][jj]:
+                        if sig['prior'][jj] == 'cyclic':
+                            post[parind+pindex] = np.mod(sparameters[jj], 2*np.pi)
 
-            if sig['stype'] == 'cw':
-
-                ind = sig['parid'].index('phi')
-                if sig['bvary'][ind]:
-                    pind = np.sum(sig['bvary'][:ind])
-                    post[parind+pind] = np.mod(sparameters[ind], 2*np.pi)
-
-                ind = sig['parid'].index('phase')
-                if sig['bvary'][ind]:
-                    pind = np.sum(sig['bvary'][:ind])
-                    post[parind+pind] = np.mod(sparameters[ind], 2*np.pi)
-
-            if sig['stype'] == 'pulsarTerm':
-                if sig['bvary'][0]:
-                    post[parind] = np.mod(sparameters[0], 2*np.pi)
-
+                        pindex += 1
 
         return post, 0
 
