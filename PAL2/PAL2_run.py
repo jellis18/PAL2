@@ -15,7 +15,7 @@ from PAL2 import PALutils
 try:
     from mpi4py import MPI
 except ImportError:
-    import nompi4py as MPI
+    from PAL2 import nompi4py as MPI
 
 
 import argparse
