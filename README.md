@@ -21,7 +21,7 @@ automatically when using ``setup.py`` or ``pip``.
 * [matplotlib](http://matplotlib.org), for plotting only
 * [h5py](http://www.h5py.org)
 * [tempo2](http://www.atnf.csiro.au/research/pulsar/tempo2/index.php?n=Main.Download)
-* [libstempo](https://github.com/vallis/mc3pta/tree/master/stempo) (version >= 2.2.2)
+* [libstempo](https://github.com/vallis/libstempo) (version >= 2.2.2)
 * [pyephem](http://rhodesmill.org/pyephem/)
 * [statsmodels](http://statsmodels.sourceforge.net)
 * [healpy](https://healpy.readthedocs.org)
