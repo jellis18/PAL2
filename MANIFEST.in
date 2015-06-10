@@ -15,6 +15,7 @@ include PAL2/nompi4py.py
 include PAL2/plot.py
 include PAL2/rankreduced.py
 include PAL2/pulsarDistances.txt
+include PAL2/ecc_vs_nharm.txt
 include PAL2/data/mdc_open1/J0030+0451.par
 include PAL2/data/mdc_open1/J0218+4232.par
 include PAL2/data/mdc_open1/J0437-4715.par

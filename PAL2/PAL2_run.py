@@ -408,8 +408,6 @@ if args.CWmass_ratio:
             sig['pstart'][1] = 5.83
 
 
-
-
 # fix spectral index
 if args.fixSi:
     print 'Fixing GWB spectral index to 4.33'
@@ -668,17 +666,20 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
                         'RN' not in par and 'DM' not in par and \
                         'red_' not in par and 'dm_' not in par and \
                         'GWB' not in par and 'lpfgw' not in par and \
-                        'pphase' not in par]))
+                        'pphase' not in par and 'pgamma' not in par]))
 
             if args.incPdist:
                 ind.append(np.array([ct for ct, par in enumerate(par_out) if \
                         'pdist' in par]))
-            if args.cwModel in ['free', 'freephase']:
+            if args.cwModel in ['free', 'freephase', 'ecc', 'eccgam']:
                 ind.append(np.array([ct for ct, par in enumerate(par_out) if \
                         'pphase' in par]))
                 if args.cwModel == 'free':
                     ind.append(np.array([ct for ct, par in enumerate(par_out) if \
                             'lpfgw' in par]))
+                if args.cwModel == 'eccgam':
+                    ind.append(np.array([ct for ct, par in enumerate(par_out) if \
+                            'pgamma' in par]))
         else:
             ind = None
         #ind = None
@@ -727,12 +728,14 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
             #sampler.addProposalToCycle(model.massDistanceJump, 2)
             sampler.addProposalToCycle(model.phaseAndPolarizationReverseJump, 5)
             sampler.addAuxilaryJump(model.fix_cyclic_pars)
-            if args.cwModel in ['free', 'freephase']:
+            if args.cwModel in ['free', 'freephase', 'ecc']:
                 sampler.addProposalToCycle(model.pulsarPhaseJump, 5)
             if args.incPdist:
                 sampler.addProposalToCycle(model.pulsarDistanceJump, 10)
-                if args.cwModel != 'freephase':
+                if args.cwModel not in ['freephase', 'free', 'ecc']:
                     sampler.addAuxilaryJump(model.pulsarPhaseFix)
+                elif args.cwModel == 'ecc':
+                    sampler.addAuxilaryJump(model.pulsarGammaFix)
 
         # always include draws from efac
         if not args.noVaryEfac and not args.noVaryNoise:

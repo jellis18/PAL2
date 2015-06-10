@@ -11,12 +11,15 @@ import json
 import tempfile
 import scipy.linalg as sl
 import scipy.special as ss
+from scipy.interpolate import interp1d
 from numpy.polynomial.hermite import hermval
 import AnisCoefficientsV2 as ani
 
 from PAL2 import PALutils
 from PAL2 import PALdatafile
 from PAL2 import PALpsr
+
+import PAL2
 
 # In order to keep the dictionary in order
 try:
@@ -831,7 +834,7 @@ class PTAmodels(object):
                                     p.t2psr.binarymodel = 'ELL1H'
                                 sini = p.t2psr['SINI'].val
                                 zeta = sini / (1 + np.cos(np.arcsin(sini)))
-                                h3val = 4.9e-6 * p.t2psr['M2'].val * zeta ** 3
+                                h3val = PALutils.SOLAR2S * p.t2psr['M2'].val * zeta ** 3
                                 stigval = zeta
                                 if h3val == 0 or stigval == 0:
                                     h3val, stigval = 1e-8, 0.6
@@ -1253,7 +1256,7 @@ class PTAmodels(object):
                 signals.append(newsignal)
 
             # separate pulsar phase and frequency
-            if incCW and CWModel in ['free', 'freephase']:
+            if incCW and CWModel in ['free', 'freephase', 'ecc', 'eccgam']:
                 for cc in range(nCW):
                     if CWModel == 'free':
                         bvary = [True] * 2
@@ -1264,8 +1267,18 @@ class PTAmodels(object):
                         prior = ['cyclic', 'log']
                         parids = ['pphase_' + str(cc) + '_' + str(p.name), 
                                   'lpfgw_' + str(cc) + '_' + str(p.name)]
+                    
+                    if CWModel == 'eccgam':
+                        bvary = [True] * 2
+                        pmin = [0, 0]
+                        pmax = [2*np.pi, 2*np.pi]
+                        pstart = [np.pi, np.pi]
+                        pwidth = [0.1, 0.1]
+                        prior = ['cyclic', 'cyclic']
+                        parids = ['pphase_' + str(cc) + '_' + str(p.name), 
+                                  'pgamma_' + str(cc) + '_' + str(p.name)]
 
-                    if CWModel == 'freephase':
+                    if CWModel in ['freephase', 'ecc']:
                         bvary = [True] 
                         pmin = [0]
                         pmax = [2*np.pi]
@@ -1392,6 +1405,26 @@ class PTAmodels(object):
                               'pol', 'inc']
                     if nCW > 1:
                         parids = [pid + '_' + str(cc) for pid in parids]
+                
+                if CWModel in ['ecc', 'eccgam']:
+                    bvary = [True] * 11
+                    pmin = [0, 0, 7, 0.1, -9.5, 0, 0, 0, 0.00001, 0, -4]
+                    pmax = [np.pi, 2 * np.pi, 10, 3, -7, np.pi, np.pi,
+                            2*np.pi, 0.999, 2*np.pi, 0]
+                    pstart = [np.pi / 2, np.pi / 2, 8, 1, -8, np.pi/2,
+                              np.pi/2, np.pi / 2, 0.1, np.pi/1, -1]
+                    pwidth = [0.1, 0.1, 0.1, 0.1, 0.0001, 0.1, 0.1, 0.1,
+                             0.1, 0.1, 0.1]
+                    prior = ['cos', 'cyclic', 'log', 'log',
+                             'log', 'cos', 'uniform', 'cyclic', 
+                             'uniform', 'cyclic', 'log']
+                    parids = ['theta', 'phi', 'logmc', 'logd',
+                              'logF', 'inc', 'pol', 'gamma',
+                              'e', 'phase', 'logq']
+                    if nCW > 1:
+                        parids = [pid + '_' + str(cc) for pid in parids]
+                    mu = [None] * 11
+                    sigma = [None] * 11
 
                 newsignal = OrderedDict({
                     "stype": "cw",
@@ -1754,6 +1787,11 @@ class PTAmodels(object):
             # a continuous GW signal
             self.ptasignals.append(signal)
             self.haveDetSources = True
+
+            # if eccentric signal make interpolant for eccentricity vs nharm
+            if signal['model'] in ['ecc', 'eccgam']:
+                fl = np.loadtxt(PAL2.__path__[0] + '/ecc_vs_nharm.txt')
+                self.nharm = interp1d(fl[:,0], fl[:,1])
 
         elif signal['stype'] == 'gwwavelet':
             # a GW wavelet signal
@@ -4159,7 +4197,7 @@ class PTAmodels(object):
                     self.ptasignals, stype='pulsarTerm',
                     corr='single')
                 
-                pphase, pfgw = [], []
+                pphase, pfgw, pgam = [], [], []
                 if np.any(nsigs):
                     signum = self.getSignalNumbersFromDict(
                         self.ptasignals, stype='pulsarTerm',
@@ -4170,12 +4208,14 @@ class PTAmodels(object):
                         pphase.append(parameters[sig0['parindex']])
                         if sig0['model'] == 'free':
                             pfgw.append(parameters[sig0['parindex']+1])
+                        if sig0['model'] == 'eccgam':
+                            pgam.append(parameters[sig0['parindex']+1])
 
                 # upper limit (h=2M^{5/3}(\pi f)^{2/3}/d_L)
                 if sig['model'] == 'upperLimit':
-                    dist = 2 * (10 ** sparameters[2] * 4.9e-6) ** (5 / 3) \
+                    dist = 2 * (10 ** sparameters[2] * PALutils.SOLAR2S) ** (5 / 3) \
                         * (np.pi * 10 ** sparameters[4]) ** (2 / 3) / 10 ** sparameters[3]
-                    dist /= 1.0267e14
+                    dist /= PALutils.MPC2S
                     mc = 10**sparameters[2]
                 elif sig['model'] == 'mass_ratio':
                     dist = 10**sparameters[3]
@@ -4200,14 +4240,28 @@ class PTAmodels(object):
                 else: 
                     pfgw = None
 
+                if pgam != []:
+                    npsr = len(self.psr)
+                    pgam = pgam[cwnum*npsr:cwnum*npsr+npsr]
+                else: 
+                    pgam = None
+
                 # construct CW signal
-                if sig['model'] not in ['free']:
+                if sig['model'] not in ['free', 'ecc', 'eccgam']:
                     cwsig = PALutils.createResidualsFast(
                         self.psr, sparameters[0], sparameters[1],
                         mc, dist, 10 ** sparameters[4],
                         sparameters[5], sparameters[6], sparameters[7],
                         pdist=pdist, pphase=pphase, psrTerm=incPterm,
                         phase_approx=True, tref=self.Tref)
+                elif sig['model'] in ['ecc', 'eccgam']:
+                    cwsig = PALutils.compute_eccentric_residuals(
+                        self.psr, sparameters[0], sparameters[1], mc,
+                        dist, 10**sparameters[4], sparameters[5],
+                        sparameters[6], sparameters[7], sparameters[8],
+                        sparameters[9], 10**sparameters[10],
+                        nmax=self.nharm, pdist=pdist, pphase=pphase,
+                        pgam=pgam, psrTerm=incPterm, tref=self.Tref)
                 else:
                     cwsig = PALutils.createResidualsFree(
                         self.psr, sparameters[0], sparameters[1],
@@ -4215,6 +4269,12 @@ class PTAmodels(object):
                         sparameters[4], sparameters[5], sparameters[6],
                         np.array(pphase), 10**np.array(pfgw), psrTerm=True,
                         tref=self.Tref)
+
+                #pp = self.psr[6]
+                #if np.random.rand() < 0.001:
+                #    plt.errorbar(pp.toas, pp.residuals, pp.toaerrs, fmt='.')
+                #    plt.plot(pp.toas, cwsig[6], color='r', lw=2)
+                #    plt.show()
 
                 # loop over all pulsars and subtract off CW signal
                 for ct, p in enumerate(self.psr):
@@ -5896,6 +5956,32 @@ class PTAmodels(object):
         # return F-statistic
         return fstat
 
+    def get_Fwstat(self, pnum, t0, f0, Q, weights=None):
+    
+        N = np.zeros(2)
+        M = np.zeros((2, 2))
+
+        psr = self.psr[pnum]
+
+        
+        if weights is None:
+            weights = np.ones(len(psr.toas))
+            
+        w1 = PALutils.constuct_wavelet(psr.toas, 1, t0, f0, Q, 0) / weights
+        w2 = PALutils.constuct_wavelet(psr.toas, 1, t0, f0, Q, np.pi/2) / weights    
+        
+        N[0] = PALutils.innerProduct_rr(psr.residuals, w1, psr.Nvec, psr.Tmat, self.Sigma)
+        N[1] = PALutils.innerProduct_rr(psr.residuals, w2, psr.Nvec, psr.Tmat, self.Sigma)
+        
+        w = [w1, w2]
+        for ii in range(2):
+            for jj in range(ii,2):
+                M[ii, jj] = PALutils.innerProduct_rr(w[ii], w[jj], psr.Nvec,
+                                                     psr.Tmat, self.Sigma)
+                M[jj, ii] = M[ii, jj]
+        
+        return 0.5 * np.dot(N, np.dot(np.linalg.pinv(M), N))
+
     def mark8Gradient(self, parameters):
 
         # set pulsar white noise parameters
@@ -6196,6 +6282,7 @@ class PTAmodels(object):
             # which ones are varying
             sparameters[sig['bvary']] = parameters[parind:parind + npars]
 
+
             if sig['corr'] == 'gr' and sig['stype'] == 'powerlaw':
                 if sig['prior'][0] == 'uniform':
                     prior += np.log(10 ** sparameters[0])
@@ -6341,8 +6428,8 @@ class PTAmodels(object):
                 if sini and pb and m2 and a1:
                     Pb = pb*86400
                     X = a1*299.79e6/3e8
-                    M2 = m2*4.9e-6
-                    mp = ((sini*(Pb/2/np.pi)**(2./3)*M2/X)**(3./2) - M2)/4.9e-6
+                    M2 = m2*PALutils.SOLAR2S
+                    mp = ((sini*(Pb/2/np.pi)**(2./3)*M2/X)**(3./2) - M2)/PALutils.SOLAR2S
                     #extra = ((Pb/2/np.pi)**(2./3)*M2/X)**(3./2) * 1.5 * np.abs(sini)**(1/2)
                     #prior += np.log(extra)
                     ms = 1.4 * np.sqrt(2)
@@ -6351,12 +6438,12 @@ class PTAmodels(object):
                     #prior += np.log(mp/ms) - (mp/ms)**2
 
                 if stig and pb and h3 and a1:
-                    m2 = h3/stig**3 / 4.9e-6
+                    m2 = h3/stig**3 / PALutils.SOLAR2S
                     sini = 2 * stig / (1+stig**2)
                     Pb = pb*86400
                     X = a1*299.79e6/3e8
-                    M2 = m2*4.9e-6
-                    mp = ((sini*(Pb/2/np.pi)**(2./3)*M2/X)**(3./2) - M2)/4.9e-6
+                    M2 = m2*PALutils.SOLAR2S
+                    mp = ((sini*(Pb/2/np.pi)**(2./3)*M2/X)**(3./2) - M2)/PALutils.SOLAR2S
                     #extra = ((Pb/2/np.pi)**(2./3)*M2/X)**(3./2) * 1.5 * np.abs(sini)**(1/2)
                     #prior += np.log(extra)
                     ms = 1.4 * np.sqrt(2)
@@ -6415,6 +6502,34 @@ class PTAmodels(object):
                 lfgw = sparameters2[3]
                 if sparameters[1] > lfgw:
                     prior += -np.inf
+        
+        ##### SUPER HACK, FIX THIS LATER #####
+        # multiple CW sources prior
+        signum = self.getSignalNumbersFromDict(self.ptasignals,
+                                               stype='cw',
+                                               corr='gr')
+        
+        if len(signum) > 1:
+            freqs = []
+            for sign in signum:
+                sig = self.ptasignals[sign]
+
+                # short hand
+                psrind = sig['pulsarind']
+                parind = sig['parindex']
+                npars = sig['npars']
+
+                # parameters for this signal
+                sparameters = sig['pstart'].copy()
+
+                # which ones are varying
+                sparameters[sig['bvary']] = parameters[parind:parind + npars]
+
+                freqs.append(10**sparameters[4])
+            
+            sigma = 1/3/self.psr[0].Tmax
+            #print freqs, sigma, (1-np.exp(-(freqs[0]-freqs[1])**2/2/sigma**2))
+            #prior += np.log((1-np.exp(-(freqs[0]-freqs[1]+1e-11)**2/2/sigma**2)))
 
 
         return prior
@@ -7170,7 +7285,8 @@ class PTAmodels(object):
         # get pulsar distances
         L0 = []
         signum = self.getSignalNumbersFromDict(self.ptasignals,
-                                               stype='pulsardistance', corr='single')
+                                               stype='pulsardistance',
+                                               corr='single')
 
         # check to make sure we have all distances
         if len(signum) != self.npsr:
@@ -7262,6 +7378,7 @@ class PTAmodels(object):
     # pulsar mode jump
     def pulsarPhaseFix(self, prepar, postpar, iter, beta):
 
+
         pre = prepar.copy()
         post = postpar.copy()
 
@@ -7333,10 +7450,10 @@ class PTAmodels(object):
         cosMu1 = np.array([p.cosMu(theta1, phi1) for p in self.psr]).flatten()
 
         # get in correct units
-        L0 *= 1.0267e11
-        L1 *= 1.0267e11
-        mc0 *= 4.9e-6
-        mc1 *= 4.9e-6
+        L0 *= PALutils.KPC2S
+        L1 *= PALutils.KPC2S
+        mc0 *= PALutils.SOLAR2S
+        mc1 *= PALutils.SOLAR2S
 
         # pulsar frequency
         omegap0 = omega0 * (1 + 256 / 5 * mc0 ** (5 / 3)
@@ -7366,22 +7483,143 @@ class PTAmodels(object):
 
         deltaL = (np.mod(phase1, 2 * np.pi) - np.mod(phase0, 2 * np.pi)
                   + sigma * np.sqrt(1 / beta)) / (omegap1 * (1 - cosMu1))
-        L_new = (L1 + deltaL) / 1.0267e11
+        L_new = (L1 + deltaL) / PALutils.KPC2S
         post[pdist_inds] = L_new
 
-        #L1 = L_new * 1.0267e11
+        #L1 = L_new * PALutils.KPC2S
         #omegap1 = omega1 * (1+256/5*mc1**(5/3)*omega1**(8/3)*L1*(1-cosMu1))**(-3/8)
 
         ## pulsar phase
         #phase1 = 1/32/mc1**(5/3) * (omega1**(-5/3) - omegap1**(-5/3))
 
-        #for p1, p2, l1, l2, cm in zip(phase0, phase1, L0/1.0267e11, L_new, cosMu1):
+        #for p1, p2, l1, l2, cm in zip(phase0, phase1, L0/PALutils.KPC2S, L_new, cosMu1):
         #    print np.mod(p1, 2*np.pi), np.mod(p2, 2*np.pi), \
         #        np.abs(l1-l2) / ((l1+l2)/2), 1-cm
 
         #print '\n'
 
         return post, 0
+
+    # pulsar mode jump in gamma
+    def pulsarGammaFix(self, prepar, postpar, iter, beta):
+
+        #if self.mark3LogPrior(prepar) == -np.inf or \
+        #   self.mark3LogPrior(postpar) == -np.inf:
+        #    return postpar, 0
+
+        pre = prepar.copy()
+        post = postpar.copy()
+
+        # get pulsar distances
+        L0, L1 = [], []
+        signum = self.getSignalNumbersFromDict(
+            self.ptasignals,stype='pulsardistance',
+            corr='single')
+
+        # check to make sure we have all distances
+        if len(signum) != self.npsr:
+            raise ValueError(
+                'ERROR: Number of pulsar distances != number of pulsars!')
+
+        # get distances
+        pdist_inds = []
+        for signum0 in signum:
+            sig0 = self.ptasignals[signum0]
+            pdist_inds.append(sig0['parindex'])
+            L0.append(pre[sig0['parindex']])
+            L1.append(post[sig0['parindex']])
+
+        # make indices array
+        pdist_inds = np.array(pdist_inds)
+        L0 = np.array(L0)
+        L1 = np.array(L1)
+
+        # now get other relevant parameters
+        for ct, sig in enumerate(self.ptasignals):
+            
+            # short hand
+            psrind = sig['pulsarind']
+            parind = sig['parindex']
+            npars = sig['npars']
+
+            if sig['stype'] == 'cw':
+
+                # parameters for this signal
+                par0 = sig['pstart'].copy()
+                par1 = sig['pstart'].copy()
+
+                # which ones are varying
+                par0[sig['bvary']] = pre[parind:parind + npars]
+                par1[sig['bvary']] = post[parind:parind + npars]
+
+
+                theta0, phi0, F0, e0, mc0, q0, gamma0, l0 = par0[0], par0[1], \
+                    10 ** par0[4], par0[8], 10**par0[2], 10**par0[10], par0[7], par0[9]
+                theta1, phi1, F1, e1, mc1, q1, gamma1, l1 = par1[0], par1[1], \
+                    10 ** par1[4], par1[8], 10**par1[2], 10**par1[10], par1[7], par1[9]
+
+
+        # get angular separations
+        cosMu0 = np.array([p.cosMu(theta0, phi0) for p in self.psr]).flatten()
+        cosMu1 = np.array([p.cosMu(theta1, phi1) for p in self.psr]).flatten()
+
+        # get in correct units
+        L0 *= PALutils.KPC2S
+        L1 *= PALutils.KPC2S
+        
+        for pp in range(self.npsr):
+
+            # times at which to evaluate pulsar term
+            tp0 = self.psr[pp].toas - self.Tref - L0[pp]*(1-cosMu0[pp])
+            tp1 = self.psr[pp].toas - self.Tref - L1[pp]*(1-cosMu1[pp])
+            t0 = np.array([0.0, tp0.min()])
+            t1 = np.array([0.0, tp1.min()])
+
+            #print tp0.min() / 3.16e7
+            #print tp1.min() / 3.16e7
+            
+            y0 = PALutils.solve_coupled_ecc_solution(F0, e0, gamma0, l0, mc0, q0, t0)
+            y1 = PALutils.solve_coupled_ecc_solution(F1, e1, gamma1, l1, mc1, q1, t1)
+                
+            # get pulsar term values
+            if np.any(y0) and np.any(y1):
+                Fp0, ep0, gp0, phip0 = y0[-1,:] 
+                Fp1, ep1, gp1, phip1 = y1[-1,:] 
+            else:
+                return post, 0
+
+            # pulsar gammadot
+            gammadotp0 = PALutils.get_gammadot(Fp0, mc0, q0, ep0)
+            gammadotp1 = PALutils.get_gammadot(Fp1, mc1, q1, ep1)
+
+            # size of phase jump
+            prob = np.random.rand()
+            if prob > 0.8:
+                sigma = 0.5 * np.random.randn()
+
+            elif prob > 0.6:
+                sigma = 0.1 * np.random.randn()
+
+            elif prob > 0.4:
+                sigma = 0.02 * np.random.randn()
+
+            else:
+                sigma = 0.05 * np.random.randn()
+
+            deltaL = (np.mod(gp1, 2*np.pi) - np.mod(gp0, 2*np.pi)
+                      + sigma * np.sqrt(1 / beta)) / (gammadotp1*(1 - cosMu1[pp]))
+            L_new = (L1[pp] + deltaL) / PALutils.KPC2S
+            post[pdist_inds[pp]] = L_new
+
+            #tp0 = self.psr[pp].toas - self.Tref - (L1[pp] + deltaL)*(1-cosMu0[pp])
+            #t0 = np.array([0.0, tp0.min()])
+            #y0 = PALutils.solve_coupled_ecc_solution(F0, e0, gamma0, l0, mc0, q0, t0)
+            #Fp0, ep0, gpnew, phip0 = y0[-1,:]
+
+            #print np.mod(gpnew, 2*np.pi), np.mod(gp0, 2*np.pi)
+
+        return post, 0
+
 
     # mass distance correlation jump
     def massDistanceJump(self, parameters, iter, beta):
@@ -7398,18 +7636,18 @@ class PTAmodels(object):
 
                 par0 = parameters[
                     sig['parindex']:(sig['parindex'] + sig['npars'])]
-                mc0, dist0 = 10 ** par0[2] * 4.9e-6, 10 ** par0[3] * 1.0267e14
+                mc0, dist0 = 10 ** par0[2] * PALutils.SOLAR2S, 10 ** par0[3] * PALutils.MPC2S
 
                 # draw distance uniformly from prior
                 dist1 = 10 ** np.random.uniform(sig['pmin'][3], sig['pmax'][3])
-                dist1 *= 1.0267e14
+                dist1 *= PALutils.MPC2S
 
                 # find chirp mass that keeps M^{5/3}/dL constant
                 mc1 = (dist1 * mc0 ** (5 / 3) / dist0) ** (3 / 5)
 
                 # put values in return array
-                q[sig['parindex'] + 2] = np.log10(mc1 / 4.9e-6)
-                q[sig['parindex'] + 3] = np.log10(dist1 / 1.0267e14)
+                q[sig['parindex'] + 2] = np.log10(mc1 / PALutils.SOLAR2S)
+                q[sig['parindex'] + 3] = np.log10(dist1 / PALutils.MPC2S)
 
         return q, qxy
 
