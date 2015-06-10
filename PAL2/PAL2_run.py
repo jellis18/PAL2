@@ -808,7 +808,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
 
                 # check prior
                 if model.mark3LogPrior(acube) != -np.inf:
-                    return loglike(acube, **loglkwargs)
+                    return loglike(acube, **loglkwargs) + model.mark3LogPrior(acube)
                 else:
                     #print 'WARNING: Prior returns -np.inf!!'
                     return -np.inf
@@ -832,7 +832,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
                 
                 # check prior
                 if model.mark3LogPrior(acube) != -np.inf:
-                    ll = loglike(acube, **loglkwargs)
+                    ll = loglike(acube, **loglkwargs) + model.mark3LogPrior(acube)
                     return ll
                 else:
                     #print 'WARNING: Prior returns -np.inf!!'

@@ -431,6 +431,13 @@ class PTAmodels(object):
                     pstart = [-19.0, 2.01, 1.0e-10]
                     pwidth = [0.1, 0.1, 5.0e-11]
                     prior = [redAmpPrior, redSiPrior, 'log']
+                elif noiseModel == 'broken':
+                    bvary = [True, True, True, True, True]
+                    pmin = [-18.0, 1.02, -9, 0.01, -7]
+                    pmax = [-11.0, 6.98, -7, 6.98, 7]
+                    pstart = [-15.0, 2.01, -8, 2.01, 0.5]
+                    pwidth = [0.1, 0.1, 0.1, 0.1, 0.1]
+                    prior = [redAmpPrior, redSiPrior, 'uniform', 'uniform', 'uniform']
                 elif noiseModel == 'spectralModel':
                     bvary = [True, True, True]
                     pmin = [-28.0, 0.0, -4.0]
@@ -1758,7 +1765,7 @@ class PTAmodels(object):
 
         elif signal['stype'] in ['powerlaw', 'spectrum', 'spectralModel',
                                  'powerlaw_band', 'turnover', 'ext_powerlaw',
-                                 'ext_spectrum']:
+                                 'ext_spectrum', 'broken']:
             # Any time-correlated signal
             self.addSignalTimeCorrelated(signal)
             self.haveStochSources = True
@@ -2550,6 +2557,10 @@ class PTAmodels(object):
                     else:
                         flagvalue = ['RN-Amplitude', 'RN-spectral-index',
                                      'low-frequency-cutoff'][jj]
+
+                elif sig['stype'] == 'broken' and sig['corr'] != 'gr':
+                    flagvalue = ['RN-Amplitude', 'RN-spectral-index',
+                                 'RN-f0', 'RN-kappa', 'RN-beta'][jj]
 
                 elif sig['stype'] == 'turnover' and sig['corr'] == 'gr':
                     flagvalue = ['GWB-Amplitude', 'GWB-spectral-index',
@@ -3390,6 +3401,24 @@ class PTAmodels(object):
                     # fill in kappa
                     self.psr[psrind].kappa = pcdoubled
 
+            if sig['stype'] == 'broken':
+
+                # get Amplitude and spectral index
+                Amp = 10 ** sparameters[0]
+                gamma = sparameters[1]
+                f0 = 10 ** sparameters[2]
+                kappa = sparameters[3]
+                beta = sparameters[4]
+
+                freqpy = self.psr[psrind].Ffreqs
+                f1yr = 1 / 3.16e7
+                hcf = Amp * (freqpy / f1yr) ** ((3 - gamma) / 2) / \
+                    (1 + (f0 / freqpy) ** kappa) ** beta
+                pcdoubled = np.log10(
+                    hcf ** 2 / 12 / np.pi ** 2 / freqpy ** 3 / self.psr[psrind].Tmax)
+
+                self.psr[psrind].kappa = pcdoubled
+
             # powerlaw spectrum
             if sig['stype'] == 'powerlaw':
 
@@ -3410,6 +3439,7 @@ class PTAmodels(object):
                     #print 1/self.psr[psrind].Ffreqs[0], self.psr[psrind].Tmax
                     # fill in kappa
                     self.psr[psrind].kappa = pcdoubled
+
 
                 # correlated signals
                 if sig['corr'] in ['gr', 'uniform', 'dipole']:
@@ -6924,30 +6954,31 @@ class PTAmodels(object):
             npars = sig['npars']
 
             # jump in amplitude if varying
-            for jj in range(npars):
-                if sig['bvary'][jj]:
+            #for jj in range(npars):
+            jj = np.random.randint(0, np.sum(sig['bvary']))
+            if sig['bvary'][jj]:
 
-                    # log prior
-                    if sig['prior'][jj] == 'log':
-                        q[parind + jj] = np.random.uniform(self.pmin[parind + jj],
-                                                           self.pmax[parind + jj])
-                        qxy += 0
+                # log prior
+                if sig['prior'][jj] == 'log':
+                    q[parind + jj] = np.random.uniform(self.pmin[parind + jj],
+                                                       self.pmax[parind + jj])
+                    qxy += 0
 
-                    elif sig['prior'][jj] == 'uniform':
-                        q[parind + jj] = np.log10(np.random.uniform(10 ** self.pmin[parind + jj],
-                                                                    10 ** self.pmax[parind + jj]))
-                        qxy += np.log(10 **
-                                      parameters[parind + jj] / 10 ** q[parind + jj])
+                elif sig['prior'][jj] == 'uniform':
+                    q[parind + jj] = np.log10(np.random.uniform(10 ** self.pmin[parind + jj],
+                                                                10 ** self.pmax[parind + jj]))
+                    qxy += np.log(10 **
+                                  parameters[parind + jj] / 10 ** q[parind + jj])
 
-                    elif sig['prior'][jj] == 'sqrt':
-                        q[parind + jj] = np.log10(np.random.uniform(10 ** (self.pmin[parind + jj] / 2),
-                                                                    10 ** (self.pmax[parind + jj] / 2)) ** 2)
-                        qxy += np.log(10 **
-                                      (parameters[parind + jj] / 2) / 10 ** (q[parind + jj] / 2))
+                elif sig['prior'][jj] == 'sqrt':
+                    q[parind + jj] = np.log10(np.random.uniform(10 ** (self.pmin[parind + jj] / 2),
+                                                                10 ** (self.pmax[parind + jj] / 2)) ** 2)
+                    qxy += np.log(10 **
+                                  (parameters[parind + jj] / 2) / 10 ** (q[parind + jj] / 2))
 
-                    else:
-                        print 'Prior type not recognized for parameter'
-                        q[parind + jj] = parameters[parind + jj]
+                else:
+                    print 'Prior type not recognized for parameter'
+                    q[parind + jj] = parameters[parind + jj]
 
         return q, qxy
 
