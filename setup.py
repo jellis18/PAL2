@@ -25,7 +25,7 @@ setup(
     license='GPLv3',
     description='PTA analysis software',
     package_data={'PAL2': ['pulsarDistances.txt',
-                           'ecc_vs_nharm.txt'
+                           'ecc_vs_nharm.txt',
                            'data/mdc_open1/*',
                           'data/NANOGrav_dfg+12_20120911/*']},
     install_requires=['numpy', 'scipy', 'h5py',
