@@ -460,8 +460,6 @@ for sig in fullmodel['signals']:
 memsave = True
 if args.noVaryEfac:
     print 'Not Varying EFAC'
-    #args.fromFile = False
-    #memsave = False
     for sig in fullmodel['signals']:
         if sig['corr'] == 'single' and sig['stype'] == 'efac':
             sig['bvary'][0] = False
@@ -515,9 +513,6 @@ else:
 #args.fromFile = False
 model.initModel(fullmodel, memsave=memsave, fromFile=args.fromFile, verbose=True, write=write)
 
-if args.CWmass_ratio:
-    print 'Setting Tref'
-    model.Tref = 53500.0 * 86400.0
 
 #import matplotlib.pyplot as plt
 #for p in model.psr:
@@ -671,7 +666,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
             if args.incPdist:
                 ind.append(np.array([ct for ct, par in enumerate(par_out) if \
                         'pdist' in par]))
-            if args.cwModel in ['free', 'freephase', 'ecc', 'eccgam']:
+            if args.cwModel in ['free', 'freephase', 'eccgam']:
                 ind.append(np.array([ct for ct, par in enumerate(par_out) if \
                         'pphase' in par]))
                 if args.cwModel == 'free':

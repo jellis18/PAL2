@@ -1246,6 +1246,9 @@ class PTAmodels(object):
                 pstart = [p.pdist]
                 pwidth = [p.pdistErr]
                 prior = ['gaussian']
+                mu = [p.pdist]
+                sigma = [p.pdistErr]
+
 
                 newsignal = OrderedDict({
                     "stype": 'pulsardistance',
@@ -1253,6 +1256,8 @@ class PTAmodels(object):
                     "pulsarind": ii,
                     "flagname": "pulsarname",
                     "flagvalue": p.name,
+                    "mu": mu,
+                    "sigma": sigma,
                     "bvary": bvary,
                     "pmin": pmin,
                     "pmax": pmax,
@@ -1263,7 +1268,7 @@ class PTAmodels(object):
                 signals.append(newsignal)
 
             # separate pulsar phase and frequency
-            if incCW and CWModel in ['free', 'freephase', 'ecc', 'eccgam']:
+            if incCW and CWModel in ['free', 'freephase', 'eccgam']:
                 for cc in range(nCW):
                     if CWModel == 'free':
                         bvary = [True] * 2
@@ -1285,7 +1290,7 @@ class PTAmodels(object):
                         parids = ['pphase_' + str(cc) + '_' + str(p.name), 
                                   'pgamma_' + str(cc) + '_' + str(p.name)]
 
-                    if CWModel in ['freephase', 'ecc']:
+                    if CWModel in ['freephase']:
                         bvary = [True] 
                         pmin = [0]
                         pmax = [2*np.pi]
@@ -1357,7 +1362,7 @@ class PTAmodels(object):
                 if CWModel in ['standard', 'freephase']:
                     bvary = [True] * 8
                     pmin = [0, 0, 7, 0.1, -9, 0, 0, 0]
-                    pmax = [np.pi, 2 * np.pi, 10, 3, -7, 2*np.pi, np.pi, np.pi]
+                    pmax = [np.pi, 2 * np.pi, 10, 10, -7, 2*np.pi, np.pi, np.pi]
                     pstart = [np.pi / 2, np.pi / 2, 8, 1, -8, np.pi,
                               np.pi, np.pi / 2]
                     pwidth = [0.1, 0.1, 0.1, 0.1, 0.0001, 0.1, 0.1, 0.1]
@@ -1387,7 +1392,7 @@ class PTAmodels(object):
                 elif CWModel == 'mass_ratio':
                     bvary = [True] * 9
                     pmin = [0, 0, 7, 0.1, -9, 0, 0, 0, -3]
-                    pmax = [np.pi, 2 * np.pi, 12, 3, -7, 2*np.pi, np.pi, np.pi, 0]
+                    pmax = [np.pi, 2 * np.pi, 12, 10, -7, 2*np.pi, np.pi, np.pi, 0]
                     pstart = [np.pi / 2, np.pi / 2, 8, 1, -8, np.pi, np.pi,
                               np.pi / 2, -1]
                     pwidth = [0.1, 0.1, 0.1, 0.1, 0.0001, 0.1, 0.1, 0.1, 0.1]
@@ -1416,7 +1421,7 @@ class PTAmodels(object):
                 if CWModel in ['ecc', 'eccgam']:
                     bvary = [True] * 11
                     pmin = [0, 0, 7, 0.1, -9.5, 0, 0, 0, 0.00001, 0, -4]
-                    pmax = [np.pi, 2 * np.pi, 10, 3, -7, np.pi, np.pi,
+                    pmax = [np.pi, 2 * np.pi, 10, 10, -7, np.pi, np.pi,
                             2*np.pi, 0.999, 2*np.pi, 0]
                     pstart = [np.pi / 2, np.pi / 2, 8, 1, -8, np.pi/2,
                               np.pi/2, np.pi / 2, 0.1, np.pi/1, -1]
