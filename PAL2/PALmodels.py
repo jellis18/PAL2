@@ -4313,7 +4313,7 @@ class PTAmodels(object):
 
                 # loop over all pulsars and subtract off CW signal
                 for ct, p in enumerate(self.psr):
-                    p.detresiduals -= cwsig[ct]
+                    p.detresiduals -= (cwsig[ct]-cwsig[ct].mean())
 
         # If necessary, transform these residuals to two-component basis
         for pp, p in enumerate(self.psr):
