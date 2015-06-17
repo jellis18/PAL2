@@ -1428,7 +1428,7 @@ class PTAmodels(object):
                     pwidth = [0.1, 0.1, 0.1, 0.1, 0.0001, 0.1, 0.1, 0.1,
                              0.1, 0.1, 0.1]
                     prior = ['cos', 'cyclic', 'log', 'log',
-                             'log', 'cos', 'uniform', 'cyclic', 
+                             'modified', 'cos', 'uniform', 'cyclic', 
                              'uniform', 'cyclic', 'log']
                     parids = ['theta', 'phi', 'logmc', 'logd',
                               'logF', 'inc', 'pol', 'gamma',
@@ -4296,7 +4296,8 @@ class PTAmodels(object):
                         sparameters[6], sparameters[7], sparameters[8],
                         sparameters[9], 10**sparameters[10],
                         nmax=self.nharm, pdist=pdist, pphase=pphase,
-                        pgam=pgam, psrTerm=incPterm, tref=self.Tref)
+                        pgam=pgam, psrTerm=incPterm, tref=self.Tref,
+                        check=False)
                 else:
                     cwsig = PALutils.createResidualsFree(
                         self.psr, sparameters[0], sparameters[1],
@@ -6512,6 +6513,11 @@ class PTAmodels(object):
                             prior += -0.5 * (np.log(2 * np.pi * sigma**2) +
                                              (sparameters[pindex] - mu)**2 /
                                              sigma**2)
+
+                        if sig['prior'][jj] == 'modified':
+                            f0 = 1/self.psr[0].Tmax
+                            f = 10**sparameters[pindex]
+                            prior += np.log(f**2/ (1+(f/f0)**4)**0.5)
 
                     pindex += 1
 

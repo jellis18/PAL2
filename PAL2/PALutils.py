@@ -2799,7 +2799,8 @@ def compute_eccentric_residuals(psr, gwtheta, gwphi, mc,
                                 dist, F, inc, psi,
                                 gamma0, e0, l0, q, nmax=400,
                                 pdist=None, pphase=None,
-                                pgam=None, psrTerm=True, tref=0):
+                                pgam=None, psrTerm=True,
+                                tref=0, check=False):
 
     """
     Simulate GW from eccentric SMBHB. Waveform models from
@@ -2866,6 +2867,25 @@ def compute_eccentric_residuals(psr, gwtheta, gwphi, mc,
         
         # get pulsar time
         tp = toas - pd * (1-cosMu)
+
+        if check:
+            # check that frequency is not evolving significantly over obs. time
+            y = solve_coupled_ecc_solution(F, e0, gamma0, l0, mc, q,
+                                              np.array([0.0,toas.max()]))
+            
+            # initial and final values over observation time
+            Fc0, ec0, gc0, phic0 = y[0,:]
+            Fc1, ec1, gc1, phic1 = y[-1,:]
+
+            # observation time
+            Tobs = 1/(toas.max()-toas.min())
+
+            if np.abs(Fc0-Fc1) > 1/Tobs:
+                print('WARNING: Frequency is evolving over more than one frequency bin.')
+                print('F0 = {0}, F1 = {1}, delta f = {2}'.format(Fc0, Fc1, 1/Tobs))
+                return np.ones(len(p.toas)) * np.nan
+
+
         
         # get gammadot for earth term
         gammadot = get_gammadot(F, mc, q, e0)
