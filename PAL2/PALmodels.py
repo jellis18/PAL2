@@ -1453,13 +1453,13 @@ class PTAmodels(object):
                     bvary = [True] * 11
                     pmin = [0, 0, 7, 0.1, -9.5, 0, 0, 0, 0.00001, 0, -4]
                     pmax = [np.pi, 2 * np.pi, 10, 10, -7, np.pi, np.pi,
-                            2*np.pi, 0.999, 2*np.pi, 0]
+                            np.pi, 0.999, 2*np.pi, 0]
                     pstart = [np.pi / 2, np.pi / 2, 8, 1, -8, np.pi/2,
                               np.pi/2, np.pi / 2, 0.1, np.pi/1, -1]
                     pwidth = [0.1, 0.1, 0.1, 0.1, 0.0001, 0.1, 0.1, 0.1,
                              0.1, 0.1, 0.1]
                     prior = ['cos', 'cyclic', 'log', 'log',
-                             'modified', 'cos', 'uniform', 'cyclic', 
+                             'modified', 'cos', 'uniform', 'uniform', 
                              'uniform', 'cyclic', 'log']
                     parids = ['theta', 'phi', 'logmc', 'logd',
                               'logF', 'inc', 'pol', 'gamma',
@@ -7777,6 +7777,47 @@ class PTAmodels(object):
                     pind2 = np.sum(sig['bvary'][:ind2])
                     phase0, phi0 = sparameters[ind1], sparameters[ind2]
                     q[parind+pind1] = np.mod(phase0+np.pi, 2*np.pi)
+                    q[parind+pind2] = np.mod(phi0+np.pi/2, np.pi)
+
+        return q, qxy
+    
+    # phase and polarization reversal
+    def gammaAndPolarizationReverseJump(self, parameters, iter, beta):
+
+        # post-jump parameters
+        q = parameters.copy()
+
+        # transition probability
+        qxy = 0
+
+        # now get other relevant parameters
+        for ct, sig in enumerate(self.ptasignals):
+            if sig['stype'] == 'cw' and sig['model'] in ['ecc', 'eccgam']:
+
+                # short hand
+                psrind = sig['pulsarind']
+                parind = sig['parindex']
+                npars = sig['npars']
+
+                # parameters for this signal
+                sparameters = sig['pstart'].copy()
+
+                # which ones are varying
+                sparameters[sig['bvary']] = parameters[parind:parind + npars]
+
+                # parameter indices
+                cwnum = sig['nsig']
+                try:
+                    ind1, ind2 = sig['parid'].index('gamma'), sig['parid'].index('pol')
+                except ValueError:
+                    ind1 = sig['parid'].index('gamma_{0}'.format(cwnum))
+                    ind2 = sig['parid'].index('pol_{0}'.format(cwnum))
+
+                if sig['bvary'][ind1] and sig['bvary'][ind2]:
+                    pind1 = np.sum(sig['bvary'][:ind1])
+                    pind2 = np.sum(sig['bvary'][:ind2])
+                    phase0, phi0 = sparameters[ind1], sparameters[ind2]
+                    q[parind+pind1] = np.mod(phase0+np.pi/2, np.pi)
                     q[parind+pind2] = np.mod(phi0+np.pi/2, np.pi)
 
         return q, qxy
