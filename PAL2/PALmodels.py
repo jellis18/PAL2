@@ -497,6 +497,37 @@ class PTAmodels(object):
                     "parids":parids
                 })
                 signals.append(newsignal)
+        
+            if incWavelet:
+                for ww in range(nWavelets):
+                    bvary = [True] * 5
+                    pmin = [-10, -8.5, p.toas.min()/86400, 2, 0]
+                    pmax = [-4, -6, p.toas.max()/86400, 100, 2*np.pi]
+                    pstart = [-7, -8, (p.toas.max() + p.toas.min())/2/86400,
+                             30, np.pi]
+                    pwidth = [0.1, 0.1, 10, 2, 0.1]
+                    prior = ['log', 'log', 'uniform', 'uniform', 'cyclic']
+                    parids = ['nwaveAmp_'+str(ww), 'nwaveFreq_'+str(ww),
+                             'nwaveT0_'+str(ww), 'nwaveQ_'+str(ww),
+                             'nwavePhase_'+str(ww)]
+                    mu = [None] * 5
+                    sigma = [None] * 5
+
+                    newsignal = OrderedDict({
+                        "stype": "wavelet",
+                        "corr": "single",
+                        "pulsarind": ii,
+                        "mu": mu,
+                        "sigma": sigma,
+                        "bvary": bvary,
+                        "pmin": pmin,
+                        "pmax": pmax,
+                        "pwidth": pwidth,
+                        "pstart": pstart,
+                        "parid": parids,
+                        "prior": prior,
+                    })
+                    signals.append(newsignal)
             
             if incEnvelope:
                 if envelopeModel == 'spectrum':
@@ -1805,7 +1836,7 @@ class PTAmodels(object):
                 fl = np.loadtxt(PAL2.__path__[0] + '/ecc_vs_nharm.txt')
                 self.nharm = interp1d(fl[:,0], fl[:,1])
 
-        elif signal['stype'] == 'gwwavelet':
+        elif signal['stype'] in ['gwwavelet', 'wavelet']:
             # a GW wavelet signal
             self.ptasignals.append(signal)
             self.haveDetSources = True
@@ -2529,6 +2560,10 @@ class PTAmodels(object):
 
                 elif sig['stype'] == 'gwwavelet':
                     flagname = 'gwwavelet'
+                    flagvalue = sig['parid'][jj]
+
+                elif sig['stype'] == 'wavelet':
+                    flagname = 'wavelet'
                     flagvalue = sig['parid'][jj]
 
                 elif sig['stype'] == 'pulsarTerm':
@@ -4175,6 +4210,18 @@ class PTAmodels(object):
                     4.15e3 / psr.freqs ** 2
 
                 psr.detresiduals -= sig
+
+            # Noise wavelet signal
+            if sig['stype'] == 'wavelet':
+                As = 10**sparameters[0::5]
+                f0s = 10**sparameters[1::5]
+                t0s = sparameters[2::5] * 86400
+                Qs = sparameters[3::5]
+                phase0s = sparameters[4::5]
+
+                for A, f0, t0, Q, phase0 in zip(As, f0s, t0s, Qs, phase0s):
+                    p.detresiduals -= PALutils.constuct_wavelet(
+                        p.toas, A, t0, f0, Q, phase0)
 
             # GW wavelet signal
             if sig['stype'] == 'gwwavelet':
@@ -6094,9 +6141,9 @@ class PTAmodels(object):
 
             # equivalent to T^T N^{-1} \delta t
             if ct == 0:
-                d = np.dot(p.Ttmat.T, p.residuals / p.Nvec)
+                d = np.dot(p.Ttmat.T, p.detresiduals / p.Nvec)
             else:
-                d = np.append(d, np.dot(p.Ttmat.T, p.residuals / p.Nvec))
+                d = np.append(d, np.dot(p.Ttmat.T, p.detresiduals / p.Nvec))
 
             # compute T^T N^{-1} T
             right = ((1 / p.Nvec) * p.Ttmat.T).T

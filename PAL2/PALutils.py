@@ -2598,8 +2598,8 @@ def get_gammadot(F, mc, q, e):
     #total mass
     m = (((1+q)**2)/q)**(3/5) * mc
 
-    dgdt = 6*np.pi*F * (2*np.pi*F*m)**(2/3) / (1-e**2) * \
-        (1 + 0.25*(2*np.pi*F*m)**(2/3)/(1-e**2)*(26-15*e**2))
+    dgdt = 6*np.pi*F * (2*np.pi*F*m)**(2/3) / (1-e**2) #* \
+        #(1 + 0.25*(2*np.pi*F*m)**(2/3)/(1-e**2)*(26-15*e**2))
 
     return dgdt
 

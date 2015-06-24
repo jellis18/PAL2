@@ -104,6 +104,8 @@ parser.add_argument('--incGWB', dest='incGWB', action='store_true',default=False
                    help='include GWB')
 parser.add_argument('--gwbModel', dest='gwbModel', action='store', type=str, default='powerlaw',
                    help='GWB model [powerlaw, spectrum]')
+parser.add_argument('--fixKappa', dest='fixKappa', action='store_true', default=False,
+                   help='fix turnover kappa to 10/3 (stellar hardening)')
 parser.add_argument('--fixSi', dest='fixSi', action='store_true', default=False, \
                     help='Fix GWB spectral index to 4.33')
 parser.add_argument('--noCorrelations', dest='noCorrelations', action='store_true', \
@@ -176,6 +178,11 @@ parser.add_argument('--incGWwavelet', dest='incGWwavelet', action='store_true', 
                     default=False, help='Include GWwavelt signal in run')
 parser.add_argument('--nGWwavelets', dest='nGWwavelets', action='store', type=int, default=1,
                    help='Number of GW wavelets(default=1)')
+
+parser.add_argument('--incWavelet', dest='incWavelet', action='store_true', \
+                    default=False, help='Include noise wavelet signal in run')
+parser.add_argument('--nWavelets', dest='nWavelets', action='store', type=int, default=1,
+                   help='Number of noise wavelets(default=1)')
 
 parser.add_argument('--incCW', dest='incCW', action='store_true', \
                     default=False, help='Include CW signal in run')
@@ -339,6 +346,7 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     incORF=args.incORF, \
                     incScattering=args.incScat, scatteringModel=args.scatModel,
                     incGWWavelet=args.incGWwavelet, nGWWavelets=args.nGWwavelets,
+                    incWavelet=args.incWavelet, nWavelets=args.nWavelets,
                     nscatfreqs=args.nfscat,
                     incGWBAni=args.incGWBAni, lmax=args.nls,\
                     incDMXKernel=incDMXKernel, DMXKernelModel=DMXKernelModel, \
@@ -418,6 +426,14 @@ if args.fixSi:
         elif sig['corr'] == 'gr_sph' and sig['stype'] == 'powerlaw':
             sig['bvary'][1] = False
             sig['pstart'][1] = 4.33
+
+# fix spectral index
+if args.fixKappa:
+    print 'Fixing GWB kappa to 10/3'
+    for sig in fullmodel['signals']:
+        if sig['corr'] == 'gr' and sig['stype'] in ['turnover']:
+            sig['bvary'][3] = False
+            sig['pstart'][3] = 10/3
 
 # fix spectral index for red nosie
 if args.fixRedSi:
@@ -803,7 +819,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
 
                 # check prior
                 if model.mark3LogPrior(acube) != -np.inf:
-                    return loglike(acube, **loglkwargs) + model.mark3LogPrior(acube)
+                    return loglike(acube, **loglkwargs) #+ model.mark3LogPrior(acube)
                 else:
                     #print 'WARNING: Prior returns -np.inf!!'
                     return -np.inf
