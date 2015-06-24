@@ -15,6 +15,7 @@ from PAL2 import PALutils
 try:
     from mpi4py import MPI
 except ImportError:
+    print('WARNING: mpi4py not found. Will not perform parallel tempering')
     from PAL2 import nompi4py as MPI
 
 
