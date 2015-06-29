@@ -107,8 +107,8 @@ parser.add_argument('--gwbModel', dest='gwbModel', action='store', type=str, def
                    help='GWB model [powerlaw, spectrum]')
 parser.add_argument('--fixKappa', dest='fixKappa', action='store', type=float,
                     default=0, help='fix turnover kappa to user value')
-parser.add_argument('--fixSi', dest='fixSi', action='store_true', default=False, \
-                    help='Fix GWB spectral index to 4.33')
+parser.add_argument('--fixSi', dest='fixSi', action='store', type=float, default=0, \
+                    help='Fix GWB spectral index to user defined value')
 parser.add_argument('--noCorrelations', dest='noCorrelations', action='store_true', \
                     default=False, help='Do not in include GWB correlations')
 parser.add_argument('--GWBAmpPrior', dest='GWBAmpPrior', action='store', type=str, \
@@ -426,14 +426,14 @@ if args.CWmass_ratio:
 
 # fix spectral index
 if args.fixSi:
-    print 'Fixing GWB spectral index to 4.33'
+    print 'Fixing GWB spectral index to {0}'.format(args.fixSi)
     for sig in fullmodel['signals']:
         if sig['corr'] == 'gr' and sig['stype'] in ['powerlaw', 'turnover']:
             sig['bvary'][1] = False
-            sig['pstart'][1] = 4.33
+            sig['pstart'][1] = args.fixSi
         elif sig['corr'] == 'gr_sph' and sig['stype'] == 'powerlaw':
             sig['bvary'][1] = False
-            sig['pstart'][1] = 4.33
+            sig['pstart'][1] = args.fixSi
 
 # fix spectral index
 if args.fixKappa:
