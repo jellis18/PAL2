@@ -150,6 +150,7 @@ class PTAmodels(object):
                       incDMEvent=False, dmEventModel='shapelet', ndmEventCoeffs=3,
                       incRedFourierMode=False, incDMFourierMode=False,
                       incWavelet=False, nWavelets=1,
+                      incChromaticWavelet=False, nChromaticWavelets=1,
                       incGWWavelet=False, nGWWavelets=1,
                       incGWFourierMode=False,
                       incScattering=False, scatteringModel='powerlaw',
@@ -501,8 +502,8 @@ class PTAmodels(object):
             if incWavelet:
                 for ww in range(nWavelets):
                     bvary = [True] * 5
-                    pmin = [-10, -8.5, p.toas.min()/86400, 2, 0]
-                    pmax = [-4, -6, p.toas.max()/86400, 100, 2*np.pi]
+                    pmin = [-7.5, -8, p.toas.min()/86400, 2, 0]
+                    pmax = [-5.5, -6.5, p.toas.max()/86400, 40, 2*np.pi]
                     pstart = [-7, -8, (p.toas.max() + p.toas.min())/2/86400,
                              30, np.pi]
                     pwidth = [0.1, 0.1, 10, 2, 0.1]
@@ -515,6 +516,37 @@ class PTAmodels(object):
 
                     newsignal = OrderedDict({
                         "stype": "wavelet",
+                        "corr": "single",
+                        "pulsarind": ii,
+                        "mu": mu,
+                        "sigma": sigma,
+                        "bvary": bvary,
+                        "pmin": pmin,
+                        "pmax": pmax,
+                        "pwidth": pwidth,
+                        "pstart": pstart,
+                        "parid": parids,
+                        "prior": prior,
+                    })
+                    signals.append(newsignal)
+
+            if incChromaticWavelet:
+                for ww in range(nChromaticWavelets):
+                    bvary = [True] * 6
+                    pmin = [-5, -10, -8.5, p.toas.min()/86400, 2, 0]
+                    pmax = [5, -4, -6, p.toas.max()/86400, 100, 2*np.pi]
+                    pstart = [2, -7, -8, (p.toas.max() + p.toas.min())/2/86400,
+                             30, np.pi]
+                    pwidth = [0.1, 0.1, 0.1, 10, 2, 0.1]
+                    prior = ['uniform, ''log', 'log', 'uniform', 'uniform', 'cyclic']
+                    parids = ['cwaveBeta_'+str(ww), 'cwaveAmp_'+str(ww),
+                              'cwaveFreq_'+str(ww), 'cwaveT0_'+str(ww),
+                              'cwaveQ_'+str(ww), 'cwavePhase_'+str(ww)]
+                    mu = [None] * 6
+                    sigma = [None] * 6
+
+                    newsignal = OrderedDict({
+                        "stype": "chrowavelet",
                         "corr": "single",
                         "pulsarind": ii,
                         "mu": mu,
@@ -1594,7 +1626,7 @@ class PTAmodels(object):
                 prior = [GWAmpPrior, GWSiPrior, 'log']
             elif gwbModel == 'turnover':
                 bvary = [True, True, True, True, False]
-                pmin = [-18.0, 1.02, -9, 0.01, 0.2]
+                pmin = [-18.0, 1.02, -10, 0.01, 0.2]
                 pmax = [-11.0, 6.98, -7, 6.98, 5.0]
                 pstart = [-15.0, 2.01, -8, 2.01, 0.5]
                 pwidth = [0.1, 0.1, 0.1, 0.1, 0.1]
@@ -1836,7 +1868,7 @@ class PTAmodels(object):
                 fl = np.loadtxt(PAL2.__path__[0] + '/ecc_vs_nharm.txt')
                 self.nharm = interp1d(fl[:,0], fl[:,1])
 
-        elif signal['stype'] in ['gwwavelet', 'wavelet']:
+        elif signal['stype'] in ['gwwavelet', 'wavelet', 'chrowavelet']:
             # a GW wavelet signal
             self.ptasignals.append(signal)
             self.haveDetSources = True
@@ -2565,6 +2597,10 @@ class PTAmodels(object):
                 elif sig['stype'] == 'wavelet':
                     flagname = 'wavelet'
                     flagvalue = sig['parid'][jj]
+                
+                elif sig['stype'] == 'chrowavelet':
+                    flagname = 'chrowavelet'
+                    flagvalue = sig['parid'][jj]
 
                 elif sig['stype'] == 'pulsarTerm':
                     flagname = 'pulsarTerm'
@@ -2595,8 +2631,10 @@ class PTAmodels(object):
                         flagvalue = ['DIP-Amplitude', 'DIP-spectral-index',
                                      'low-frequency-cutoff'][jj]
                     else:
-                        flagvalue = ['RN-Amplitude', 'RN-spectral-index',
-                                     'low-frequency-cutoff'][jj]
+                        flagname = sig['flagname']
+                        flagvalue = ['RN-Amplitude_' + sig['flagvalue'],
+                                     'RN-spectral-index_' + sig['flagvalue'],
+                                     'RN-low-frequency-cutoff_' + sig['flagvalue']][jj]
 
                 elif sig['stype'] == 'broken' and sig['corr'] != 'gr':
                     flagvalue = ['RN-Amplitude', 'RN-spectral-index',
@@ -4222,6 +4260,19 @@ class PTAmodels(object):
                 for A, f0, t0, Q, phase0 in zip(As, f0s, t0s, Qs, phase0s):
                     p.detresiduals -= PALutils.constuct_wavelet(
                         p.toas, A, t0, f0, Q, phase0)
+            
+            # Chromatic Noise wavelet signal
+            if sig['stype'] == 'chrowavelet':
+                betas = sparameters[0::5]
+                As = 10**sparameters[1::5]
+                f0s = 10**sparameters[2::5]
+                t0s = sparameters[3::5] * 86400
+                Qs = sparameters[4::5]
+                phase0s = sparameters[5::5]
+
+                for beta, A, f0, t0, Q, phase0 in zip(betas, As, f0s, t0s, Qs, phase0s):
+                    p.detresiduals -= PALutils.constuct_wavelet(
+                        p.toas, A, t0, f0, Q, phase0) * (p.freqs/1400.)**(-beta)
 
             # GW wavelet signal
             if sig['stype'] == 'gwwavelet':
@@ -7362,6 +7413,36 @@ class PTAmodels(object):
                                                                    self.pmax[parind + pindex])
 
                         pindex += 1
+
+        return q, qxy
+    
+    # draw from uniform wavelet prior
+    def drawFromWaveletPrior(self, parameters, iter, beta):
+
+        # post-jump parameters
+        q = parameters.copy()
+
+        # transition probability
+        qxy = 0
+
+        signum = self.getSignalNumbersFromDict(
+            self.ptasignals, stype='wavelet', corr='single')
+        nsigs = len(signum)
+        
+        # which parameters to jump
+        ind = np.random.randint(0, nsigs)
+
+        # get signal
+        sig = self.ptasignals[signum[ind]]
+        parind = sig['parindex']
+        npars = sig['npars']
+
+        # jump 
+        for jj in range(npars):
+            if sig['bvary'][jj]:
+                q[parind + jj] = np.random.uniform(self.pmin[parind + jj],
+                                                   self.pmax[parind + jj])
+                qxy += 0
 
         return q, qxy
 

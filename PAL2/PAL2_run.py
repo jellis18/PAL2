@@ -105,8 +105,8 @@ parser.add_argument('--incGWB', dest='incGWB', action='store_true',default=False
                    help='include GWB')
 parser.add_argument('--gwbModel', dest='gwbModel', action='store', type=str, default='powerlaw',
                    help='GWB model [powerlaw, spectrum]')
-parser.add_argument('--fixKappa', dest='fixKappa', action='store_true', default=False,
-                   help='fix turnover kappa to 10/3 (stellar hardening)')
+parser.add_argument('--fixKappa', dest='fixKappa', action='store', type=float,
+                    default=0, help='fix turnover kappa to user value')
 parser.add_argument('--fixSi', dest='fixSi', action='store_true', default=False, \
                     help='Fix GWB spectral index to 4.33')
 parser.add_argument('--noCorrelations', dest='noCorrelations', action='store_true', \
@@ -184,6 +184,11 @@ parser.add_argument('--incWavelet', dest='incWavelet', action='store_true', \
                     default=False, help='Include noise wavelet signal in run')
 parser.add_argument('--nWavelets', dest='nWavelets', action='store', type=int, default=1,
                    help='Number of noise wavelets(default=1)')
+
+parser.add_argument('--incChromaticWavelet', dest='incChromaticWavelet', action='store_true', \
+                    default=False, help='Include chromatic noise wavelet signal in run')
+parser.add_argument('--nChromaticWavelets', dest='nChromaticWavelets', action='store', 
+                    type=int, default=1, help='Number of chromatic noise wavelets(default=1)')
 
 parser.add_argument('--incCW', dest='incCW', action='store_true', \
                     default=False, help='Include CW signal in run')
@@ -348,6 +353,8 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     incScattering=args.incScat, scatteringModel=args.scatModel,
                     incGWWavelet=args.incGWwavelet, nGWWavelets=args.nGWwavelets,
                     incWavelet=args.incWavelet, nWavelets=args.nWavelets,
+                    incChromaticWavelet=args.incChromaticWavelet, 
+                    nChromaticWavelets=args.nChromaticWavelets,
                     nscatfreqs=args.nfscat,
                     incGWBAni=args.incGWBAni, lmax=args.nls,\
                     incDMXKernel=incDMXKernel, DMXKernelModel=DMXKernelModel, \
@@ -430,11 +437,11 @@ if args.fixSi:
 
 # fix spectral index
 if args.fixKappa:
-    print 'Fixing GWB kappa to 10/3'
+    print 'Fixing GWB kappa to {0}'.format(args.fixKappa)
     for sig in fullmodel['signals']:
         if sig['corr'] == 'gr' and sig['stype'] in ['turnover']:
             sig['bvary'][3] = False
-            sig['pstart'][3] = 10/3
+            sig['pstart'][3] = args.fixKappa
 
 # fix spectral index for red nosie
 if args.fixRedSi:
@@ -657,7 +664,10 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
     if args.sampler == 'mcmc':
 
         cov = model.initJumpCovariance()
+
+        ################# This is a mess, need to fix!!! #########################
         
+        ind = []
         if args.incTimingModel and not args.fixNoise:
             idx = np.arange(len(par_out))
             ind = [np.array([ct for ct, par in enumerate(par_out) if 'efac' in par or \
@@ -692,6 +702,20 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
                 if args.cwModel == 'eccgam':
                     ind.append(np.array([ct for ct, par in enumerate(par_out) if \
                             'pgamma' in par]))
+
+        elif args.incRed:
+            for pp, p in enumerate(model.psr):
+                ind.append([ct for ct, par in enumerate(par_out) if 'RN' in par
+                           and p.name in par])
+
+            if args.incGWB:
+                ind.append([ct for ct, par in enumerate(par_out) if 'GWB' in par])
+
+            # all parameters
+            l = []
+            map(l.extend, ind)
+            ind.insert(0, l)
+
         else:
             ind = None
         #ind = None
@@ -776,8 +800,8 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
 
         # run MCMC
         print 'Engage!'
-        sampler.sample(p0, args.niter, covUpdate=1000, AMweight=15, SCAMweight=50, \
-                       DEweight=20, neff=args.neff, KDEweight=0, Tmin=args.Tmin,
+        sampler.sample(p0, args.niter, covUpdate=1000, AMweight=15, SCAMweight=30, \
+                       DEweight=50, neff=args.neff, KDEweight=0, Tmin=args.Tmin,
                        Tmax=args.Tmax, writeHotChains=args.writeHotChains)
 
     if args.sampler == 'polychord':

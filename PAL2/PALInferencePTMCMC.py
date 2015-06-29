@@ -849,6 +849,10 @@ class PTSampler(object):
         # get old parameters
         q = x.copy()
         qxy = 0
+        
+        # choose group
+        jumpind = np.random.randint(0, len(self.groups))
+        ndim = len(self.groups[jumpind])
 
         bufsize = np.alen(self._DEbuffer)
 
@@ -868,16 +872,17 @@ class PTSampler(object):
             scale = 1.0
 
         else:
-            scale = np.random.rand() * 2.4 / np.sqrt(2 * self.ndim) * \
+            scale = np.random.rand() * 2.4 / np.sqrt(2 * ndim) * \
                 np.sqrt(1 / beta)
 
-        for ii in range(self.ndim):
+        for ii in range(ndim):
 
             # jump size
-            sigma = self._DEbuffer[mm, ii] - self._DEbuffer[nn, ii]
+            sigma = self._DEbuffer[mm, self.groups[jumpind][ii]] - \
+                    self._DEbuffer[nn, self.groups[jumpind][ii]]
 
             # jump
-            q[ii] += scale * sigma
+            q[self.groups[jumpind][ii]] += scale * sigma
 
         return q, qxy
 
@@ -928,7 +933,8 @@ class PTSampler(object):
         length = len(self.propCycle)
 
         # get random integers
-        index = np.random.randint(0, (length - 1), length)
+        index = np.arange(length)
+        np.random.shuffle(index)
 
         # randomize proposal cycle
         self.randomizedPropCycle = [self.propCycle[ind] for ind in index]
