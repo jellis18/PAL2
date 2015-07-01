@@ -149,7 +149,7 @@ class PTAmodels(object):
                       incDM=False, dmModel='powerlaw',
                       incDMEvent=False, dmEventModel='shapelet', ndmEventCoeffs=3,
                       incRedFourierMode=False, incDMFourierMode=False,
-                      incWavelet=False, nWavelets=1,
+                      incWavelet=False, nWavelets=1, waveletModel='standard',
                       incChromaticWavelet=False, nChromaticWavelets=1,
                       incGWWavelet=False, nGWWavelets=1,
                       incGWFourierMode=False,
@@ -500,22 +500,39 @@ class PTAmodels(object):
                 signals.append(newsignal)
         
             if incWavelet:
+                Tspan = (p.toas.max() - p.toas.min())
+                ntoa = int(24 * Tspan / 3.16e7)
                 for ww in range(nWavelets):
-                    bvary = [True] * 5
-                    pmin = [-7.5, -8, p.toas.min()/86400, 2, 0]
-                    pmax = [-5.5, -6.5, p.toas.max()/86400, 40, 2*np.pi]
-                    pstart = [-7, -8, (p.toas.max() + p.toas.min())/2/86400,
-                             30, np.pi]
-                    pwidth = [0.1, 0.1, 10, 2, 0.1]
-                    prior = ['log', 'log', 'uniform', 'uniform', 'cyclic']
-                    parids = ['nwaveAmp_'+str(ww), 'nwaveFreq_'+str(ww),
-                             'nwaveT0_'+str(ww), 'nwaveQ_'+str(ww),
-                             'nwavePhase_'+str(ww)]
-                    mu = [None] * 5
-                    sigma = [None] * 5
+                    if waveletModel == 'snr':
+                        bvary = [True] * 5
+                        pmin = [0, np.log10(2/Tspan), p.toas.min()/86400, 2, 0]
+                        pmax = [50, np.log10(ntoa/4/Tspan), p.toas.max()/86400, 40, 2*np.pi]
+                        pstart = [6, -8, (p.toas.max() + p.toas.min())/2/86400,
+                                 30, np.pi]
+                        pwidth = [0.1, 0.1, 10, 2, 0.1]
+                        prior = ['uniform', 'log', 'uniform', 'uniform', 'cyclic']
+                        parids = ['nwaveSNR_'+str(ww), 'nwaveFreq_'+str(ww),
+                                 'nwaveT0_'+str(ww), 'nwaveQ_'+str(ww),
+                                 'nwavePhase_'+str(ww)]
+                        mu = [None] * 5
+                        sigma = [None] * 5
+                    else:
+                        bvary = [True] * 5
+                        pmin = [-8, np.log10(2/Tspan), p.toas.min()/86400, 2, 0]
+                        pmax = [-5, np.log10(ntoa/4/Tspan), p.toas.max()/86400, 40, 2*np.pi]
+                        pstart = [-7, -8, (p.toas.max() + p.toas.min())/2/86400,
+                                 30, np.pi]
+                        pwidth = [0.1, 0.1, 10, 2, 0.1]
+                        prior = ['log', 'log', 'uniform', 'uniform', 'cyclic']
+                        parids = ['nwaveAmp_'+str(ww), 'nwaveFreq_'+str(ww),
+                                 'nwaveT0_'+str(ww), 'nwaveQ_'+str(ww),
+                                 'nwavePhase_'+str(ww)]
+                        mu = [None] * 5
+                        sigma = [None] * 5
 
                     newsignal = OrderedDict({
                         "stype": "wavelet",
+                        "model": waveletModel,
                         "corr": "single",
                         "pulsarind": ii,
                         "mu": mu,
@@ -1625,8 +1642,9 @@ class PTAmodels(object):
                 pwidth = [0.1, 0.1, 5.0e-11]
                 prior = [GWAmpPrior, GWSiPrior, 'log']
             elif gwbModel == 'turnover':
+                Tmax = np.max([pp.toas.max()-pp.toas.min() for pp in self.psr])
                 bvary = [True, True, True, True, False]
-                pmin = [-18.0, 1.02, -10, 0.01, 0.2]
+                pmin = [-18.0, 1.02, np.log10(1/Tmax), 0.01, 0.2]
                 pmax = [-11.0, 6.98, -7, 6.98, 5.0]
                 pstart = [-15.0, 2.01, -8, 2.01, 0.5]
                 pwidth = [0.1, 0.1, 0.1, 0.1, 0.1]
@@ -2350,6 +2368,27 @@ class PTAmodels(object):
                     signalNumbers.append(ii)
 
         return np.array(signalNumbers, dtype=np.int)
+
+    def get_parameter_indices(self, sigtype, corr='single', split=True):
+    
+        pardes = self.getModelParameterList()
+        signum = self.getSignalNumbersFromDict(self.ptasignals,
+                                                stype=sigtype,
+                                                corr=corr)
+        if split:
+            ind = [[] for ii in range(len(signum))]
+        else:
+            ind = [[]]
+        
+        for ct, sn in enumerate(signum):
+            for p in pardes:
+                if p['index'] != -1 and p['sigtype'] == sigtype and p['sigindex'] == sn:
+                    if split:
+                        ind[ct].append(p['index'])
+                    else:
+                        ind[0].append(p['index'])          
+        
+        return ind
 
     """
     Initialise the model.
@@ -4251,15 +4290,26 @@ class PTAmodels(object):
 
             # Noise wavelet signal
             if sig['stype'] == 'wavelet':
-                As = 10**sparameters[0::5]
-                f0s = 10**sparameters[1::5]
-                t0s = sparameters[2::5] * 86400
-                Qs = sparameters[3::5]
-                phase0s = sparameters[4::5]
 
-                for A, f0, t0, Q, phase0 in zip(As, f0s, t0s, Qs, phase0s):
-                    p.detresiduals -= PALutils.constuct_wavelet(
-                        p.toas, A, t0, f0, Q, phase0)
+                f0 = 10**sparameters[1]
+                t0 = sparameters[2] * 86400
+                Q = sparameters[3]
+                phase0 = sparameters[4]
+
+                # snr parameterization
+                if sig['model'] == 'snr':
+                    wv = PALutils.constuct_wavelet(p.toas, 1, t0,
+                                                   f0, Q, phase0)
+
+                    # amplitude from quick and dirty SNR for white noise
+                    A = sparameters[0] / np.sqrt(np.dot(wv/p.Nvec, wv))
+                    
+
+                else:
+                    A = 10**sparameters[0]
+
+                p.detresiduals -= PALutils.constuct_wavelet(
+                    p.toas, A, t0, f0, Q, phase0)
             
             # Chromatic Noise wavelet signal
             if sig['stype'] == 'chrowavelet':
@@ -7897,9 +7947,9 @@ class PTAmodels(object):
                 if sig['bvary'][ind1] and sig['bvary'][ind2]:
                     pind1 = np.sum(sig['bvary'][:ind1])
                     pind2 = np.sum(sig['bvary'][:ind2])
-                    phase0, phi0 = sparameters[ind1], sparameters[ind2]
-                    q[parind+pind1] = np.mod(phase0+np.pi/2, np.pi)
-                    q[parind+pind2] = np.mod(phi0+np.pi/2, np.pi)
+                    gamma0, psi0 = sparameters[ind1], sparameters[ind2]
+                    q[parind+pind1] = np.mod(gamma0+np.pi/2, np.pi)
+                    q[parind+pind2] = np.mod(psi0+np.pi/2, np.pi)
 
         return q, qxy
 
