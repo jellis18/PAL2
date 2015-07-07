@@ -1645,7 +1645,7 @@ class PTAmodels(object):
                 Tmax = np.max([pp.toas.max()-pp.toas.min() for pp in self.psr])
                 bvary = [True, True, True, True, False]
                 pmin = [-18.0, 1.02, np.log10(1/Tmax), 0.01, 0.2]
-                pmax = [-11.0, 6.98, -7, 6.98, 5.0]
+                pmax = [-11.0, 6.98, -6.4, 6.98, 5.0]
                 pstart = [-15.0, 2.01, -8, 2.01, 0.5]
                 pwidth = [0.1, 0.1, 0.1, 0.1, 0.1]
                 prior = [GWAmpPrior, GWSiPrior, 'uniform', 'uniform', 'uniform']
