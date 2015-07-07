@@ -161,16 +161,16 @@ class PTAmodels(object):
                       incDMXKernel=False, DMXKernelModel='linear',
                       incCW=False, incPulsarDistance=False, CWupperLimit=False,
                       mass_ratio=False, CWModel='standard', nCW=1,
-                      varyEfac=True, separateEfacs=False, separateEfacsByFreq=False,
-                      incEquad=False, separateEquads=False, separateEquadsByFreq=False,
-                      incJitter=False, separateJitter=False, separateJitterByFreq=False,
+                      varyEfac=True, separateEfacs=False, separateEfacsByFreq=True,
+                      incEquad=False, separateEquads=False, separateEquadsByFreq=True,
+                      incJitter=False, separateJitter=False, separateJitterByFreq=True,
                       incTimingModel=False, nonLinear=False, fulltimingmodel=False,
                       addPars=None, subPars=None,
                       incJitterEpoch=False, nepoch=None,
                       incNonGaussian=False, nnongaussian=3,
                       incEnvelope=False, envelopeModel='powerlaw',
                       incJitterEquad=False, separateJitterEquad=False,
-                      separateJitterEquadByFreq=False,
+                      separateJitterEquadByFreq=True,
                       efacPrior='uniform', equadPrior='log', jitterPrior='uniform',
                       jitterEquadPrior='log',
                       redAmpPrior='log', redSiPrior='uniform', GWAmpPrior='log',
@@ -4257,8 +4257,8 @@ class PTAmodels(object):
                         pindex += 1
 
                 # Generate the new residuals
-                psr.detresiduals = np.array(psr.t2psr.residuals(updatebats=True),
-                                            dtype=np.double)[psr.isort] + offset
+                psr.detresiduals -= (psr.residuals - (np.array(psr.t2psr.residuals(updatebats=True),
+                                            dtype=np.double)[psr.isort] + offset))
 
             # fourier modes
             if sig['stype'] in ['redfouriermode', 'gwfouriermode']:
@@ -4313,16 +4313,15 @@ class PTAmodels(object):
             
             # Chromatic Noise wavelet signal
             if sig['stype'] == 'chrowavelet':
-                betas = sparameters[0::5]
-                As = 10**sparameters[1::5]
-                f0s = 10**sparameters[2::5]
-                t0s = sparameters[3::5] * 86400
-                Qs = sparameters[4::5]
-                phase0s = sparameters[5::5]
+                beta = sparameters[0]
+                A = 10**sparameters[1]
+                f0 = 10**sparameters[2]
+                t0 = sparameters[3] * 86400
+                Q = sparameters[4]
+                phase0 = sparameters[5]
 
-                for beta, A, f0, t0, Q, phase0 in zip(betas, As, f0s, t0s, Qs, phase0s):
-                    p.detresiduals -= PALutils.constuct_wavelet(
-                        p.toas, A, t0, f0, Q, phase0) * (p.freqs/1400.)**(-beta)
+                p.detresiduals -= PALutils.constuct_wavelet(
+                    p.toas, A, t0, f0, Q, phase0) * (p.freqs/1400.)**(-beta)
 
             # GW wavelet signal
             if sig['stype'] == 'gwwavelet':
