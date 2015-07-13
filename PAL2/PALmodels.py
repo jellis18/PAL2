@@ -507,7 +507,7 @@ class PTAmodels(object):
                         bvary = [True] * 5
                         pmin = [0, np.log10(2/Tspan), p.toas.min()/86400, 2, 0]
                         pmax = [50, np.log10(ntoa/4/Tspan), p.toas.max()/86400, 40, 2*np.pi]
-                        pstart = [6, -8, (p.toas.max() + p.toas.min())/2/86400,
+                        pstart = [6, -7.6, (p.toas.max() + p.toas.min())/2/86400,
                                  30, np.pi]
                         pwidth = [0.1, 0.1, 10, 2, 0.1]
                         prior = ['uniform', 'log', 'uniform', 'uniform', 'cyclic']
@@ -520,7 +520,7 @@ class PTAmodels(object):
                         bvary = [True] * 5
                         pmin = [-8, np.log10(2/Tspan), p.toas.min()/86400, 2, 0]
                         pmax = [-5, np.log10(ntoa/4/Tspan), p.toas.max()/86400, 40, 2*np.pi]
-                        pstart = [-7, -8, (p.toas.max() + p.toas.min())/2/86400,
+                        pstart = [-7, -7.6, (p.toas.max() + p.toas.min())/2/86400,
                                  30, np.pi]
                         pwidth = [0.1, 0.1, 10, 2, 0.1]
                         prior = ['log', 'log', 'uniform', 'uniform', 'cyclic']
@@ -6444,7 +6444,7 @@ class PTAmodels(object):
         prior = 0
         #for ct, pp in enumerate(parameters):
         #   print pp, self.pmin[ct], pp >= self.pmin[ct]
-        #   print pp, self.pmin[ct], pp <= self.pmax[ct]
+        #   print pp, self.pmax[ct], pp <= self.pmax[ct]
         if np.all(parameters >= self.pmin) and np.all(parameters <= self.pmax):
             prior += -np.sum(np.log(self.pmax - self.pmin))
 

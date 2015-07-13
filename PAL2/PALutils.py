@@ -277,8 +277,19 @@ def createResiduals(psr, gwtheta, gwphi, mc, dist, fgw, phase0, psi, inc, pdist=
     return res
 
 def constuct_wavelet(t, A, t0, f0, Q, phi0):
+
+    wave = np.zeros(len(t))
+
+    # width of gaussian
+    tau = Q / (2*np.pi*f0)
+
+    # get time range
+    tind = np.logical_and(t>=t0-4*tau, t<=t0+4*tau)
+
+    wave[tind] = A * np.exp(-(2*np.pi*f0*(t[tind]-t0))**2/Q**2) * \
+            np.cos(2*np.pi*f0*(t[tind]-t0)+phi0)
     
-    return A * np.exp(-(2*np.pi*f0*(t-t0))**2/Q**2) * np.cos(2*np.pi*f0*(t-t0)+phi0)
+    return wave
 
 def construct_gw_wavelet(psr, gwtheta, gwphi, gwpsi, gweps, gwA, gwt0, gwf0, gwQ, gwphi0):
     
