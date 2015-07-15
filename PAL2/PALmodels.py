@@ -4175,26 +4175,35 @@ class PTAmodels(object):
     Update deterministic sources
     """
 
-    def updateDetSources(self, parameters):
+    def updateDetSources(self, parameters, selection=None):
 
         # Set all the detresiduals equal to residuals
         for ct, p in enumerate(self.psr):
             p.detresiduals = p.residuals.copy()
 
+        # selection of variables to use
+        if selection is None:
+            selection = np.array([1]*self.dimensions, dtype=np.bool)
+
         # In the case we have numerical timing model (linear/nonlinear)
         for ss, sig in enumerate(self.ptasignals):
+            
+            # short hand
+            psrind = sig['pulsarind']
+            parind = sig['parindex']
+            npars = sig['npars']
 
-            # Create a parameters array for this particular signal
+            # parameters for this signal
             sparameters = sig['pstart'].copy()
-            sparameters[sig['bvary']] = \
-                parameters[sig['parindex']:sig['parindex'] + sig['npars']]
+
+            # which ones are varying
+            sparameters[sig['bvary']] = parameters[parind:parind + npars]
+
 
             if sig['stype'] == 'lineartimingmodel':
                 # This one only applies to one pulsar at a time
-                ind = []
-                pp = sig['pulsarind']
                 newdes = sig['parid']
-                psr = self.psr[pp]
+                psr = self.psr[psrind]
 
                 if len(newdes) == psr.Mmat.shape[1]:
                     Mmat = psr.Mmat
@@ -4207,18 +4216,7 @@ class PTAmodels(object):
                 pindex = 0
                 for jj in range(sig['ntotpars']):
                     if sig['bvary'][jj]:
-                        # check for direct offset parameters
-                        # if sig['parid'][jj] == 'Offset':
-                        #    offset += [sparameters[pindex]*psr.ptmparerrs[jj]]
-                        # elif sig['parid'][jj] == 'F0':
-                        #    offset += [sparameters[pindex]*psr.ptmparerrs[jj]]
-                        # elif sig['parid'][jj] == 'F1':
-                        #    offset += [sparameters[pindex]*psr.ptmparerrs[jj]]
-                        if sig['parid'][jj] == 'Offset':
-                            offset += [sparameters[pindex] * psr.norm[jj]]
-                        elif sig['parid'][jj] == 'F0':
-                            offset += [sparameters[pindex] * psr.norm[jj]]
-                        elif sig['parid'][jj] == 'F1':
+                        if sig['parid'][jj] in ['Offset', 'F0', 'F1']:
                             offset += [sparameters[pindex] * psr.norm[jj]]
                         else:
                             offset += [(sparameters[pindex] -
@@ -4227,15 +4225,11 @@ class PTAmodels(object):
                         pindex += 1
 
                 # residuals = M * pars
-                #eps = np.dot(psr.Vmat.T, np.array(offset))*psr.Svec
                 psr.detresiduals -= np.dot(Mmat, np.array(offset))
-                #psr.detresiduals -= np.dot(Mmat, eps)
-                # print  np.dot(Mmat, np.array(offset))
 
             elif sig['stype'] == 'nonlineartimingmodel':
                 # The t2psr libstempo object has to be set. Assume it is.
-                pp = sig['pulsarind']
-                psr = self.psr[pp]
+                psr = self.psr[psrind]
 
                 # For each varying parameter, update the libstempo object
                 # parameter with the new value
@@ -4257,21 +4251,20 @@ class PTAmodels(object):
                         pindex += 1
 
                 # Generate the new residuals
-                psr.detresiduals -= (psr.residuals - (np.array(psr.t2psr.residuals(updatebats=True),
+                psr.detresiduals -= (psr.residuals - 
+                                     (np.array(psr.t2psr.residuals(updatebats=True),
                                             dtype=np.double)[psr.isort] + offset))
 
             # fourier modes
             if sig['stype'] in ['redfouriermode', 'gwfouriermode']:
-                pp = sig['pulsarind']
-                psr = self.psr[pp]
+                psr = self.psr[psrind]
 
                 # fourier amplitudes
                 a = sparameters
                 psr.detresiduals -= np.dot(psr.Fmat, a)
 
             if sig['stype'] == 'dmfouriermode':
-                pp = sig['pulsarind']
-                psr = self.psr[pp]
+                psr = self.psr[psrind]
 
                 # fourier amplitudes
                 a = sparameters
@@ -4280,7 +4273,7 @@ class PTAmodels(object):
 
             # dm shapelet
             if sig['stype'] == 'dmshapelet':
-                psr = self.psr[sig['pulsarind']]
+                psr = self.psr[psrind]
                 t0, width, amps = sparameters[
                     0], sparameters[1], sparameters[2:]
                 sig = PALutils.constructShapelet(psr.toas / 86400, t0, width, amps) * \
@@ -4289,7 +4282,7 @@ class PTAmodels(object):
                 psr.detresiduals -= sig
 
             # Noise wavelet signal
-            if sig['stype'] == 'wavelet':
+            if sig['stype'] == 'wavelet' and np.all(selection[parind:parind+npars]):
 
                 f0 = 10**sparameters[1]
                 t0 = sparameters[2] * 86400
@@ -4303,7 +4296,6 @@ class PTAmodels(object):
 
                     # amplitude from quick and dirty SNR for white noise
                     A = sparameters[0] / np.sqrt(np.dot(wv/p.Nvec, wv))
-                    
 
                 else:
                     A = 10**sparameters[0]
@@ -4312,7 +4304,7 @@ class PTAmodels(object):
                     p.toas, A, t0, f0, Q, phase0)
             
             # Chromatic Noise wavelet signal
-            if sig['stype'] == 'chrowavelet':
+            if sig['stype'] == 'chrowavelet' and np.all(selection[parind:parind+npars]):
                 beta = sparameters[0]
                 A = 10**sparameters[1]
                 f0 = 10**sparameters[2]
@@ -5664,7 +5656,8 @@ class PTAmodels(object):
     """
 
     def mark6LogLikelihood(self, parameters, incCorrelations=False,
-                           incJitter=False, varyNoise=True, fixWhite=False):
+                           incJitter=False, varyNoise=True, 
+                           fixWhite=False, selection=None):
 
         loglike = 0
 
@@ -5686,7 +5679,7 @@ class PTAmodels(object):
 
         # set deterministic sources
         if self.haveDetSources:
-            self.updateDetSources(parameters)
+            self.updateDetSources(parameters, selection=selection)
 
         # compute the white noise terms in the log likelihood
         nfref = 0
@@ -5877,7 +5870,7 @@ class PTAmodels(object):
     """
 
     def mark9LogLikelihood(self, parameters, incCorrelations=False, varyNoise=True,
-                           fixWhite=False):
+                           fixWhite=False, selection=None):
 
         loglike = 0
 
@@ -5895,7 +5888,7 @@ class PTAmodels(object):
 
         # set deterministic sources
         if self.haveDetSources:
-            self.updateDetSources(parameters)
+            self.updateDetSources(parameters, selection=selection)
 
         # compute the white noise terms in the log likelihood
         TNT = []
@@ -6196,7 +6189,7 @@ class PTAmodels(object):
     Zero log likelihood for prior testing purposes
     """
 
-    def zeroLogLikelihood(self, parameters, kwargs=None):
+    def zeroLogLikelihood(self, parameters, **kwargs):
 
         return 0
 

@@ -184,6 +184,8 @@ parser.add_argument('--incWavelet', dest='incWavelet', action='store_true', \
                     default=False, help='Include noise wavelet signal in run')
 parser.add_argument('--nWavelets', dest='nWavelets', action='store', type=int, default=1,
                    help='Number of noise wavelets(default=1)')
+parser.add_argument('--waveletModel', dest='waveletModel', action='store', type=str, \
+                    default='standard', help='Wavelet model')
 
 parser.add_argument('--incChromaticWavelet', dest='incChromaticWavelet', action='store_true', \
                     default=False, help='Include chromatic noise wavelet signal in run')
@@ -221,6 +223,8 @@ parser.add_argument('--resume', dest='resume', action='store_true', \
                     default=False, help='resume from previous run')
 parser.add_argument('--writeHotChains', dest='writeHotChains', action='store_true', \
                     default=False, help='Write hot chains in MCMC sampler')
+parser.add_argument('--hotChain', dest='hotChain', action='store_true', \
+                    default=False, help='Sample from prior for hottest chain')
 
 parser.add_argument('--mark6', dest='mark6', action='store_true', \
                     default=False, help='Use T matrix formalism')
@@ -353,6 +357,7 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     incScattering=args.incScat, scatteringModel=args.scatModel,
                     incGWWavelet=args.incGWwavelet, nGWWavelets=args.nGWwavelets,
                     incWavelet=args.incWavelet, nWavelets=args.nWavelets,
+                    waveletModel=args.waveletModel,
                     incChromaticWavelet=args.incChromaticWavelet, 
                     nChromaticWavelets=args.nChromaticWavelets,
                     nscatfreqs=args.nfscat,
@@ -666,58 +671,159 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         cov = model.initJumpCovariance()
 
         ################# This is a mess, need to fix!!! #########################
+
         
+
         ind = []
-        if args.incTimingModel and not args.fixNoise:
-            idx = np.arange(len(par_out))
-            ind = [np.array([ct for ct, par in enumerate(par_out) if 'efac' in par or \
-                    'equad' in par or 'jitter' in par or 'RN' in par or 'DM' in par \
-                    or 'red_' in par or 'dm_' in par or 'GWB' in par])]
-            ind += [idx[(ind[-1][-1]+1):]]
-        elif args.incCW:
-            if (args.fixNoise and not args.fixWhite) or args.noVaryEfac or args.noVaryNoise:
-                ind = []
-            else:
-                ind = [np.array([ct for ct, par in enumerate(par_out) if 'efac' in par or \
-                        'equad' in par or 'jitter' in par or 'RN' in par or 'DM' in par \
-                        or 'red_' in par or 'dm_' in par or 'GWB' in par])]
 
-            ind.append(np.array([ct for ct, par in enumerate(par_out) if \
-                        'pdist' not in par and 'efac' not in par and \
-                        'equad' not in par and 'jitter' not in par and \
-                        'RN' not in par and 'DM' not in par and \
-                        'red_' not in par and 'dm_' not in par and \
-                        'GWB' not in par and 'lpfgw' not in par and \
-                        'pphase' not in par and 'pgamma' not in par]))
+        ##### white noise #####
+        if not args.noVaryEfac and not args.noVaryNoise:
+            ids = model.get_parameter_indices('efac', corr='single', split=False)
+            [ind.append(id) for id in ids]
 
+        if args.incEquad:
+            ids = model.get_parameter_indices('equad', corr='single', split=False)
+            [ind.append(id) for id in ids]
+        
+        if args.incJitterEquad:
+            ids = model.get_parameter_indices('jitter_equad', corr='single', split=False)
+            [ind.append(id) for id in ids]
+        
+        
+        ##### red noise #####
+        if args.incRed:
+            if args.redModel == 'powerlaw':
+                ids = model.get_parameter_indices('powerlaw', corr='single', split=False)
+                [ind.append(id) for id in ids]
+            if args.redModel == 'spectrum':
+                ids = model.get_parameter_indices('spectrum', corr='single', split=False)
+                [ind.append(id) for id in ids]
+        
+        ##### DM noise #####
+        if args.incDM:
+            if args.dmModel == 'powerlaw':
+                ids = model.get_parameter_indices('dmpowerlaw', corr='single', split=False)
+                [ind.append(id) for id in ids]
+            if args.dmModel == 'spectrum':
+                ids = model.get_parameter_indices('dmspectrum', corr='single', split=False)
+                [ind.append(id) for id in ids]
+
+        ##### wavelets #####
+        if args.incWavelet:
+            ids = model.get_parameter_indices('wavelet', corr='single', split=True)
+            [ind.append(id) for id in ids]
+        
+        if args.incChromaticWavelet:
+            ids = model.get_parameter_indices('chrowavelet', corr='single', split=True)
+            [ind.append(id) for id in ids]
+        
+        ##### GWB #####
+        if args.incGWB:
+            if args.gwbModel == 'powerlaw':
+                ids = model.get_parameter_indices('powerlaw', corr='gr', split=False)
+                [ind.append(id) for id in ids]
+            if args.gwbModel == 'spectrum':
+                ids = model.get_parameter_indices('spectrum', corr='gr', split=False)
+                [ind.append(id) for id in ids]
+            if args.gwbModel == 'turnover':
+                ids = model.get_parameter_indices('turnover', corr='gr', split=False)
+                [ind.append(id) for id in ids]
+
+        
+        ##### CW #####
+        if args.incCW:
+            ids = model.get_parameter_indices('cw', corr='gr', split=True)
+            [ind.append(id) for id in ids]
+            
+            # pulsar distances
             if args.incPdist:
-                ind.append(np.array([ct for ct, par in enumerate(par_out) if \
-                        'pdist' in par]))
+                ids = model.get_parameter_indices('pulsardistance', corr='single', split=False)
+                [ind.append(id) for id in ids]
+
+            # pulsar phase terms
             if args.cwModel in ['free', 'freephase', 'eccgam']:
-                ind.append(np.array([ct for ct, par in enumerate(par_out) if \
-                        'pphase' in par]))
-                if args.cwModel == 'free':
-                    ind.append(np.array([ct for ct, par in enumerate(par_out) if \
-                            'lpfgw' in par]))
-                if args.cwModel == 'eccgam':
-                    ind.append(np.array([ct for ct, par in enumerate(par_out) if \
-                            'pgamma' in par]))
+                ids = model.get_parameter_indices('pulsarTerm', corr='single', split=True)
+                [ind.append(id) for id in ids]
 
-        elif args.incRed:
-            for pp, p in enumerate(model.psr):
-                ind.append([ct for ct, par in enumerate(par_out) if 'RN' in par
-                           and p.name in par])
+        # timing model
+        if args.incTimingModel:
+            ids = model.get_parameter_indices('nonlineartimingmodel',
+                                              corr='single', split=False)
+            [ind.append(id) for id in ids]
 
-            if args.incGWB:
-                ind.append([ct for ct, par in enumerate(par_out) if 'GWB' in par])
 
-            # all parameters
-            l = []
-            map(l.extend, ind)
-            ind.insert(0, l)
 
-        else:
-            ind = None
+        ##### all parameters #####
+        ind.insert(0, range(len(p0)))
+        
+        #ind = []
+        #if args.incTimingModel and not args.fixNoise:
+        #    idx = np.arange(len(par_out))
+        #    ind = [np.array([ct for ct, par in enumerate(par_out) if 'efac' in par or \
+        #            'equad' in par or 'jitter' in par or 'RN' in par or 'DM' in par \
+        #            or 'red_' in par or 'dm_' in par or 'GWB' in par])]
+        #    ind += [idx[(ind[-1][-1]+1):]]
+        #elif args.incCW:
+        #    if (args.fixNoise and not args.fixWhite) or args.noVaryEfac or args.noVaryNoise:
+        #        ind = []
+        #    else:
+        #        ind = [np.array([ct for ct, par in enumerate(par_out) if 'efac' in par or \
+        #                'equad' in par or 'jitter' in par or 'RN' in par or 'DM' in par \
+        #                or 'red_' in par or 'dm_' in par or 'GWB' in par])]
+
+        #    ind.append(np.array([ct for ct, par in enumerate(par_out) if \
+        #                'pdist' not in par and 'efac' not in par and \
+        #                'equad' not in par and 'jitter' not in par and \
+        #                'RN' not in par and 'DM' not in par and \
+        #                'red_' not in par and 'dm_' not in par and \
+        #                'GWB' not in par and 'lpfgw' not in par and \
+        #                'pphase' not in par and 'pgamma' not in par]))
+
+        #    if args.incPdist:
+        #        ind.append(np.array([ct for ct, par in enumerate(par_out) if \
+        #                'pdist' in par]))
+        #    if args.cwModel in ['free', 'freephase', 'eccgam']:
+        #        ind.append(np.array([ct for ct, par in enumerate(par_out) if \
+        #                'pphase' in par]))
+        #        if args.cwModel == 'free':
+        #            ind.append(np.array([ct for ct, par in enumerate(par_out) if \
+        #                    'lpfgw' in par]))
+        #        if args.cwModel == 'eccgam':
+        #            ind.append(np.array([ct for ct, par in enumerate(par_out) if \
+        #                    'pgamma' in par]))
+
+        #elif args.incRed:
+        #    ind = [np.array([ct for ct, par in enumerate(par_out) if 'efac' in par or \
+        #            'equad' in par or 'jitter' in par or 'DM' in par \
+        #            or 'red_' in par or 'dm_' in par or 'GWB' in par])]
+
+        #    if len(args.pname) > 1:
+        #        for pp, p in enumerate(model.psr):
+        #            ind.append([ct for ct, par in enumerate(par_out) if 'RN' in par 
+        #                        and p.name in par])
+        #    else:
+        #        ind.append([ct for ct, par in enumerate(par_out) if 'RN' in par])
+
+
+        #    if args.incGWB:
+        #        ind.append([ct for ct, par in enumerate(par_out) if 'GWB' in par])
+
+        #    # all parameters
+        #    l = []
+        #    map(l.extend, ind)
+        #    ind.insert(0, l)
+    
+        #elif args.incWavelet:
+        #    for ww in range(args.nWavelets):
+        #        ind.append(np.array([ct for ct, par in enumerate(par_out) if
+        #                            'nwaveAmp_'+str(ww) in par or
+        #                            'nwaveFreq_'+str(ww) in par or
+        #                            'nwaveT0_'+str(ww) in par or
+        #                            'nwaveQ_'+str(ww) in par or
+        #                            'nwavePhase_'+str(ww) in par]))
+
+        #else:
+        #    ind = None
         #ind = None
         print ind
 
@@ -802,7 +908,8 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         print 'Engage!'
         sampler.sample(p0, args.niter, covUpdate=1000, AMweight=15, SCAMweight=30, \
                        DEweight=50, neff=args.neff, KDEweight=0, Tmin=args.Tmin,
-                       Tmax=args.Tmax, writeHotChains=args.writeHotChains)
+                       Tmax=args.Tmax, writeHotChains=args.writeHotChains,
+                      hotChain=args.hotChain)
 
     if args.sampler == 'polychord':
         print 'Using PolyChord Sampler'
