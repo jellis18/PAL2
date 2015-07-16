@@ -1644,11 +1644,11 @@ class PTAmodels(object):
             elif gwbModel == 'turnover':
                 Tmax = np.max([pp.toas.max()-pp.toas.min() for pp in self.psr])
                 bvary = [True, True, True, True, False]
-                pmin = [-18.0, 1.02, np.log10(1/Tmax), 0.01, 0.2]
+                pmin = [-18.0, 1.02, -10, 4/3, 0.2]
                 pmax = [-11.0, 6.98, -6.4, 6.98, 5.0]
                 pstart = [-15.0, 2.01, -8, 2.01, 0.5]
                 pwidth = [0.1, 0.1, 0.1, 0.1, 0.1]
-                prior = [GWAmpPrior, GWSiPrior, 'uniform', 'uniform', 'uniform']
+                prior = [GWAmpPrior, GWSiPrior, 'kappa', 'uniform', 'uniform']
 
             newsignal = OrderedDict({
                 "stype": gwbModel,
@@ -6490,6 +6490,16 @@ class PTAmodels(object):
                         (np.log(2 * np.pi * s ** 2) + (m - logA) ** 2 / s ** 2)
                 elif sig['prior'][0] == 'uniform':
                     prior += np.log(10 ** sparameters[0])
+
+                if sig['prior'][2] == 'kappa':
+                    fb = 10**sparameters[2]
+                    kappa = sparameters[3]
+                    ft = 1 / self.psr[0].Tmax
+                    f1yr = 1 / 3.16e7
+                    eps = 0.1
+                    fx = ((1-eps)**(-2) - 1)**(1/kappa)*ft
+                    if fb < fx:
+                        prior += -np.inf
 
             if sig['corr'] == 'gr' and sig['stype'] == 'spectrum':
                 if np.any(np.array(sig['prior']) == 'uniform'):

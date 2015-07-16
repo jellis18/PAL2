@@ -546,13 +546,13 @@ class DataFile(object):
                 else:
                     epoch = '2000'
                 eq = ephem.Equatorial(ec, epoch=epoch)
-                psr.raj = np.float(eq.ra)
-                psr.decj = np.float(eq.dec)
+                psr.raj = np.double([eq.ra])
+                psr.decj = np.double([eq.dec])
             except TypeError:
                 print 'WARNING: Cannot find sky location coordinates.' \
                         'Setting to 0.'
-                psr.raj = 0.0
-                psr.decj = 0.0
+                psr.raj = np.array([0.0])
+                psr.decj = np.array([0.0])
 
         else:
             psr.raj = np.array(self.getData(psrname, 'tmp_valpost'))[rajind]
