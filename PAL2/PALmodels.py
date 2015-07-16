@@ -446,6 +446,14 @@ class PTAmodels(object):
                     pstart = [-22.0, 2.0, -1.0]
                     pwidth = [-0.2, 0.1, 0.1]
                     prior = [redAmpPrior, redSiPrior, 'uniform']
+                if noiseModel == 'interpolate':
+                    #nfreqs = numNoiseFreqs[ii]
+                    bvary = [True] * nfreqs
+                    pmin = [-18.0] * nfreqs
+                    pmax = [-10] * nfreqs
+                    pstart = [-18.0] * nfreqs
+                    pwidth = [0.1] * nfreqs
+                    prior = [redSpectrumPrior] * nfreqs
 
                 newsignal = OrderedDict({
                     "stype": noiseModel,
