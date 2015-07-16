@@ -679,18 +679,15 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         ##### white noise #####
         if not args.noVaryEfac and not args.noVaryNoise:
             ids = model.get_parameter_indices('efac', corr='single', split=False)
-            if len(ids) > 0:
-                [ind.append(id) for id in ids]
+            [ind.append(id) for id in ids if len(id) > 0]
 
         if args.incEquad:
             ids = model.get_parameter_indices('equad', corr='single', split=False)
-            if len(ids) > 0:
-                [ind.append(id) for id in ids]
+            [ind.append(id) for id in ids if len(id) > 0]
         
         if args.incJitterEquad:
             ids = model.get_parameter_indices('jitter_equad', corr='single', split=False)
-            if len(ids) > 0:
-                [ind.append(id) for id in ids]
+            [ind.append(id) for id in ids if len(id) > 0]
         
         
         ##### red noise #####
