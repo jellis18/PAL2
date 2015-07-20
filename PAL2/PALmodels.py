@@ -245,7 +245,7 @@ class PTAmodels(object):
                         "pmax": [10.0],
                         "pwidth": [0.1],
                         "pstart": [1.0],
-                        "prior": efacPrior
+                        "prior": [efacPrior]
                     })
                     signals.append(newsignal)
             else:
@@ -260,7 +260,7 @@ class PTAmodels(object):
                     "pmax": [10.0],
                     "pwidth": [0.1],
                     "pstart": [1.0],
-                    "prior": efacPrior
+                    "prior": [efacPrior]
                 })
                 signals.append(newsignal)
 
@@ -286,7 +286,7 @@ class PTAmodels(object):
                             "pmax": [5],
                             "pwidth": [0.1],
                             "pstart": [0.333],
-                            "prior": jitterPrior
+                            "prior": [jitterPrior]
                         })
                         signals.append(newsignal)
                 else:
@@ -301,7 +301,7 @@ class PTAmodels(object):
                         "pmax": [5],
                         "pwidth": [0.1],
                         "pstart": [0.333],
-                        "prior": jitterPrior
+                        "prior": [jitterPrior]
                     })
                     signals.append(newsignal)
 
@@ -333,7 +333,7 @@ class PTAmodels(object):
                             "pmax": [-4.0],
                             "pwidth": [0.1],
                             "pstart": [-8.0],
-                            "prior": jitterEquadPrior
+                            "prior": [jitterEquadPrior]
                         })
                         signals.append(newsignal)
                 else:
@@ -348,7 +348,7 @@ class PTAmodels(object):
                         "pmax": [-4.0],
                         "pwidth": [0.1],
                         "pstart": [-8.0],
-                        "prior": jitterEquadPrior
+                        "prior": [jitterEquadPrior]
                     })
                     signals.append(newsignal)
 
@@ -371,7 +371,7 @@ class PTAmodels(object):
                     "pmax": pmax,
                     "pwidth": pwidth,
                     "pstart": pstart,
-                    "prior": prior
+                    "prior": [prior]
                 })
                 signals.append(newsignal)
 
@@ -397,7 +397,7 @@ class PTAmodels(object):
                             "pmax": [-4.0],
                             "pwidth": [0.1],
                             "pstart": [-8.0],
-                            "prior": equadPrior
+                            "prior": [equadPrior]
                         })
                         signals.append(newsignal)
                 else:
@@ -412,7 +412,7 @@ class PTAmodels(object):
                         "pmax": [-4.0],
                         "pwidth": [0.1],
                         "pstart": [-8.0],
-                        "prior": equadPrior
+                        "prior": [equadPrior]
                     })
                     signals.append(newsignal)
 
@@ -1859,7 +1859,7 @@ class PTAmodels(object):
 
         elif signal['stype'] in ['powerlaw', 'spectrum', 'spectralModel',
                                  'powerlaw_band', 'turnover', 'ext_powerlaw',
-                                 'ext_spectrum', 'broken']:
+                                 'ext_spectrum', 'broken', 'interpolate']:
             # Any time-correlated signal
             self.addSignalTimeCorrelated(signal)
             self.haveStochSources = True
@@ -2626,6 +2626,12 @@ class PTAmodels(object):
                             str(self.psr[psrindex].Ffreqs[2 * jj])
                     elif sig['corr'] == 'gr':
                         flagvalue = 'gwb_' + \
+                            str(self.psr[psrindex].Ffreqs[2 * jj])
+                
+                elif sig['stype'] == 'interpolate':
+                    flagname = 'frequency'
+                    if sig['corr'] == 'single':
+                        flagvalue = 'red_cp_' + \
                             str(self.psr[psrindex].Ffreqs[2 * jj])
 
                 elif sig['stype'] == 'dmspectrum':
@@ -3451,7 +3457,12 @@ class PTAmodels(object):
     """
 
     def constructPhiMatrix(self, parameters, constructPhi=False,
-                           incCorrelations=True, incTM=False, incJitter=False):
+                           incCorrelations=True, incTM=False,
+                           incJitter=False, selection=None):
+        
+        # selection of variables to use
+        if selection is None:
+            selection = np.array([1]*self.dimensions, dtype=np.bool)
 
         # Loop over all signals and determine rho (GW signals) and kappa (red +
         # DM signals)
@@ -3475,6 +3486,24 @@ class PTAmodels(object):
 
             # which ones are varying
             sparameters[sig['bvary']] = parameters[parind:parind + npars]
+            
+            # spline PSD fit
+            if sig['stype'] == 'interpolate':
+
+                # select control points for PSD
+                control = sparameters[selection[parind:parind+npars]]
+
+                # create interpolation function based on control points
+                freqs = self.psr[psrind].Ffreqs[::2]
+                ifunc = interp1d(freqs[selection[parind:parind+npars]],
+                                 control, kind='cubic')
+                
+                # get psd at all frequencies
+                psd = ifunc(freqs)
+                pcdoubled = np.repeat(psd, 2)
+                    
+                # fill in kappa
+                self.psr[psrind].kappa = pcdoubled
 
             # spectrum
             if sig['stype'] == 'spectrum':
@@ -5680,7 +5709,8 @@ class PTAmodels(object):
             # set red noise, DM and GW parameters
             try:
                 self.constructPhiMatrix(parameters, incCorrelations=incCorrelations,
-                                        incTM=True, incJitter=incJitter)
+                                        incTM=True, incJitter=incJitter,
+                                        selection=selection)
             except np.linalg.LinAlgError:
                 return -np.inf
 
@@ -5892,7 +5922,8 @@ class PTAmodels(object):
 
             # set red noise, DM and GW parameters
             self.constructPhiMatrix(parameters, incCorrelations=incCorrelations,
-                                    incTM=True, incJitter=False)
+                                    incTM=True, incJitter=False,
+                                    selection=selection)
 
         # set deterministic sources
         if self.haveDetSources:
@@ -7996,12 +8027,12 @@ class PTAmodels(object):
             if sig['bvary']:
 
                 # log prior
-                if sig['prior'] == 'log':
+                if 'log' in sig['prior']:
                     q[parind] = np.random.uniform(
                         self.pmin[parind], self.pmax[parind])
                     qxy += 0
 
-                elif sig['prior'] == 'uniform':
+                elif 'uniform' in sig['prior']:
                     q[parind] = np.log10(np.random.uniform(10 ** self.pmin[parind],
                                                            10 ** self.pmax[parind]))
                     qxy += np.log(10 ** parameters[parind] / 10 ** q[parind])
@@ -8092,12 +8123,12 @@ class PTAmodels(object):
             if sig['bvary']:
 
                 # log prior
-                if sig['prior'] == 'log':
+                if 'log' in sig['prior']:
                     q[parind] = np.random.uniform(self.pmin[parind],
                                                   self.pmax[parind])
                     qxy += 0
 
-                elif sig['prior'][jj] == 'uniform':
+                elif 'uniform' in sig['prior']:
                     q[parind] = np.log10(np.random.uniform(10 ** self.pmin[parind],
                                                            10 ** self.pmax[parind]))
                     qxy += np.log(10 ** parameters[parind] / 10 ** q[parind])
@@ -8139,7 +8170,7 @@ class PTAmodels(object):
             if sig['bvary']:
 
                 # uniform prior
-                if sig['prior'] == 'uniform':
+                if 'uniform' in sig['prior']:
                     q[parind] = np.random.uniform(
                         self.pmin[parind], self.pmax[parind])
                     qxy += 0

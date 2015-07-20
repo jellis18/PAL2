@@ -191,6 +191,8 @@ parser.add_argument('--incChromaticWavelet', dest='incChromaticWavelet', action=
                     default=False, help='Include chromatic noise wavelet signal in run')
 parser.add_argument('--nChromaticWavelets', dest='nChromaticWavelets', action='store', 
                     type=int, default=1, help='Number of chromatic noise wavelets(default=1)')
+parser.add_argument('--fixcBeta', dest='fixcBeta', action='store', type=float,
+                    default=0, help='fix chromatic wavelet spectral index to user value')
 
 parser.add_argument('--incCW', dest='incCW', action='store_true', \
                     default=False, help='Include CW signal in run')
@@ -448,6 +450,14 @@ if args.fixKappa:
             sig['bvary'][3] = False
             sig['pstart'][3] = args.fixKappa
 
+# fix spectral indexa of chromatic wavelet
+if args.fixcBeta:
+    print 'Fixing chromatic wavelet index to {0}'.format(args.fixcBeta)
+    for sig in fullmodel['signals']:
+        if sig['stype'] in ['chrowavelet']:
+            sig['bvary'][0] = False
+            sig['pstart'][0] = args.fixcBeta
+
 # fix spectral index for red nosie
 if args.fixRedSi:
     print 'Fixing red noise spectral index to 4.33'
@@ -697,6 +707,9 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
                 [ind.append(id) for id in ids]
             if args.redModel == 'spectrum':
                 ids = model.get_parameter_indices('spectrum', corr='single', split=False)
+                [ind.append(id) for id in ids]
+            if args.redModel == 'interpolate':
+                ids = model.get_parameter_indices('interpolate', corr='single', split=False)
                 [ind.append(id) for id in ids]
         
         ##### red band noise #####
