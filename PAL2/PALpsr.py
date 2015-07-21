@@ -1026,8 +1026,9 @@ class Pulsar(object):
             # M matrix normalization
             Mm = self.Mmat.copy()
             self.norm = np.sqrt(np.sum(Mm ** 2, axis=0))
+            Mm /= self.norm
 
-        self.Mmat_reduced = Mmat
+        self.Mmat_reduced = Mm
         if likfunc not in ['mark6', 'mark9', 'mark10']:
             U, s, Vh = sl.svd(Mmat)
             self.Gmat = U[:, Mmat.shape[1]:].copy()
@@ -1039,7 +1040,7 @@ class Pulsar(object):
 
         # T matrix
         if likfunc == 'mark6' or likfunc == 'mark8' or likfunc == 'mark9':
-            self.Tmat = np.concatenate((Mmat, self.Ftot), axis=1)
+            self.Tmat = np.concatenate((Mm, self.Ftot), axis=1)
             if incJitter:
                 self.avetoas, self.aveflags, U = \
                     PALutils.exploderMatrixNoSingles(

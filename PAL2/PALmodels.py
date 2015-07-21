@@ -2904,6 +2904,7 @@ class PTAmodels(object):
             self.TNT = np.zeros((nphiTmat, nphiTmat))
             self.Phi = np.zeros((nphiTmat, nphiTmat))
             self.Sigma = np.zeros((nphiTmat, nphiTmat))
+            self.cf = [[] for ii in range(len(self.psr))]
         else:
             self.Phiinv = np.zeros((nftot * self.npsr, nftot * self.npsr))
             self.Phi = np.zeros((nftot * self.npsr, nftot * self.npsr))
@@ -4320,6 +4321,7 @@ class PTAmodels(object):
 
             # Noise wavelet signal
             if sig['stype'] == 'wavelet' and np.all(selection[parind:parind+npars]):
+                psr = self.psr[psrind]
 
                 f0 = 10**sparameters[1]
                 t0 = sparameters[2] * 86400
@@ -4328,17 +4330,39 @@ class PTAmodels(object):
 
                 # snr parameterization
                 if sig['model'] == 'snr':
-                    wv = PALutils.constuct_wavelet(p.toas, 1, t0,
+                    wv = PALutils.constuct_wavelet(psr.toas, 1, t0,
                                                    f0, Q, phase0)
 
-                    # amplitude from quick and dirty SNR for white noise
-                    A = sparameters[0] / np.sqrt(np.dot(wv/p.Nvec, wv))
+                    # amplitude from SNR
+                    if self.likfunc == 'mark6':
+                        try:
+                            snr = PALutils.compute_snr_mark6(
+                                wv, psr.Nvec, psr.Ttmat, self.cf[psrind])
+                            #snr = np.sqrt(np.dot(wv/psr.Nvec, wv))
+                        except ValueError:
+                            snr = np.sqrt(np.dot(wv/psr.Nvec, wv))
+                    elif self.likfunc == 'mark9':
+                        try:
+                            snr = PALutils.compute_snr_mark9(
+                                wv, psr.Nvec,psr.Tmat, psr.Qamp,
+                                psr.Uinds, self.cf[psrind])
+                        except ValueError:
+                            snr = np.sqrt(np.dot(wv/psr.Nvec, wv))
+
+                    else:
+                        snr = np.sqrt(np.dot(wv/psr.Nvec, wv))
+
+                    A = sparameters[0] / snr
+                    #print A
 
                 else:
                     A = 10**sparameters[0]
 
-                p.detresiduals -= PALutils.constuct_wavelet(
-                    p.toas, A, t0, f0, Q, phase0)
+                psr.detresiduals -= PALutils.constuct_wavelet(
+                    psr.toas, A, t0, f0, Q, phase0)
+                #if np.isnan(A):
+                #    print parameters[selection]
+
             
             # Chromatic Noise wavelet signal
             if sig['stype'] == 'chrowavelet' and np.all(selection[parind:parind+npars]):
@@ -5770,6 +5794,7 @@ class PTAmodels(object):
                 try:
                     cf = sl.cho_factor(
                         self.Sigma[nfref:(nfref + nf), nfref:(nfref + nf)])
+                    self.cf[ct] = cf
                     expval2 = sl.cho_solve(cf, dd)
                     if varyNoise:
                         self.logdet_Sigma += np.sum(2 * np.log(np.diag(cf[0])))
@@ -5988,6 +6013,7 @@ class PTAmodels(object):
                 try:
                     cf = sl.cho_factor(
                         self.Sigma[nfref:(nfref + nf), nfref:(nfref + nf)])
+                    self.cf[ct] = cf
                     expval2 = sl.cho_solve(cf, dd)
                     if varyNoise:
                         self.logdet_Sigma += np.sum(2 * np.log(np.diag(cf[0])))
@@ -6574,7 +6600,7 @@ class PTAmodels(object):
                 #if sig_red > sig_data:
                 #    prior += -np.inf
 
-            if sig['stype'] in ['powerlaw'] and sig['corr'] == 'single':
+            if sig['stype'] in ['powerlaw', 'powerlaw_band'] and sig['corr'] == 'single':
                 if sig['bvary'][0]:
                     if sig['prior'][0] == 'uniform':
                         prior += np.log(10 ** sparameters[0])

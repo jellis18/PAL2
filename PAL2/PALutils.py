@@ -16,6 +16,39 @@ SOLAR2S = sc.G / sc.c**3 * 1.98855e30
 KPC2S = sc.parsec / sc.c * 1e3
 MPC2S = sc.parsec / sc.c * 1e6
 
+
+def compute_snr_mark6(x, Nvec, Tmat, cf):
+    """
+    Compute optimal SNR for mark6
+    """
+    # white noise term
+    Ni = 1/Nvec
+    Nx = x * Ni
+    xNx = np.dot(x, Nx) 
+    TNx = np.dot(Tmat.T, Nx)
+
+    SigmaTNx = sl.cho_solve(cf, TNx)
+
+    ret = xNx - np.dot(TNx, SigmaTNx)
+    #print xNx,  np.dot(TNx, SigmaTNx)
+
+    return np.sqrt(ret) 
+
+def compute_snr_mark9(x, Nvec, Tmat, Qamp, Uinds, cf):
+    """
+    Compute optimal SNR for mark9
+    """
+
+    # white noise term
+    Nx = python_block_shermor_0D(x, Nvec, Qamp, Uinds)
+    xNx = np.dot(x, Nx)
+    TNx = np.dot(Tmat.T, Nx)
+    SigmaTNx = sl.cho_solve(cf, TNx)
+    ret = xNx - np.dot(TNx, SigmaTNx)
+
+    return np.sqrt(ret)
+
+
 def innerProduct_rr(x, y, Nvec, Tmat, Sigma, TNx=None, TNy=None):
     """
     Compute inner product using rank-reduced
@@ -43,6 +76,7 @@ def innerProduct_rr(x, y, Nvec, Tmat, Sigma, TNx=None, TNy=None):
     if TNx == None and TNy == None: 
         TNx = np.dot(Tmat.T, Nx)
         TNy = np.dot(Tmat.T, Ny)
+
 
     cf = sl.cho_factor(Sigma)
     SigmaTNy = sl.cho_solve(cf, TNy)
