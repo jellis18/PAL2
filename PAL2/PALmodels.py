@@ -3496,11 +3496,11 @@ class PTAmodels(object):
 
                 # create interpolation function based on control points
                 freqs = self.psr[psrind].Ffreqs[::2]
-                ifunc = interp1d(freqs[selection[parind:parind+npars]],
-                                 control, kind='cubic')
+                ifunc = interp1d(np.log10(freqs[selection[parind:parind+npars]]),
+                                 control, kind='linear')
                 
                 # get psd at all frequencies
-                psd = ifunc(freqs)
+                psd = ifunc(np.log10(freqs))
                 pcdoubled = np.repeat(psd, 2)
                     
                 # fill in kappa
@@ -4336,16 +4336,17 @@ class PTAmodels(object):
                     # amplitude from SNR
                     if self.likfunc == 'mark6':
                         try:
-                            snr = PALutils.compute_snr_mark6(
-                                wv, psr.Nvec, psr.Ttmat, self.cf[psrind])
-                            #snr = np.sqrt(np.dot(wv/psr.Nvec, wv))
+                            #snr = PALutils.compute_snr_mark6(
+                            #    wv, psr.Nvec, psr.Ttmat, self.cf[psrind])
+                            snr = np.sqrt(np.dot(wv/psr.Nvec, wv))
                         except ValueError:
                             snr = np.sqrt(np.dot(wv/psr.Nvec, wv))
                     elif self.likfunc == 'mark9':
                         try:
-                            snr = PALutils.compute_snr_mark9(
-                                wv, psr.Nvec,psr.Tmat, psr.Qamp,
-                                psr.Uinds, self.cf[psrind])
+                            #snr = PALutils.compute_snr_mark9(
+                            #    wv, psr.Nvec,psr.Tmat, psr.Qamp,
+                            #    psr.Uinds, self.cf[psrind])
+                            snr = np.sqrt(np.dot(wv/psr.Nvec, wv))
                         except ValueError:
                             snr = np.sqrt(np.dot(wv/psr.Nvec, wv))
 
@@ -4353,15 +4354,13 @@ class PTAmodels(object):
                         snr = np.sqrt(np.dot(wv/psr.Nvec, wv))
 
                     A = sparameters[0] / snr
-                    #print A
 
                 else:
                     A = 10**sparameters[0]
 
                 psr.detresiduals -= PALutils.constuct_wavelet(
                     psr.toas, A, t0, f0, Q, phase0)
-                #if np.isnan(A):
-                #    print parameters[selection]
+
 
             
             # Chromatic Noise wavelet signal
@@ -5795,6 +5794,8 @@ class PTAmodels(object):
                     cf = sl.cho_factor(
                         self.Sigma[nfref:(nfref + nf), nfref:(nfref + nf)])
                     self.cf[ct] = cf
+                    #print self.cf[ct]
+                    #print '\n\n\n'
                     expval2 = sl.cho_solve(cf, dd)
                     if varyNoise:
                         self.logdet_Sigma += np.sum(2 * np.log(np.diag(cf[0])))

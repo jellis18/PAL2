@@ -21,16 +21,16 @@ def compute_snr_mark6(x, Nvec, Tmat, cf):
     """
     Compute optimal SNR for mark6
     """
+
     # white noise term
-    Ni = 1/Nvec
-    Nx = x * Ni
-    xNx = np.dot(x, Nx) 
-    TNx = np.dot(Tmat.T, Nx)
+    Nix = x / Nvec
+    xNix = np.dot(x, Nix) 
+    TNix = np.dot(Tmat.T, Nix)
 
-    SigmaTNx = sl.cho_solve(cf, TNx)
+    SigmaTNix = sl.cho_solve(cf, TNix)
 
-    ret = xNx - np.dot(TNx, SigmaTNx)
-    #print xNx,  np.dot(TNx, SigmaTNx)
+    ret = xNix - np.dot(TNix, SigmaTNix)
+    #print xNix,  np.dot(TNix, SigmaTNix)
 
     return np.sqrt(ret) 
 
@@ -3019,13 +3019,17 @@ def binresults(x, y, yerr, nbins=20):
 
     xedges = np.linspace(x.min(), x.max(), nbins+1)
     
-    newx = 0.5*(xedges[1:] + xedges[:-1])
-    newy = np.zeros(nbins)
-    newyerr = np.zeros(nbins)
-    
+    xx = 0.5*(xedges[1:] + xedges[:-1])
+    newx = []
+    newy = []
+    newyerr = []
+
     for ll, ledge in enumerate(xedges[:-1]):
         ind = np.logical_and(x >= ledge, x < xedges[ll+1])
-        newy[ll] = np.average(y[ind], weights=1.0/yerr[ind]**2, )
-        newyerr[ll] = 1.0 / np.sqrt(np.sum(1.0/yerr[ind]**2))
+        if np.sum(ind) > 0:
+            print len(ind), ind, yerr
+            newy.append(np.average(y[ind], weights=1.0/yerr[ind]**2, ))
+            newyerr.append(1.0 / np.sqrt(np.sum(1.0/yerr[ind]**2)))
+            newx.append(xx[ll])
     
-    return newx, newy, newyerr
+    return np.array(newx), np.array(newy), np.array(newyerr)
