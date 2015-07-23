@@ -3027,7 +3027,6 @@ def binresults(x, y, yerr, nbins=20):
     for ll, ledge in enumerate(xedges[:-1]):
         ind = np.logical_and(x >= ledge, x < xedges[ll+1])
         if np.sum(ind) > 0:
-            print len(ind), ind, yerr
             newy.append(np.average(y[ind], weights=1.0/yerr[ind]**2, ))
             newyerr.append(1.0 / np.sqrt(np.sum(1.0/yerr[ind]**2)))
             newx.append(xx[ll])
