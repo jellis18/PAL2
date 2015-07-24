@@ -874,17 +874,21 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
             sampler.addProposalToCycle(model.drawFromRedNoiseSpectrumPrior, 10)
         if args.incRedExt and args.redExtModel=='spectrum':
             sampler.addProposalToCycle(model.drawFromRedNoiseExtSpectrumPrior, 10)
-        if args.incEquad:
+        if args.incEquad and not args.fixWhite:
             sampler.addProposalToCycle(model.drawFromEquadPrior, 5)
-        if args.incJitterEquad:
-            sampler.addProposalToCycle(model.drawFromJitterEquadPrior, 5)
+        #if args.incJitterEquad:
+        #    sampler.addProposalToCycle(model.drawFromJitterEquadPrior, 5)
         if args.incJitterEpoch:
             sampler.addProposalToCycle(model.drawFromJitterEpochPrior, 5)
         if args.incTimingModel:
             sampler.addProposalToCycle(model.drawFromTMfisherMatrix, 40)
             #sampler.addProposalToCycle(model.drawFromTMPrior, 5)
         if args.incCW:
-            sampler.addProposalToCycle(model.drawFromCWPrior, 2)
+            if args.cwModel == 'upperLimit':
+                wgt = 10
+            else:
+                wgt = 2
+            sampler.addProposalToCycle(model.drawFromCWPrior, wgt)
             #sampler.addProposalToCycle(model.massDistanceJump, 2)
             sampler.addProposalToCycle(model.phaseAndPolarizationReverseJump, 5)
             sampler.addAuxilaryJump(model.fix_cyclic_pars)
@@ -900,7 +904,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
                     sampler.addAuxilaryJump(model.pulsarGammaFix)
 
         # always include draws from efac
-        if not args.noVaryEfac and not args.noVaryNoise:
+        if not args.noVaryEfac and not args.noVaryNoise and not args.fixWhite:
             sampler.addProposalToCycle(model.drawFromEfacPrior, 2)
 
         if args.incCW and MPIrank == 0 and not args.zerologlike:

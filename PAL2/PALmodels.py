@@ -7486,51 +7486,53 @@ class PTAmodels(object):
 
     # CW draws from prior
     def drawFromCWPrior(self, parameters, iter, beta):
-
+        
         # post-jump parameters
         q = parameters.copy()
 
         # transition probability
         qxy = 0
+        
+        # find signal number
+        signum = self.getSignalNumbersFromDict(
+            self.ptasignals, stype='cw', corr='gr')
+        nsigs = len(signum)
 
-        for ct, sig in enumerate(self.ptasignals):
+        # choose signal
+        ind = np.random.randint(0, nsigs)
+        sig = self.ptasignals[signum[ind]]
 
-            # CW parameters
-            if sig['stype'] == 'cw':
-                pindex = 0
-                for jj in range(sig['ntotpars']):
-                    if sig['bvary'][jj]:
+        # short hand
+        psrind = sig['pulsarind']
+        parind = sig['parindex']
+        npars = sig['npars']
+        
+        # parameters for this signal
+        sparameters = sig['pstart'].copy()
 
-                        parind = sig['parindex']
+        # which ones are varying
+        sparameters[sig['bvary']] = parameters[parind:parind + npars]
 
-                        if sig['prior'][jj] == 'cos':
-                            q[parind +
-                                pindex] = np.arccos(np.random.uniform(-1, 1))
-                            qxy += \
-                                np.log(
-                                    np.sin(parameters[parind + pindex]) /
-                                    np.sin(q[parind + pindex]))
-                        elif sig['prior'][jj] == 'uniform' and \
-                        (sig['parid'][jj] == 'logh' or \
-                         sig['parid'][jj] == 'logq'):
-                            q[parind + pindex] = \
-                                np.log10(np.random.uniform(10 ** self.pmin[parind + pindex],
-                                                           10 ** self.pmax[parind + pindex]))
-                            qxy += np.log(10 ** parameters[parind + pindex] / \
-                                          10 ** q[parind + pindex])
-
-                        elif sig['prior'][jj] == 'gaussian':
-                            m = sig['mu'][jj]
-                            s = sig['sigma'][jj]
-                            q[parind+pindex] = m + np.random.randn() * s
-                            qxy -= (m - parameters[parind+pindex]) ** 2 / 2 / \
-                                s ** 2 - (m - q[parind+pindex]) ** 2 / 2 / s ** 2
-
-                        else:
-                            q[parind + pindex] = np.random.uniform(self.pmin[parind + pindex],
-                                                                   self.pmax[parind + pindex])
-
-                        pindex += 1
+        # choose parameter
+        jj = np.random.randint(0, npars)
+            
+        if sig['bvary'][jj]:
+            if sig['prior'][jj] in ['uniform', 'cyclic']:
+                q[parind+jj] = np.random.uniform(
+                    self.pmin[parind+jj], self.pmax[parind+jj])
+            elif sig['prior'][jj] in ['log-linear', 'log']:
+                q[parind+jj] = np.log10(np.random.uniform(
+                    10**self.pmin[parind+jj], 10**self.pmax[parind+jj]))
+                qxy += np.log(10 ** sparameters[jj] / 10 ** q[parind+jj])
+            elif sig['prior'][jj] == 'cos':
+                q[parind+jj] = np.arccos(np.random.uniform(-1, 1))
+                qxy += np.log(np.sin(sparameters[jj]) / np.sin(q[parind+jj]))
+            elif sig['prior'][jj] == 'gaussian':
+                m = sig['mu'][jj]
+                s = sig['sigma'][jj]
+                q[parind+jj] = m + np.random.randn() * s
+                qxy -= (m - sarameters[jj]) ** 2 / 2 / \
+                    s ** 2 - (m - q[parind+jj]) ** 2 / 2 / s ** 2
 
         return q, qxy
     

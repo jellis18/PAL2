@@ -1353,8 +1353,12 @@ def angularSeparation(theta1, phi1, theta2, phi2):
     """
     
     # unit vectors
-    rhat1 = phat = [np.sin(theta1)*np.cos(phi1), np.sin(theta1)*np.sin(phi1), np.cos(theta1)]
-    rhat2 = phat = [np.sin(theta2)*np.cos(phi2), np.sin(theta2)*np.sin(phi2), np.cos(theta2)]
+    rhat1 = np.array([np.sin(theta1)*np.cos(phi1),
+                    np.sin(theta1)*np.sin(phi1), 
+                    np.cos(theta1)]).flatten()
+    rhat2 = np.array([np.sin(theta2)*np.cos(phi2), 
+                    np.sin(theta2)*np.sin(phi2), 
+                    np.cos(theta2)]).flatten()
 
     cosMu = np.dot(rhat1, rhat2)
 
@@ -1878,7 +1882,7 @@ def python_block_shermor_2D(Z, Nvec, Jvec, Uinds):
     ni = 1.0 / Nvec
     zNz = np.dot(Z.T*ni, Z)
 
-    if len(Jvec) > 1:
+    if len(np.array([Jvec])) > 1:
         for cc, jv in enumerate(Jvec):
             if jv > 0.0:
                 Zblock = Z[Uinds[cc,0]:Uinds[cc,1], :]
@@ -1904,7 +1908,7 @@ def python_block_shermor_0D(r, Nvec, Jvec, Uinds):
     
     ni = 1/Nvec
     Nx = r/Nvec
-    if len(Jvec) > 1:
+    if len(np.array([Jvec])) > 1:
         for cc, jv in enumerate(Jvec):
             if jv > 0.0:
                 rblock = r[Uinds[cc,0]:Uinds[cc,1]]
@@ -1935,8 +1939,8 @@ def python_block_shermor_1D(r, Nvec, Jvec, Uinds):
     ni = 1.0 / Nvec
     Jldet = np.einsum('i->', np.log(Nvec))
     xNx = np.dot(r, r * ni)
-    
-    if len(Jvec) > 1:
+   
+    if len(np.array([Jvec])) > 1:
         for cc, jv in enumerate(Jvec):
             if jv > 0.0:
                 rblock = r[Uinds[cc,0]:Uinds[cc,1]]
