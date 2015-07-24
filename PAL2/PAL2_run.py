@@ -622,9 +622,11 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         print 'Running model with GWB correlations'
     if args.incJitterEquad and np.any([args.mark6, args.Tmatrix, args.mark10]):
         loglkwargs['incJitter'] = True
-    if np.any([args.fixNoise, args.noVaryNoise]) and not args.fixWhite:
+    if np.any([args.fixNoise, args.noVaryNoise]) and not \
+       args.fixWhite and np.any(args.mark9, args.mark6):
         loglkwargs['varyNoise'] = False
-    elif np.any([args.fixNoise, args.noVaryNoise]) and args.fixWhite:
+    elif np.any([args.fixNoise, args.noVaryNoise]) and args.fixWhite and \
+            np.any(args.mark9, args.mark6):
         loglkwargs['varyNoise'] = True
         loglkwargs['fixWhite'] = True
     
@@ -703,7 +705,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         ##### red noise #####
         if args.incRed:
             if args.redModel == 'powerlaw':
-                ids = model.get_parameter_indices('powerlaw', corr='single', split=False)
+                ids = model.get_parameter_indices('powerlaw', corr='single', split=True)
                 [ind.append(id) for id in ids]
             if args.redModel == 'spectrum':
                 ids = model.get_parameter_indices('spectrum', corr='single', split=False)
@@ -714,13 +716,13 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         
         ##### red band noise #####
         if args.incRedBand:
-            ids = model.get_parameter_indices('powerlaw_band', corr='single', split=False)
+            ids = model.get_parameter_indices('powerlaw_band', corr='single', split=True)
             [ind.append(id) for id in ids]
         
         ##### DM noise #####
         if args.incDM:
             if args.dmModel == 'powerlaw':
-                ids = model.get_parameter_indices('dmpowerlaw', corr='single', split=False)
+                ids = model.get_parameter_indices('dmpowerlaw', corr='single', split=True)
                 [ind.append(id) for id in ids]
             if args.dmModel == 'spectrum':
                 ids = model.get_parameter_indices('dmspectrum', corr='single', split=False)
@@ -745,6 +747,15 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
                 [ind.append(id) for id in ids]
             if args.gwbModel == 'turnover':
                 ids = model.get_parameter_indices('turnover', corr='gr', split=False)
+                [ind.append(id) for id in ids]
+        
+        ##### Anisotropic GWB #####
+        if args.incGWBAni:
+            if args.gwbModel == 'powerlaw':
+                ids = model.get_parameter_indices('powerlaw', corr='gr_sph', split=False)
+                [ind.append(id) for id in ids]
+            if args.gwbModel == 'spectrum':
+                ids = model.get_parameter_indices('spectrum', corr='gr_sph', split=False)
                 [ind.append(id) for id in ids]
 
         
