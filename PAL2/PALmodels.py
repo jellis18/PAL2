@@ -7517,10 +7517,10 @@ class PTAmodels(object):
         jj = np.random.randint(0, npars)
             
         if sig['bvary'][jj]:
-            if sig['prior'][jj] in ['uniform', 'cyclic']:
+            if sig['prior'][jj] in ['uniform', 'cyclic', 'log']:
                 q[parind+jj] = np.random.uniform(
                     self.pmin[parind+jj], self.pmax[parind+jj])
-            elif sig['prior'][jj] in ['log-linear', 'log']:
+            elif sig['prior'][jj] in ['log-linear']:
                 q[parind+jj] = np.log10(np.random.uniform(
                     10**self.pmin[parind+jj], 10**self.pmax[parind+jj]))
                 qxy += np.log(10 ** sparameters[jj] / 10 ** q[parind+jj])
