@@ -233,7 +233,7 @@ def getMeanAndStd(samples, weights=None, bins=50):
     
 def makesubplot1d(ax, samples, weights=None, interpolate=False, smooth=True,\
                   label=None, bins=30, range=None, color='k', 
-                  orientation='vertical', **kwargs):
+                  orientation='vertical', logbin=False, **kwargs):
     """ 
     Make histogram of samples
 
@@ -251,7 +251,12 @@ def makesubplot1d(ax, samples, weights=None, interpolate=False, smooth=True,\
         hist = filter.gaussian_filter(hist, sigma=0.75)
         if interpolate:
             f = interp.interp1d(xedges, hist, kind='cubic')
-            xedges = np.linspace(xedges.min(), xedges.max(), 10000)
+            if logbin:
+                xedges = np.logspace(np.log10(xedges.min()), 
+                                     np.log10(xedges.max()), 
+                                     10000)
+            else:
+                xedges = np.linspace(xedges.min(), xedges.max(), 10000)
             hist = f(xedges)
 
     # make plot

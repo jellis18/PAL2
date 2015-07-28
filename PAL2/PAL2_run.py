@@ -623,10 +623,10 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
     if args.incJitterEquad and np.any([args.mark6, args.Tmatrix, args.mark10]):
         loglkwargs['incJitter'] = True
     if np.any([args.fixNoise, args.noVaryNoise]) and not \
-       args.fixWhite and np.any(args.mark9, args.mark6):
+       args.fixWhite and np.any([args.mark9, args.mark6]):
         loglkwargs['varyNoise'] = False
     elif np.any([args.fixNoise, args.noVaryNoise]) and args.fixWhite and \
-            np.any(args.mark9, args.mark6):
+            np.any([args.mark9, args.mark6]):
         loglkwargs['varyNoise'] = True
         loglkwargs['fixWhite'] = True
     
@@ -918,24 +918,24 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         if not args.noVaryEfac and not args.noVaryNoise and not args.fixWhite:
             sampler.addProposalToCycle(model.drawFromEfacPrior, 2)
 
-        if args.incCW and MPIrank == 0 and not args.zerologlike:
+        #if args.incCW and MPIrank == 0 and not args.zerologlike:
 
-            # call likelihood once to set noise
-            loglike(p0, **loglkwargs)
-            f = np.logspace(-9, -7, 1000)
-            fpstat = np.zeros(len(f))
-            for ii in range(1000):
-                fpstat[ii] = model.fpStat(f[ii])
+        #    # call likelihood once to set noise
+        #    loglike(p0, **loglkwargs)
+        #    f = np.logspace(-9, -7, 1000)
+        #    fpstat = np.zeros(len(f))
+        #    for ii in range(1000):
+        #        fpstat[ii] = model.fpStat(f[ii])
 
-            ind = np.argmax(fpstat)
-            print 'Starting MCMC CW frequency at {0}'.format(f[ind])
-            lfstart = np.log10(f[ind])
+        #    ind = np.argmax(fpstat)
+        #    print 'Starting MCMC CW frequency at {0}'.format(f[ind])
+        #    lfstart = np.log10(f[ind])
 
-            for sig in fullmodel['signals']:
-                if sig['stype'] == 'cw':
+        #    for sig in fullmodel['signals']:
+        #        if sig['stype'] == 'cw':
 
-                    # start frequency
-                    sig['pstart'][4] = lfstart
+        #            # start frequency
+        #            sig['pstart'][4] = lfstart
 
         # run MCMC
         print 'Engage!'
