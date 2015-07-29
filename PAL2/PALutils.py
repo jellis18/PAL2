@@ -1908,7 +1908,7 @@ def python_block_shermor_0D(r, Nvec, Jvec, Uinds):
     
     ni = 1/Nvec
     Nx = r/Nvec
-    if len(np.array([Jvec])) > 1:
+    if len(np.atleast_1d(Jvec)) > 1:
         for cc, jv in enumerate(Jvec):
             if jv > 0.0:
                 rblock = r[Uinds[cc,0]:Uinds[cc,1]]
@@ -1939,8 +1939,8 @@ def python_block_shermor_1D(r, Nvec, Jvec, Uinds):
     ni = 1.0 / Nvec
     Jldet = np.einsum('i->', np.log(Nvec))
     xNx = np.dot(r, r * ni)
-   
-    if len(np.array([Jvec])) > 1:
+    
+    if len(np.atleast_1d(Jvec)) > 1:
         for cc, jv in enumerate(Jvec):
             if jv > 0.0:
                 rblock = r[Uinds[cc,0]:Uinds[cc,1]]

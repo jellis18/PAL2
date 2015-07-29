@@ -470,6 +470,48 @@ class PTAmodels(object):
                 })
                 signals.append(newsignal)
             
+            if incDM:
+                if dmModel == 'spectrum':
+                    #nfreqs = ndmfreqs
+                    bvary = [True] * ndmfreqs
+                    pmin = [-14.0] * ndmfreqs
+                    pmax = [-3.0] * ndmfreqs
+                    pstart = [-7.0] * ndmfreqs
+                    pwidth = [0.1] * ndmfreqs
+                    prior = [DMSpectrumPrior] * nfreqs
+                    DMModel = 'dmspectrum'
+                elif dmModel == 'powerlaw':
+                    bvary = [True, True, False]
+                    pmin = [-20.0, 0.02, 1.0e-11]
+                    pmax = [-6.5, 6.98, 3.0e-9]
+                    pstart = [-13.0, 2.01, 1.0e-10]
+                    pwidth = [0.1, 0.1, 5.0e-11]
+                    prior = [DMAmpPrior, DMSiPrior, 'log']
+                    DMModel = 'dmpowerlaw'
+                elif dmModel == 'se':
+                    bvary = [True, True]
+                    pmin = [-12.0, 14.0]
+                    pmax = [-5.0, (p.toas.max() - p.toas.min()) / 2]
+                    pstart = [-7.0, 36.0]
+                    pwidth = [0.5, 10.0]
+                    prior = ['log', 'linear']
+                    DMModel = 'dmse'
+
+                newsignal = OrderedDict({
+                    "stype": DMModel,
+                    "corr": "single",
+                    "pulsarind": ii,
+                    "flagname": "pulsarname",
+                    "flagvalue": p.name,
+                    "bvary": bvary,
+                    "pmin": pmin,
+                    "pmax": pmax,
+                    "pwidth": pwidth,
+                    "pstart": pstart,
+                    "prior": prior
+                })
+                signals.append(newsignal)
+            
             if incRedExt:
                 if redExtModel == 'spectrum':
                     nf = redExtNf
@@ -507,84 +549,6 @@ class PTAmodels(object):
                 })
                 signals.append(newsignal)
         
-            if incWavelet:
-                Tspan = (p.toas.max() - p.toas.min())
-                ntoa = int(24 * Tspan / 3.16e7)
-                for ww in range(nWavelets):
-                    if waveletModel == 'snr':
-                        bvary = [True] * 5
-                        pmin = [0, np.log10(2/Tspan), p.toas.min()/86400, 2, 0]
-                        pmax = [50, np.log10(ntoa/4/Tspan), p.toas.max()/86400, 40, 2*np.pi]
-                        pstart = [6, -7.6, (p.toas.max() + p.toas.min())/2/86400,
-                                 30, np.pi]
-                        pwidth = [0.1, 0.1, 10, 2, 0.1]
-                        prior = ['uniform', 'log', 'uniform', 'uniform', 'cyclic']
-                        parids = ['nwaveSNR_'+str(ww), 'nwaveFreq_'+str(ww),
-                                 'nwaveT0_'+str(ww), 'nwaveQ_'+str(ww),
-                                 'nwavePhase_'+str(ww)]
-                        mu = [None] * 5
-                        sigma = [None] * 5
-                    else:
-                        bvary = [True] * 5
-                        pmin = [-8, np.log10(2/Tspan), p.toas.min()/86400, 2, 0]
-                        pmax = [-5, np.log10(ntoa/4/Tspan), p.toas.max()/86400, 40, 2*np.pi]
-                        pstart = [-7, -7.6, (p.toas.max() + p.toas.min())/2/86400,
-                                 30, np.pi]
-                        pwidth = [0.1, 0.1, 10, 2, 0.1]
-                        prior = ['log', 'log', 'uniform', 'uniform', 'cyclic']
-                        parids = ['nwaveAmp_'+str(ww), 'nwaveFreq_'+str(ww),
-                                 'nwaveT0_'+str(ww), 'nwaveQ_'+str(ww),
-                                 'nwavePhase_'+str(ww)]
-                        mu = [None] * 5
-                        sigma = [None] * 5
-
-                    newsignal = OrderedDict({
-                        "stype": "wavelet",
-                        "model": waveletModel,
-                        "corr": "single",
-                        "pulsarind": ii,
-                        "mu": mu,
-                        "sigma": sigma,
-                        "bvary": bvary,
-                        "pmin": pmin,
-                        "pmax": pmax,
-                        "pwidth": pwidth,
-                        "pstart": pstart,
-                        "parid": parids,
-                        "prior": prior,
-                    })
-                    signals.append(newsignal)
-
-            if incChromaticWavelet:
-                for ww in range(nChromaticWavelets):
-                    bvary = [True] * 6
-                    pmin = [-5, -10, -8.5, p.toas.min()/86400, 2, 0]
-                    pmax = [5, -4, -6, p.toas.max()/86400, 100, 2*np.pi]
-                    pstart = [2, -7, -8, (p.toas.max() + p.toas.min())/2/86400,
-                             30, np.pi]
-                    pwidth = [0.1, 0.1, 0.1, 10, 2, 0.1]
-                    prior = ['uniform, ''log', 'log', 'uniform', 'uniform', 'cyclic']
-                    parids = ['cwaveBeta_'+str(ww), 'cwaveAmp_'+str(ww),
-                              'cwaveFreq_'+str(ww), 'cwaveT0_'+str(ww),
-                              'cwaveQ_'+str(ww), 'cwavePhase_'+str(ww)]
-                    mu = [None] * 6
-                    sigma = [None] * 6
-
-                    newsignal = OrderedDict({
-                        "stype": "chrowavelet",
-                        "corr": "single",
-                        "pulsarind": ii,
-                        "mu": mu,
-                        "sigma": sigma,
-                        "bvary": bvary,
-                        "pmin": pmin,
-                        "pmax": pmax,
-                        "pwidth": pwidth,
-                        "pstart": pstart,
-                        "parid": parids,
-                        "prior": prior,
-                    })
-                    signals.append(newsignal)
             
             if incEnvelope:
                 if envelopeModel == 'spectrum':
@@ -673,47 +637,6 @@ class PTAmodels(object):
                         })
                         signals.append(newsignal)
 
-            if incDM:
-                if dmModel == 'spectrum':
-                    #nfreqs = ndmfreqs
-                    bvary = [True] * ndmfreqs
-                    pmin = [-14.0] * ndmfreqs
-                    pmax = [-3.0] * ndmfreqs
-                    pstart = [-7.0] * ndmfreqs
-                    pwidth = [0.1] * ndmfreqs
-                    prior = [DMSpectrumPrior] * nfreqs
-                    DMModel = 'dmspectrum'
-                elif dmModel == 'powerlaw':
-                    bvary = [True, True, False]
-                    pmin = [-20.0, 0.02, 1.0e-11]
-                    pmax = [-6.5, 6.98, 3.0e-9]
-                    pstart = [-13.0, 2.01, 1.0e-10]
-                    pwidth = [0.1, 0.1, 5.0e-11]
-                    prior = [DMAmpPrior, DMSiPrior, 'log']
-                    DMModel = 'dmpowerlaw'
-                elif dmModel == 'se':
-                    bvary = [True, True]
-                    pmin = [-12.0, 14.0]
-                    pmax = [-5.0, (p.toas.max() - p.toas.min()) / 2]
-                    pstart = [-7.0, 36.0]
-                    pwidth = [0.5, 10.0]
-                    prior = ['log', 'linear']
-                    DMModel = 'dmse'
-
-                newsignal = OrderedDict({
-                    "stype": DMModel,
-                    "corr": "single",
-                    "pulsarind": ii,
-                    "flagname": "pulsarname",
-                    "flagvalue": p.name,
-                    "bvary": bvary,
-                    "pmin": pmin,
-                    "pmax": pmax,
-                    "pwidth": pwidth,
-                    "pstart": pstart,
-                    "prior": prior
-                })
-                signals.append(newsignal)
 
             if incDMBand:
                 lbands = [0, 1000, 2000]
@@ -1401,6 +1324,85 @@ class PTAmodels(object):
                         "pstart": pstart,
                         "prior": prior,
                         "parid": parids
+                    })
+                    signals.append(newsignal)
+            
+            if incWavelet:
+                Tspan = (p.toas.max() - p.toas.min())
+                ntoa = int(24 * Tspan / 3.16e7)
+                for ww in range(nWavelets):
+                    if waveletModel == 'snr':
+                        bvary = [True] * 5
+                        pmin = [0, np.log10(2/Tspan), p.toas.min()/86400, 0.5, 0]
+                        pmax = [50, np.log10(ntoa/4/Tspan), p.toas.max()/86400, 40, 2*np.pi]
+                        pstart = [6, -7.6, (p.toas.max() + p.toas.min())/2/86400,
+                                 30, np.pi]
+                        pwidth = [0.1, 0.1, 10, 2, 0.1]
+                        prior = ['uniform', 'log', 'uniform', 'uniform', 'cyclic']
+                        parids = ['nwaveSNR_'+str(ww), 'nwaveFreq_'+str(ww),
+                                 'nwaveT0_'+str(ww), 'nwaveQ_'+str(ww),
+                                 'nwavePhase_'+str(ww)]
+                        mu = [None] * 5
+                        sigma = [None] * 5
+                    else:
+                        bvary = [True] * 5
+                        pmin = [-8, np.log10(2/Tspan), p.toas.min()/86400, 0.5, 0]
+                        pmax = [-5, np.log10(ntoa/4/Tspan), p.toas.max()/86400, 40, 2*np.pi]
+                        pstart = [-7, -7.6, (p.toas.max() + p.toas.min())/2/86400,
+                                 30, np.pi]
+                        pwidth = [0.1, 0.1, 10, 2, 0.1]
+                        prior = ['log', 'log', 'uniform', 'uniform', 'cyclic']
+                        parids = ['nwaveAmp_'+str(ww), 'nwaveFreq_'+str(ww),
+                                 'nwaveT0_'+str(ww), 'nwaveQ_'+str(ww),
+                                 'nwavePhase_'+str(ww)]
+                        mu = [None] * 5
+                        sigma = [None] * 5
+
+                    newsignal = OrderedDict({
+                        "stype": "wavelet",
+                        "model": waveletModel,
+                        "corr": "single",
+                        "pulsarind": ii,
+                        "mu": mu,
+                        "sigma": sigma,
+                        "bvary": bvary,
+                        "pmin": pmin,
+                        "pmax": pmax,
+                        "pwidth": pwidth,
+                        "pstart": pstart,
+                        "parid": parids,
+                        "prior": prior,
+                    })
+                    signals.append(newsignal)
+
+            if incChromaticWavelet:
+                for ww in range(nChromaticWavelets):
+                    bvary = [True] * 6
+                    pmin = [-5, -10, -8.5, p.toas.min()/86400, 0.5, 0]
+                    pmax = [5, -4, -6, p.toas.max()/86400, 100, 2*np.pi]
+                    pstart = [2, -7, -8, (p.toas.max() + p.toas.min())/2/86400,
+                             30, np.pi]
+                    pwidth = [0.1, 0.1, 0.1, 10, 2, 0.1]
+                    prior = ['uniform, ''log', 'log', 'uniform', 'uniform', 'cyclic']
+                    parids = ['cwaveBeta_'+str(ww), 'cwaveAmp_'+str(ww),
+                              'cwaveFreq_'+str(ww), 'cwaveT0_'+str(ww),
+                              'cwaveQ_'+str(ww), 'cwavePhase_'+str(ww)]
+                    mu = [None] * 6
+                    sigma = [None] * 6
+
+                    newsignal = OrderedDict({
+                        "stype": "chrowavelet",
+                        "corr": "single",
+                        "pulsarind": ii,
+                        "mu": mu,
+                        "sigma": sigma,
+                        "bvary": bvary,
+                        "pmin": pmin,
+                        "pmax": pmax,
+                        "pwidth": pwidth,
+                        "pstart": pstart,
+                        "parid": parids,
+                        "prior": prior,
                     })
                     signals.append(newsignal)
 
@@ -3496,12 +3498,16 @@ class PTAmodels(object):
 
                 # create interpolation function based on control points
                 freqs = self.psr[psrind].Ffreqs[::2]
-                ifunc = interp1d(np.log10(freqs[selection[parind:parind+npars]]),
-                                 control, kind='linear')
+                ifunc = interp1d(freqs[selection[parind:parind+npars]],
+                                 10**control, kind='linear')
+                #ifunc = interp1d(np.log10(freqs[selection[parind:parind+npars]]),
+                #                 control, kind='linear')
                 
                 # get psd at all frequencies
-                psd = ifunc(np.log10(freqs))
-                pcdoubled = np.repeat(psd, 2)
+                #psd = ifunc(np.log10(freqs))
+                psd = ifunc(freqs)
+                #pcdoubled = np.repeat(psd, 2)
+                pcdoubled = np.repeat(np.log10(psd), 2)
                     
                 # fill in kappa
                 self.psr[psrind].kappa = pcdoubled
@@ -6270,7 +6276,8 @@ class PTAmodels(object):
 
     """
 
-    def reconstructML_old(self, parameters, incCorrelations=False, incJitter=False):
+    def reconstructML_old(self, parameters, incCorrelations=False, incJitter=False,
+                         selection=None):
 
         loglike = 0
 
@@ -6279,11 +6286,11 @@ class PTAmodels(object):
 
         # set red noise, DM and GW parameters
         self.constructPhiMatrix(parameters, incCorrelations=incCorrelations,
-                                incTM=True, incJitter=incJitter)
+                                incTM=True, incJitter=incJitter, selection=selection)
 
         # set deterministic sources
         if self.haveDetSources:
-            self.updateDetSources(parameters)
+            self.updateDetSources(parameters, selection=selection)
 
         self.updateTmatrix(parameters)
 
@@ -8564,14 +8571,16 @@ class PTAmodels(object):
 
         return eps, cov, chisq
 
-    def create_realization(self, pars, incJitter=True, signal='red'):
+    def create_realization(self, pars, incJitter=True, signal='red',
+                          selection=None):
         """
         Very simple function to return ML realization
         of linear signal.
 
         """
 
-        ml_vals, ml_cov = self.reconstructML_old(pars, incJitter=incJitter)
+        ml_vals, ml_cov = self.reconstructML_old(pars, incJitter=incJitter, 
+                                                 selection=selection)
         mlreal, mlerr = [], []
         for ct, p in enumerate(self.psr):
 
