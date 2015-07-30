@@ -310,9 +310,12 @@ def createResiduals(psr, gwtheta, gwphi, mc, dist, fgw, phase0, psi, inc, pdist=
 
     return res
 
-def constuct_wavelet(t, A, t0, f0, Q, phi0):
+def construct_wavelet(t, A, t0, f0, Q, phi0, idx=None):
 
     wave = np.zeros(len(t))
+
+    if idx is None:
+        idx = np.array([1]*len(t), dtype=np.bool)
 
     # width of gaussian
     tau = Q / (2*np.pi*f0)
@@ -322,6 +325,9 @@ def constuct_wavelet(t, A, t0, f0, Q, phi0):
 
     wave[tind] = A * np.exp(-(2*np.pi*f0*(t[tind]-t0))**2/Q**2) * \
             np.cos(2*np.pi*f0*(t[tind]-t0)+phi0)
+
+    # fileter
+    wave[~idx] = 0
     
     return wave
 

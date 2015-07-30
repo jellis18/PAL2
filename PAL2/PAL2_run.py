@@ -187,6 +187,13 @@ parser.add_argument('--nWavelets', dest='nWavelets', action='store', type=int, d
 parser.add_argument('--waveletModel', dest='waveletModel', action='store', type=str, \
                     default='standard', help='Wavelet model')
 
+parser.add_argument('--incSysWavelet', dest='incSysWavelet', action='store_true', \
+                    default=False, help='Include system wavelet signal in run')
+parser.add_argument('--nSysWavelets', dest='nSysWavelets', action='store', type=int, default=1,
+                   help='Number of system wavelets(default=1)')
+parser.add_argument('--sysWaveletModel', dest='sysWaveletModel', action='store', type=str, \
+                    default='standard', help='system Wavelet model')
+
 parser.add_argument('--incChromaticWavelet', dest='incChromaticWavelet', action='store_true', \
                     default=False, help='Include chromatic noise wavelet signal in run')
 parser.add_argument('--nChromaticWavelets', dest='nChromaticWavelets', action='store', 
@@ -360,6 +367,8 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     incGWWavelet=args.incGWwavelet, nGWWavelets=args.nGWwavelets,
                     incWavelet=args.incWavelet, nWavelets=args.nWavelets,
                     waveletModel=args.waveletModel,
+                    incSysWavelet=args.incSysWavelet, nSysWavelets=args.nSysWavelets,
+                    sysWaveletModel=args.sysWaveletModel,
                     incChromaticWavelet=args.incChromaticWavelet, 
                     nChromaticWavelets=args.nChromaticWavelets,
                     nscatfreqs=args.nfscat,
@@ -570,6 +579,7 @@ for pname in par_names:
     else:
         par_out.append(pname)
 
+print '{0} Free parameters'.format(len(par_out))
 print 'Search Parameters: {0}'.format(par_out)        
     
 # output parameter names
@@ -735,6 +745,10 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         
         if args.incChromaticWavelet:
             ids = model.get_parameter_indices('chrowavelet', corr='single', split=True)
+            [ind.append(id) for id in ids]
+        
+        if args.incSysWavelet:
+            ids = model.get_parameter_indices('syswavelet', corr='single', split=True)
             [ind.append(id) for id in ids]
         
         ##### GWB #####
