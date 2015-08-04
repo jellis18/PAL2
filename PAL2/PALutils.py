@@ -34,10 +34,11 @@ def compute_snr_mark6(x, Nvec, Tmat, cf):
 
     return np.sqrt(ret) 
 
-def compute_snr_mark9(x, Nvec, Tmat, Qamp, Uinds, cf):
+def compute_snr_mark9(x, Nvec, Tmat, Qamp, Uinds, Sigma):
     """
     Compute optimal SNR for mark9
     """
+
 
     # white noise term
     Nx = python_block_shermor_0D(x, Nvec, Qamp, Uinds)
@@ -1888,7 +1889,7 @@ def python_block_shermor_2D(Z, Nvec, Jvec, Uinds):
     ni = 1.0 / Nvec
     zNz = np.dot(Z.T*ni, Z)
 
-    if len(np.array([Jvec])) > 1:
+    if len(np.atleast_1d(Jvec)) > 1:
         for cc, jv in enumerate(Jvec):
             if jv > 0.0:
                 Zblock = Z[Uinds[cc,0]:Uinds[cc,1], :]

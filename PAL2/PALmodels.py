@@ -1335,7 +1335,7 @@ class PTAmodels(object):
                     if waveletModel == 'snr':
                         bvary = [True] * 5
                         pmin = [0, np.log10(3/Tspan), p.toas.min()/86400, 0.5, 0]
-                        pmax = [50, np.log10(ntoa/4/Tspan), p.toas.max()/86400, 40, 2*np.pi]
+                        pmax = [100, np.log10(ntoa/4/Tspan), p.toas.max()/86400, 40, 2*np.pi]
                         pstart = [6, -7.6, (p.toas.max() + p.toas.min())/2/86400,
                                  30, np.pi]
                         pwidth = [0.1, 0.1, 10, 2, 0.1]
@@ -4405,20 +4405,33 @@ class PTAmodels(object):
                                                    f0, Q, phase0)
 
                     # amplitude from SNR
+                    #TODO: this needs to be handled better
                     if self.likfunc == 'mark6':
                         try:
-                            #snr = PALutils.compute_snr_mark6(
-                            #    wv, psr.Nvec, psr.Ttmat, self.cf[psrind])
                             snr = np.sqrt(np.dot(wv/psr.Nvec, wv))
                         except ValueError:
                             snr = np.sqrt(np.dot(wv/psr.Nvec, wv))
                     elif self.likfunc == 'mark9':
                         try:
-                            #snr = PALutils.compute_snr_mark9(
-                            #    wv, psr.Nvec,psr.Tmat, psr.Qamp,
-                            #    psr.Uinds, self.cf[psrind])
+                            #ntmpars = psr.Mmat_reduced.shape[1]
+                            #Sigma = self.Sigma[ntmpars:, ntmpars:]
+                            #Fmat = psr.Ttmat[:,ntmpars:]
+                            ##psd = self.Phi[ntmpars:]
+                            ##Jvec = psr.Qamp + np.sum(psd)
+                            #Nr = PALutils.python_block_shermor_0D(
+                            #    wv, psr.Nvec, psr.Qamp, psr.Uinds)
+                            ##Nr2 = PALutils.python_block_shermor_0D(
+                            ##    wv, psr.Nvec, Jvec, psr.Uinds)
+                            #d = np.dot(Fmat.T, Nr)
+                            #rNr = np.dot(wv, Nr)
+                            #cf = sl.cho_factor(Sigma)
+                            #Sigmad = sl.cho_solve(cf, d)
+                            #snr = np.sqrt(rNr - np.dot(d, Sigmad))
+                            ##snr2 = np.sqrt(np.dot(wv, Nr2))
                             snr = np.sqrt(np.dot(wv/psr.Nvec, wv))
-                        except ValueError:
+                            #print snr/snr2
+                        except (ValueError, np.linalg.LinAlgError):
+                            print 'Error'
                             snr = np.sqrt(np.dot(wv/psr.Nvec, wv))
 
                     else:
@@ -4447,9 +4460,30 @@ class PTAmodels(object):
                 if sig['model'] == 'snr':
                     wv = PALutils.construct_wavelet(psr.toas, 1, t0,
                                                    f0, Q, phase0, idx=idx)
+                    
+                    if self.likfunc == 'mark6':
+                        try:
+                            snr = np.sqrt(np.dot(wv/psr.Nvec, wv))
+                        except ValueError:
+                            snr = np.sqrt(np.dot(wv/psr.Nvec, wv))
+                    elif self.likfunc == 'mark9':
+                        try:
+                            psd = self.Phi[psr.Mmat_reduced.shape[1]:]
+                            Jvec = psr.Qamp + np.sum(psd)
+                            Nr = PALutils.python_block_shermor_0D(
+                                wv, psr.Nvec, Jvec, psr.Uinds)
+                            snr = np.sqrt(np.dot(wv, Nr))
+                            #snr2 = np.sqrt(np.dot(wv/psr.Nvec, wv))
+                            #print snr/snr2
+                        except ValueError:
+                            print 'Error'
+                            snr = np.sqrt(np.dot(wv/psr.Nvec, wv))
 
-                    # amplitude from SNR
-                    snr = np.sqrt(np.dot(wv/psr.Nvec, wv))
+                    else:
+                        snr = np.sqrt(np.dot(wv/psr.Nvec, wv))
+
+                    ## amplitude from SNR
+                    #snr = np.sqrt(np.dot(wv/psr.Nvec, wv))
                     A = sparameters[0] / snr
 
                 else:
