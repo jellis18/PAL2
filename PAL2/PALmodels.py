@@ -4468,12 +4468,12 @@ class PTAmodels(object):
                             snr = np.sqrt(np.dot(wv/psr.Nvec, wv))
                     elif self.likfunc == 'mark9':
                         try:
-                            psd = self.Phi[psr.Mmat_reduced.shape[1]:]
-                            Jvec = psr.Qamp + np.sum(psd)
-                            Nr = PALutils.python_block_shermor_0D(
-                                wv, psr.Nvec, Jvec, psr.Uinds)
-                            snr = np.sqrt(np.dot(wv, Nr))
-                            #snr2 = np.sqrt(np.dot(wv/psr.Nvec, wv))
+                            #psd = self.Phi[psr.Mmat_reduced.shape[1]:]
+                            #Jvec = psr.Qamp + np.sum(psd)
+                            #Nr = PALutils.python_block_shermor_0D(
+                            #    wv, psr.Nvec, Jvec, psr.Uinds)
+                            #snr = np.sqrt(np.dot(wv, Nr))
+                            snr = np.sqrt(np.dot(wv/psr.Nvec, wv))
                             #print snr/snr2
                         except ValueError:
                             print 'Error'
