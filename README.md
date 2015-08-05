@@ -38,9 +38,11 @@ You will need to have [tempo2](http://www.atnf.csiro.au/research/pulsar/tempo2/i
 
 The best way to install PAL2 is with a [python virutal environment](https://virtualenvwrapper.readthedocs.org/en/latest/). However for some clusters this may not be appropriate and you can follow the instructions below but append a --user flag on all of the ``pip`` commands. Once you have the virualenv activated first do:
 
-```pip install numpy
+```
+pip install numpy
 pip install cython
-pip install -r requirements.txt```
+pip install -r requirements.txt
+```
 
 This will install most of the dependencies except [libstempo](https://github.com/vallis/libstempo). The libstempo package can be installed with
 
