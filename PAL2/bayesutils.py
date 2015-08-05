@@ -3,7 +3,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.interpolate as interp
 import scipy.ndimage.filters as filter
-import healpy as hp
+try:
+    import healpy as hp
+except ImportError:
+    hp = None
 from PAL2 import plot
 import matplotlib.mlab as ml
 from matplotlib.ticker import FormatStrFormatter, LinearLocator, NullFormatter, NullLocator
