@@ -716,13 +716,13 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         if args.incRed:
             if args.redModel == 'powerlaw':
                 ids = model.get_parameter_indices('powerlaw', corr='single', split=True)
-                [ind.append(id) for id in ids]
+                [ind.append(id) for id in ids if len(id) > 0]
             if args.redModel == 'spectrum':
                 ids = model.get_parameter_indices('spectrum', corr='single', split=False)
-                [ind.append(id) for id in ids]
+                [ind.append(id) for id in ids if len(id) > 0]
             if args.redModel == 'interpolate':
                 ids = model.get_parameter_indices('interpolate', corr='single', split=False)
-                [ind.append(id) for id in ids]
+                [ind.append(id) for id in ids if len(id) > 0]
         
         ##### red band noise #####
         if args.incRedBand:

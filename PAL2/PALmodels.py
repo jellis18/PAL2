@@ -450,7 +450,7 @@ class PTAmodels(object):
                 if noiseModel == 'interpolate':
                     #nfreqs = numNoiseFreqs[ii]
                     bvary = [True] * nfreqs
-                    pmin = [-18.0] * nfreqs
+                    pmin = [-28.0] * nfreqs
                     pmax = [-10] * nfreqs
                     pstart = [-18.0] * nfreqs
                     pwidth = [0.1] * nfreqs
@@ -4417,19 +4417,20 @@ class PTAmodels(object):
                             #Sigma = self.Sigma[ntmpars:, ntmpars:]
                             #Fmat = psr.Ttmat[:,ntmpars:]
                             ##psd = self.Phi[ntmpars:]
-                            ##Jvec = psr.Qamp + np.sum(psd)
+                            #Jvec = psr.Qamp + np.sum(psd)
                             #Nr = PALutils.python_block_shermor_0D(
                             #    wv, psr.Nvec, psr.Qamp, psr.Uinds)
                             ##Nr2 = PALutils.python_block_shermor_0D(
                             ##    wv, psr.Nvec, Jvec, psr.Uinds)
                             #d = np.dot(Fmat.T, Nr)
-                            #rNr = np.dot(wv, Nr)
+                            #snr = np.sqrt(np.dot(wv, Nr))
                             #cf = sl.cho_factor(Sigma)
                             #Sigmad = sl.cho_solve(cf, d)
                             #snr = np.sqrt(rNr - np.dot(d, Sigmad))
                             ##snr2 = np.sqrt(np.dot(wv, Nr2))
                             snr = np.sqrt(np.dot(wv/psr.Nvec, wv))
-                            #print snr/snr2
+                            #if np.random.randn() < 0.001:
+                            #    print snr/snr2
                         except (ValueError, np.linalg.LinAlgError):
                             print 'Error'
                             snr = np.sqrt(np.dot(wv/psr.Nvec, wv))
@@ -7732,7 +7733,7 @@ class PTAmodels(object):
                 m = sig['mu'][jj]
                 s = sig['sigma'][jj]
                 q[parind+jj] = m + np.random.randn() * s
-                qxy -= (m - sarameters[jj]) ** 2 / 2 / \
+                qxy -= (m - sparameters[jj]) ** 2 / 2 / \
                     s ** 2 - (m - q[parind+jj]) ** 2 / 2 / s ** 2
 
         return q, qxy
