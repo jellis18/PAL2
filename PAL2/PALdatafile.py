@@ -214,7 +214,7 @@ class DataFile(object):
                         does not delete the auxiliary fields. New requires the
                         pulsar not to exist, and throws an exception otherwise.
     """
-    def addTempoPulsar(self, parfile, timfile, iterations=1, mode='replace', sigma=100):
+    def addTempoPulsar(self, parfile, timfile, iterations=1, mode='replace'):
         # Check whether the two files exist
         if not os.path.isfile(parfile) or not os.path.isfile(timfile):
             raise IOError, "Cannot find parfile (%s) or timfile (%s)!" % (parfile, timfile)
@@ -307,8 +307,8 @@ class DataFile(object):
                 pdist, pdistErr = np.double(vals[1]), np.double(vals[2])
                 found = True
         if not(found):
-            print 'WARNING: Could not find pulsar distance for PSR {0}.', \
-                    'Setting value to 1 with 20% uncertainty'.format(t2pulsar.name)
+            print ('WARNING: Could not find pulsar distance for PSR {0}. '
+                   'Setting value to 1 with 20% uncertainty'.format(t2pulsar.name))
             pdist, pdistErr = 1.0, 0.2
 
         # close file
@@ -366,10 +366,10 @@ class DataFile(object):
         if not 'bw' in flagGroup:
             nobs = len(t2pulsar.toas())
             if 'bw' in flagGroup:
-                print 'Including band width flags for PSR {0}'.format(t2pulsar.name)
+                #print 'Including band width flags for PSR {0}'.format(t2pulsar.name)
                 bw = flagGroup['bw']
             else:
-                print 'No bandwidth flags for PSR {0}'.format(t2pulsar.name)
+                #print 'No bandwidth flags for PSR {0}'.format(t2pulsar.name)
                 bw = np.ones(nobs) * 16
 
             self.writeData(flagGroup, "bw", bw, overwrite=overwrite)

@@ -681,9 +681,9 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
 
             return ret
 
-        maxpars, maxf = pyswarm.pso(fun, model.pmin, model.pmax, swarmsize=300, \
+        maxpars, maxf = pyswarm.pso(fun, model.pmin, model.pmax, swarmsize=1000, \
                         omega=0.5, phip=0.5, phig=0.5, maxiter=1000, debug=True, \
-                        minfunc=1e-6)
+                        minfunc=1e-3)
 
         np.savetxt(args.outDir + '/pso_maxpars.txt', maxpars)
 
@@ -790,8 +790,13 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
 
         # timing model
         if args.incTimingModel:
-            ids = model.get_parameter_indices('nonlineartimingmodel',
+            if args.tmmodel == 'nonlinear':
+                ids = model.get_parameter_indices('nonlineartimingmodel',
                                               corr='single', split=False)
+            else:
+                ids = model.get_parameter_indices('lineartimingmodel',
+                                              corr='single', split=False)
+
             [ind.append(id) for id in ids]
 
 

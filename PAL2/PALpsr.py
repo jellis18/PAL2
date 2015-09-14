@@ -776,7 +776,7 @@ class Pulsar(object):
         useAverage = likfunc == 'mark2'
 
         # write compression to hdf5 file
-        if write != 'no':
+        if write != 'no' or write:
             h5df.addData(self.name, 'PAL_compression', compression)
 
         if compression == 'red':
@@ -1021,12 +1021,16 @@ class Pulsar(object):
             self.fisherU = U
             self.fisherS = s
 
+            Mm = Mmat / np.sqrt(np.sum(Mmat ** 2, axis=0))
+
         else:
             Mmat = self.Mmat
             # M matrix normalization
             Mm = self.Mmat.copy()
             self.norm = np.sqrt(np.sum(Mm ** 2, axis=0))
             Mm /= self.norm
+            #print '\n', 'HERE', '\n'
+            #Mm, s, Vh = sl.svd(Mmat, full_matrices=False)
 
         self.Mmat_reduced = Mm
         if likfunc not in ['mark6', 'mark9', 'mark10']:

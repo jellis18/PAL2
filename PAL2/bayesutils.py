@@ -312,14 +312,16 @@ def triplot(chain, color='k', weights=None, interpolate=False, smooth=True, \
 
     # rcParams settings
     if chain.shape[1] < 10:
-        plt.rcParams['ytick.labelsize'] = 10.0
-        plt.rcParams['xtick.labelsize'] = 10.0
+        ticksize = 10
+        #plt.rcParams['ytick.labelsize'] = 10.0
+        #plt.rcParams['xtick.labelsize'] = 10.0
     else:
-        plt.rcParams['ytick.labelsize'] = 8.0
-        plt.rcParams['xtick.labelsize'] = 8.0
+        ticksize = 8
+        #plt.rcParams['ytick.labelsize'] = 8.0
+        #plt.rcParams['xtick.labelsize'] = 8.0
     if tex:
         plt.rcParams['text.usetex'] = True
-    plt.rcParams['figure.figsize'] = figsize
+
 
     # get number of parameters
     ndim = chain.shape[1]
@@ -336,6 +338,8 @@ def triplot(chain, color='k', weights=None, interpolate=False, smooth=True, \
         for j in range(len(parameters)):
             ii = i
             jj = len(parameters) - j - 1
+
+            axarr[ii, jj].tick_params(axis='both', which='major', labelsize=10)
 
             xmajorLocator = matplotlib.ticker.MaxNLocator(nbins=4,prune='both')
             ymajorLocator = matplotlib.ticker.MaxNLocator(nbins=4,prune='both')

@@ -1086,6 +1086,11 @@ class PTAmodels(object):
                             pmax += [360.0]
                             pwidth += [tmperrs[jj]]
                             pstart += [tmpest[jj]]
+                        elif parid == 'KIN':
+                            pmin += [0.0]
+                            pmax += [90.0]
+                            pwidth += [tmperrs[jj]]
+                            pstart += [tmpest[jj]]
                         elif parid == 'PX':
                             if tmpest[jj] < 0:
                                 tmpest[jj] = 0.001
@@ -2469,7 +2474,7 @@ class PTAmodels(object):
     @param verbose:             Give some extra information about progress
     """
 
-    def initModel(self, fullmodel, fromFile=False, write=True,
+    def initModel(self, fullmodel, fromFile=False, write='no',
                   verbose=False, memsave=True):
         numNoiseFreqs = fullmodel['numNoiseFreqs']
         numDMFreqs = fullmodel['numDMFreqs']
@@ -2556,7 +2561,6 @@ class PTAmodels(object):
         incJitter = np.array(numJitter) > 0
         incRedBand = np.array(numRedBand) > 0
         incDMBand = np.array(numDMBand) > 0
-        print incRedExt
         if self.likfunc == 'mark9':
             incJitter = [False] * numJitter
         separateEfacs = np.logical_or(numEfacs > 1, numEquads > 1)
@@ -2849,6 +2853,13 @@ class PTAmodels(object):
                      'name': flagname, 'id': flagvalue})
 
         return pardes
+
+    def get_varying_parameters(self):
+        """ Utility function to return varying parameter names """
+
+        pardes = self.getModelParameterList()
+        return [p['id'] for p in pardes if p['index'] != -1]
+
 
     """
     Determine intial parameters drawn from prior ranges
@@ -6087,6 +6098,7 @@ class PTAmodels(object):
         if self.haveDetSources:
             self.updateDetSources(parameters, selection=selection)
 
+
         # compute the white noise terms in the log likelihood
         TNT = []
         nfref = 0
@@ -6310,19 +6322,19 @@ class PTAmodels(object):
 
             Sigma = self.Sigma[nfref:(nfref + nf), nfref:(nfref + nf)]
             ip1 = PALutils.innerProduct_rr(A[0, :], p.residuals,
-                                           p.Nvec, p.Tmat, Sigma)
+                                           p.Nvec, p.Ttmat, Sigma)
             ip2 = PALutils.innerProduct_rr(A[1, :], p.residuals,
-                                           p.Nvec, p.Tmat, Sigma)
+                                           p.Nvec, p.Ttmat, Sigma)
             N = np.array([ip1, ip2])
 
             # define M matrix M_ij=(A_i|A_j)
             for jj in range(2):
                 for kk in range(2):
                     M[jj, kk] = PALutils.innerProduct_rr(A[jj, :], A[kk, :],
-                                                         p.Nvec, p.Tmat, Sigma)
+                                                         p.Nvec, p.Ttmat, Sigma)
 
             # take inverse of M
-            Minv = np.linalg.inv(M)
+            Minv = np.linalg.pinv(M)
             fstat += 0.5 * np.dot(N, np.dot(Minv, N))
 
             nfref += nf
@@ -6877,6 +6889,7 @@ class PTAmodels(object):
 
                 if kin:
                     prior += np.log(np.abs(np.sin(kin * np.pi / 180)))
+                    sini = np.sin(np.pi/180*kin)
 
                 # prior on pulsar mass [0,3]
                 if sini and pb and m2 and a1:
