@@ -7,7 +7,10 @@ try:
     import healpy as hp
 except ImportError:
     hp = None
-from PAL2 import plot
+try:
+    from PAL2 import plot
+except ImportError:
+    plot = None
 import matplotlib.mlab as ml
 from matplotlib.ticker import FormatStrFormatter, LinearLocator, NullFormatter, NullLocator
 import matplotlib.ticker
