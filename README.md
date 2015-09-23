@@ -36,7 +36,7 @@ PAL2 also supports MultiNest but it must be installed separately.
 
 You will need to have [tempo2](http://www.atnf.csiro.au/research/pulsar/tempo2/index.php?n=Main.Download) and a working C, C++ and Fortran compiler.
 
-The best way to install PAL2 is with a [python virutal environment](https://virtualenvwrapper.readthedocs.org/en/latest/). However for some clusters this may not be appropriate and you can follow the instructions below but append a --user flag on all of the ``pip`` commands. Once you have the virualenv activated first do:
+The best way to install PAL2 is with a [python virutal environment](https://virtualenvwrapper.readthedocs.org/en/latest/). However for some clusters this may not be appropriate and you can follow the instructions below but append a --user flag on all of the ``pip`` and ``setup.py`` commands. Once you have the virualenv activated first do:
 
 ```
 pip install numpy
