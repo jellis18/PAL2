@@ -5,7 +5,11 @@ import scipy.linalg as sl
 import scipy.integrate as si
 import scipy.constants as sc
 import scipy.interpolate as interp
-import healpy as hp
+try:
+    import healpy as hp
+except ImportError:
+    print 'WARNING: No healpy installed'
+    hp = None
 import math
 import numpy.polynomial.hermite as herm
 from scipy.integrate import odeint
