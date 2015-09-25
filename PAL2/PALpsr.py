@@ -776,7 +776,7 @@ class Pulsar(object):
         useAverage = likfunc == 'mark2'
 
         # write compression to hdf5 file
-        if write != 'no' or write:
+        if write != 'no':
             h5df.addData(self.name, 'PAL_compression', compression)
 
         if compression == 'red':

@@ -27,156 +27,154 @@ parser = argparse.ArgumentParser(description = 'Run PAL2 Data analysis pipeline'
 parser.add_argument('--h5File', dest='h5file', action='store', type=str, required=True,
                    help='Full path to hdf5 file containing PTA data')
 parser.add_argument('--fromFile', dest='fromFile', action='store_true', \
-                    default=False, help='Init model from file')
+                    default=False, help='Init model from file?')
 
 parser.add_argument('--outDir', dest='outDir', action='store', type=str, default='./',
                    help='Full path to output directory (default = ./)')
 
-parser.add_argument('--pulsar', dest='pname', action='store', nargs='+', \
-                    type=str, required=True, help='names of pulsars to use')
+parser.add_argument('--pulsar', dest='pname', action='store', nargs='+',
+                    type=str, required=True, 
+                    help='Names of pulsars to use separated by single space')
 
 parser.add_argument('--incRed', dest='incRed', action='store_true',default=False,
-                   help='include Red Noise')
-parser.add_argument('--redModel', dest='redModel', action='store', type=str, default='powerlaw',
-                   help='red noise model [powerlaw, spectrum]')
-parser.add_argument('--nf', dest='nfreqs', action='store', type=int, default=10,
-                   help='number of red noise frequencies to use (default=10)')
+                   help='Include Red Noise? [default=False]')
+parser.add_argument('--redModel', dest='redModel', action='store', type=str,
+                    default='powerlaw', 
+                    help='Red noise model [powerlaw, spectrum, broken, interpolate]')
+parser.add_argument('--nf', dest='nfreqs', action='store', type=int, default=30,
+                   help='number of red noise frequencies to use [default=30]')
 parser.add_argument('--fixRedSi', dest='fixRedSi', action='store_true', default=False, \
                     help='Fix red noise spectral index to 4.33')
 parser.add_argument('--redAmpPrior', dest='redAmpPrior', action='store', type=str, \
-                    default='log', help='prior on red noise Amplitude [uniform, log]')
-parser.add_argument('--logfrequencies', dest='logfrequencies', action='store_true', \
-                    default=False, help='Use log sampling in frequencies.')
+                    default='log', help='Prior on red noise Amplitude [uniform, log]')
+
 parser.add_argument('--incSingleRed', dest='incSingleRed', action='store_true',default=False,
-                   help='include single frequency red noise')
+                   help='Include single frequency red noise? [default=False]')
+
 parser.add_argument('--incRedBand', dest='incRedBand', action='store_true',default=False,
-                   help='include band limited red noise')
+                   help='Include band limited red noise (i.e. red noise per frequency band) [default=False]')
+
 parser.add_argument('--incRedEnv', dest='incRedEnv', action='store_true',default=False,
-                   help='include Red Noise Envelope model')
+                   help='Include Red Noise Envelope model? [default=False]')
 parser.add_argument('--redEnvModel', dest='redEnvModel', action='store', 
                     type=str, default='powerlaw',
-                    help='red noise envelope model [powerlaw, spectrum]')
+                    help='Red noise envelope model [powerlaw, spectrum]')
+
 parser.add_argument('--incRedExt', dest='incRedExt', action='store_true',default=False,
-                   help='include Red Noise Extended model')
+                   help='Include Red Noise Extended model')
 parser.add_argument('--redExtModel', dest='redExtModel', action='store', 
                     type=str, default='powerlaw',
                     help='red noise extended model [powerlaw, spectrum]')
 parser.add_argument('--nfext', dest='nfext', action='store', type=int, default=10,
                    help='number of red noise frequencies to use in extended model(default=10)')
 
-parser.add_argument('--incScat', dest='incScat', action='store_true',default=False,
-                   help='include stochastic scattering process')
-parser.add_argument('--scatModel', dest='scatModel', action='store', 
-                    type=str, default='powerlaw',
-                    help='scattering model [powerlaw, spectrum]')
-parser.add_argument('--nfscat', dest='nfscat', action='store', type=int, default=10,
-                   help='number of frequencies for scattering model(default=10)')
-
-
 parser.add_argument('--Tspan', dest='Tspan', action='store', type=float, default=None,
                    help='Tmax to use in red noise and GW expansion (default=None)')
 
 
 parser.add_argument('--incDM', dest='incDM', action='store_true',default=False,
-                   help='include DM variations')
+                   help='Include DM variations [default=False]')
 parser.add_argument('--dmModel', dest='dmModel', action='store', type=str, default='powerlaw',
-                   help='red DM noise model [powerlaw, spectrum]')
-parser.add_argument('--ndmf', dest='ndmfreqs', action='store', type=int, default=10,
-                   help='number of DM noise frequencies to use (default=10)')
+                   help='Red DM noise model [powerlaw, spectrum]')
+parser.add_argument('--ndmf', dest='ndmfreqs', action='store', type=int, default=30,
+                   help='number of DM noise frequencies to use (default=30)')
 parser.add_argument('--DMAmpPrior', dest='DMAmpPrior', action='store', type=str, \
                     default='log', help='prior on DM Amplitude [uniform, log]')
+
 parser.add_argument('--incSingleDM', dest='incSingleDM', action='store_true',default=False,
-                   help='include single frequency DM')
+                   help='include single frequency DM [default=False]')
+
 parser.add_argument('--incDMshapelet', dest='incDMshapelet', action='store_true',default=False,
-                   help='include shapelet event for DM')
+                   help='Include shapelet event for DM [default=False]')
 parser.add_argument('--nshape', dest='nshape', type=int, action='store', default=3, \
-                   help='number of coefficients for shapelet event for DM')
+                   help='number of coefficients for shapelet event for DM [default=3]')
 parser.add_argument('--margShapelet', dest='margShapelet', action='store_true', default=False, \
-                   help='Analytically marginalize over shapelet coefficients')
+                   help='Analytically marginalize over shapelet coefficients [default=False]')
+
 parser.add_argument('--incDMX', dest='incDMX', action='store_true', default=False, \
-                   help='include DMX')
+                   help='include DMX? [default=False]')
 parser.add_argument('--dmxKernelModel', dest='dmxKernelModel', action='store', type=str, \
-                    default='None',
-                   help='dmx Kernel Model')
+                    default='None', help='DMX Kernel Model (not currently working)')
+
 parser.add_argument('--incDMBand', dest='incDMBand', action='store_true',default=False,
-                   help='include band limited DM noise')
+                   help='Include band limited DM noise for different frequency band [default=False]')
 
 parser.add_argument('--incGWB', dest='incGWB', action='store_true',default=False,
-                   help='include GWB')
+                   help='include GWB? [default=False]')
 parser.add_argument('--gwbModel', dest='gwbModel', action='store', type=str, default='powerlaw',
-                   help='GWB model [powerlaw, spectrum]')
+                   help='GWB model [powerlaw, spectrum, turnover]')
 parser.add_argument('--fixKappa', dest='fixKappa', action='store', type=float,
-                    default=0, help='fix turnover kappa to user value')
+                    default=0, help='fix turnover kappa to user value [default=False]')
 parser.add_argument('--fixSi', dest='fixSi', action='store', type=float, default=0, \
-                    help='Fix GWB spectral index to user defined value')
+                    help='Fix GWB spectral index to user defined value [default=False]')
 parser.add_argument('--noCorrelations', dest='noCorrelations', action='store_true', \
-                    default=False, help='Do not in include GWB correlations')
+                    default=False, help='Do not in include GWB correlations [default=False]')
 parser.add_argument('--GWBAmpPrior', dest='GWBAmpPrior', action='store', type=str, \
-                    default='log', help='prior on GWB Amplitude [uniform, log]')
+                    default='log', 
+                    help='prior on GWB Amplitude [uniform, log, sesana, mcwilliams] [default=log]')
 parser.add_argument('--incORF', dest='incORF', action='store_true', \
-                    default=False, help='Include generic ORF')
+                    default=False, help='Include generic ORF to be parameterized [default=False]')
 
 parser.add_argument('--incGWBAni', dest='incGWBAni', action='store_true',default=False,
-                   help='include GWB')
+                   help='include Anisotropic GWB [default=False]')
 parser.add_argument('--nls', dest='nls', action='store', type=int, default=2,
-                   help='number of ls to use in anisitropic search')
+                   help='Number of ls to use in anisitropic search [default=2]')
 
 parser.add_argument('--incEquad', dest='incEquad', action='store_true',default=False,
-                   help='include Equad')
+                   help='Include Equad [default=False]')
 parser.add_argument('--separateEquads', dest='separateEquads', action='store', type=str, \
-                    default='frequencies', help='separate equads [None, backend, frequencies]')
+                    default='frequencies', 
+                    help='separate equads [None, backend, frequencies] [default=frequencies]')
 
 parser.add_argument('--noVaryEfac', dest='noVaryEfac', action='store_true',default=False,
-                   help='Option to not vary efac')
+                   help='Option to not vary efac [default=False]')
 parser.add_argument('--separateEfacs', dest='separateEfacs', action='store', type=str, \
-                    default='frequencies', help='separate efacs [None, backend, frequencies]')
+                    default='frequencies', 
+                    help='separate efacs [None, backend, frequencies] [default=frequencies]')
 
-parser.add_argument('--incJitter', dest='incJitter', action='store_true',default=False,
-                   help='include Jitter')
-parser.add_argument('--separateJitter', dest='separateJitter', action='store', type=str, \
-                    default='frequencies', help='separate Jitter [None, backend, frequencies]')
 
 parser.add_argument('--incJitterEquad', dest='incJitterEquad', action='store_true',\
-                    default=False, help='include Jitter')
+                    default=False, help='include Jitter Equad aka ECORR')
 parser.add_argument('--separateJitterEquad', dest='separateJitterEquad', action='store', \
                     type=str, default='frequencies', \
-                    help='separate Jitter Equad [None, backend, frequencies]')
+                    help='separate Jitter Equad [None, backend, frequencies] [default=frequencies]')
+
 parser.add_argument('--fixNoise', dest='fixNoise', action='store_true',\
-                    default=False, help='fix Noise values')
+                    default=False, help='Fix Noise values')
 parser.add_argument('--noVaryNoise', dest='noVaryNoise', action='store_true',\
-                    default=False, help='fix Noise values to default values')
+                    default=False, 
+                    help='Fix Noise values to default values [i.e. timing uncertainties only]')
 parser.add_argument('--fixWhite', dest='fixWhite', action='store_true',\
-                    default=False, help='fix White Noise values')
+                    default=False, help='Fix White Noise values [efac, equad, ecorr]')
 parser.add_argument('--noisedir', dest='noisedir', action='store', type=str,
-                   help='Full path to directory containting maximum likeihood noise values')
+                   help='Full path to directory containting noise values')
 
-
-parser.add_argument('--incJitterEpoch', dest='incJitterEpoch', action='store_true',\
-                    default=False, help='include Jitter by epoch')
 
 parser.add_argument('--incTimingModel', dest='incTimingModel', action='store_true', \
                     default=False, help='Include timing model parameters in run')
 parser.add_argument('--tmmodel', dest='tmmodel', action='store', type=str, \
                     default='linear', \
-                    help='linear or non-linear timing model [linear, nonlinear]')
+                    help='linear or non-linear timing model [linear, nonlinear] [default=linear]')
 parser.add_argument('--fullmodel', dest='fullmodel', action='store_true', \
                     default=False, \
-                    help='Use full timing model, no marginalization')
+                    help='Use full timing model, no marginalization [default=False]')
 parser.add_argument('--noMarg', dest='noMarg', action='store_true',default=False,
-                   help='No analytic marginalization')
+                   help='No analytic marginalization [default=False]')
 parser.add_argument('--addpars', dest='addpars', action='store', nargs='+', \
-                    type=str, required=False, help='Extra parameters to add to timing model')
+                    type=str, required=False, 
+                    help='Extra parameters to add to timing model separated by space')
 parser.add_argument('--delpars', dest='delpars', action='store', nargs='+', \
-                    type=str, required=False, help='parameters to remove from timing model')
+                    type=str, required=False, 
+                    help='parameters to remove from timing model separated by space')
 
 parser.add_argument('--incNonGaussian', dest='incNonGaussian', action='store_true', \
                     default=False, \
-                    help='Use non-gaussian likelihood function')
+                    help='Use non-gaussian likelihood function [default=False]')
 parser.add_argument('--nnongauss', dest='nnongauss', action='store', type=int, default=3,
                    help='number of non-guassian components (default=3)')
 
 parser.add_argument('--incGWwavelet', dest='incGWwavelet', action='store_true', \
-                    default=False, help='Include GWwavelt signal in run')
+                    default=False, help='Include GWwavelt signal in run [default=False]')
 parser.add_argument('--nGWwavelets', dest='nGWwavelets', action='store', type=int, default=1,
                    help='Number of GW wavelets(default=1)')
 
@@ -185,35 +183,33 @@ parser.add_argument('--incWavelet', dest='incWavelet', action='store_true', \
 parser.add_argument('--nWavelets', dest='nWavelets', action='store', type=int, default=1,
                    help='Number of noise wavelets(default=1)')
 parser.add_argument('--waveletModel', dest='waveletModel', action='store', type=str, \
-                    default='standard', help='Wavelet model')
+                    default='standard', help='Wavelet model [default=standard]')
 
 parser.add_argument('--incSysWavelet', dest='incSysWavelet', action='store_true', \
                     default=False, help='Include system wavelet signal in run')
 parser.add_argument('--nSysWavelets', dest='nSysWavelets', action='store', type=int, default=1,
                    help='Number of system wavelets(default=1)')
 parser.add_argument('--sysWaveletModel', dest='sysWaveletModel', action='store', type=str, \
-                    default='standard', help='system Wavelet model')
+                    default='standard', help='system Wavelet model [default=standard]')
 
 parser.add_argument('--incChromaticWavelet', dest='incChromaticWavelet', action='store_true', \
-                    default=False, help='Include chromatic noise wavelet signal in run')
+                    default=False, help='Include chromatic noise wavelet signal in run [default=False]')
 parser.add_argument('--nChromaticWavelets', dest='nChromaticWavelets', action='store', 
                     type=int, default=1, help='Number of chromatic noise wavelets(default=1)')
 parser.add_argument('--fixcBeta', dest='fixcBeta', action='store', type=float,
                     default=0, help='fix chromatic wavelet spectral index to user value')
 
 parser.add_argument('--incCW', dest='incCW', action='store_true', \
-                    default=False, help='Include CW signal in run')
+                    default=False, help='Include CW signal in run [default=False]')
 parser.add_argument('--nCW', dest='nCW', action='store', type=int, default=1,
                    help='Number of CW sources (default=1)')
 parser.add_argument('--cwModel', dest='cwModel', action='store', type=str, \
                     default='standard', 
-                    help='Which CW model to use [standard, upperLimit, mass_ratio, free]')
+                    help='Which CW model to use [standard, upperLimit, mass_ratio, free] [default=standard]')
 parser.add_argument('--incPdist', dest='incPdist', action='store_true', \
                     default=False, help='Include pulsar distances for CW signal in run')
 parser.add_argument('--CWupperLimit', dest='CWupperLimit', action='store_true', \
-                    default=False, help='Calculate CW upper limit (use h not d_L)')
-parser.add_argument('--CWmass_ratio', dest='CWmass_ratio', action='store_true', 
-                    default=False, help='Use model that parameterizes mass ratio and M')
+                    default=False, help='Calculate CW upper limit (use h not d_L and use uniform prior on h)')
 parser.add_argument('--fixf', dest='fixf', action='store', type=float, default=0.0,
                    help='value of GW frequency for upper limits')
 
@@ -227,22 +223,22 @@ parser.add_argument('--sampler', dest='sampler', action='store', type=str, \
 parser.add_argument('--zerologlike', dest='zerologlike', action='store_true', default=False, \
                     help='Zero log likelihood to test prior and jump proposals')
 parser.add_argument('--neff', dest='neff', type=int, action='store', \
-                    default=1000, help='Number of effective samples')
+                    default=1000, help='Number of effective samples [default=1000]')
 parser.add_argument('--resume', dest='resume', action='store_true', \
-                    default=False, help='resume from previous run')
+                    default=False, help='resume from previous run?')
 parser.add_argument('--writeHotChains', dest='writeHotChains', action='store_true', \
-                    default=False, help='Write hot chains in MCMC sampler')
+                    default=False, help='Write hot chains in MCMC sampler?')
 parser.add_argument('--hotChain', dest='hotChain', action='store_true', \
-                    default=False, help='Sample from prior for hottest chain')
+                    default=False, help='Sample from prior for hottest chain?')
 
 parser.add_argument('--mark6', dest='mark6', action='store_true', \
                     default=False, help='Use T matrix formalism')
 parser.add_argument('--Tmatrix', dest='Tmatrix', action='store_true', \
                     default=False, help='Use T matrix formalism')
 parser.add_argument('--mark9', dest='mark9', action='store_true', \
-                    default=False, help='Use mark9 likelihoodk')
+                    default=False, help='Use mark9 likelihood')
 parser.add_argument('--mark10', dest='mark10', action='store_true', \
-                    default=False, help='Use mark10 likelihoodk')
+                    default=False, help='Use mark10 likelihood')
 
 parser.add_argument('--Tmin', dest='Tmin', type=float, action='store', \
                      default=1, help='Minimum temperature for parallel tempering')
@@ -260,8 +256,7 @@ MPIrank = comm.Get_rank()
 MPIsize = comm.Get_size()
 
 if args.Tmax == 1:
-    args.Tmax=None
-
+    args.Tmax = None
 
 if not os.path.exists(args.outDir):
     try:
@@ -276,13 +271,7 @@ if args.pname[0] != 'all':
 elif args.pname[0] == 'all':
     print 'Using all pulsars'
     pulsars = 'all'
-    #pulsars = list(np.loadtxt('pulsars.txt', dtype='S42'))
     model = PALmodels.PTAmodels(args.h5file, pulsars=pulsars)
-
-# get number of epochs
-nepoch = None
-if args.incJitterEpoch:
-    nepoch = [int(p.nepoch) for p in model.psr]
 
 
 # model options
@@ -291,9 +280,6 @@ separateEfacsByFreq = args.separateEfacs == 'frequencies'
 
 separateEquads = args.separateEquads == 'backend'
 separateEquadsByFreq = args.separateEquads == 'frequencies'
-
-separateJitter = args.separateJitter == 'backend'
-separateJitterByFreq = args.separateJitter == 'frequencies'
 
 separateJitterEquad = args.separateJitterEquad == 'backend'
 separateJitterEquadByFreq = args.separateJitterEquad == 'frequencies'
@@ -308,7 +294,7 @@ if args.noMarg:
     if args.incDM:
         incDMFourierMode = True
 
-if args.incJitter or args.incJitterEquad or args.incJitterEpoch:
+if args.incJitterEquad:
     likfunc = 'mark2'
 elif args.incTimingModel and args.fullmodel and not args.incNonGaussian:
     likfunc = 'mark4'
@@ -339,31 +325,14 @@ else:
     incDMXKernel = False
     DMXKernelModel = args.dmxKernelModel
 
-#import libstempo as t2
-#psr = t2.tempopulsar('/Users/jaellis/Work/pulsars/NANOGrav/1713_21yr/feb/new.par', \
-#                     '/Users/jaellis/Work/pulsars/NANOGrav/1713_21yr/feb/1713.Feb.T2.tim', \
-#                     maxobs=20000)
-#print model.psr[0].Mmat.shape
-#print model.psr[0].Mmat[:,0]
-#model.psr[0].Mmat = psr.designmatrix(fixunits=True)
-#model.psr[0].residuals = psr.residuals()
-#print model.psr[0].Mmat.shape
-#print model.psr[0].Mmat[:,0]
-
-
-
-#likfunc= 'mark5'
-print likfunc
 fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     incRedBand=args.incRedBand, \
                     incDMBand=args.incDMBand, \
-                    logf=args.logfrequencies, \
                     incDM=args.incDM, dmModel=args.dmModel, \
                     incDMEvent=args.incDMshapelet, dmEventModel=dmEventModel, \
                     ndmEventCoeffs=args.nshape, \
                     incDMX=args.incDMX, \
                     incORF=args.incORF, \
-                    incScattering=args.incScat, scatteringModel=args.scatModel,
                     incGWWavelet=args.incGWwavelet, nGWWavelets=args.nGWwavelets,
                     incWavelet=args.incWavelet, nWavelets=args.nWavelets,
                     waveletModel=args.waveletModel,
@@ -371,17 +340,15 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     sysWaveletModel=args.sysWaveletModel,
                     incChromaticWavelet=args.incChromaticWavelet, 
                     nChromaticWavelets=args.nChromaticWavelets,
-                    nscatfreqs=args.nfscat,
                     incGWBAni=args.incGWBAni, lmax=args.nls,\
                     incDMXKernel=incDMXKernel, DMXKernelModel=DMXKernelModel, \
                     separateEfacs=separateEfacs, separateEfacsByFreq=separateEfacsByFreq, \
                     separateEquads=separateEquads, separateEquadsByFreq=separateEquadsByFreq, \
-                    separateJitter=separateJitter, separateJitterByFreq=separateJitterByFreq, \
                     separateJitterEquad=separateJitterEquad, \
                     separateJitterEquadByFreq=separateJitterEquadByFreq, \
                     incRedFourierMode=incRedFourierMode, incDMFourierMode=incDMFourierMode, \
                     incGWFourierMode=incGWFourierMode, \
-                    incEquad=args.incEquad, incJitter=args.incJitter, \
+                    incEquad=args.incEquad,\
                     incTimingModel=args.incTimingModel, nonLinear=args.tmmodel=='nonlinear', \
                     addPars=args.addpars, subPars=args.delpars, \
                     fulltimingmodel=args.fullmodel, incNonGaussian=args.incNonGaussian, \
@@ -392,9 +359,7 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     incCW=args.incCW, incPulsarDistance=args.incPdist, \
                     CWModel=args.cwModel, nCW=args.nCW, \
                     CWupperLimit=args.CWupperLimit, \
-                    mass_ratio=args.CWmass_ratio, \
                     incJitterEquad=args.incJitterEquad, \
-                    incJitterEpoch=args.incJitterEpoch, nepoch=nepoch, \
                     redAmpPrior=args.redAmpPrior, GWAmpPrior=args.GWBAmpPrior, \
                     redSpectrumPrior=args.redAmpPrior, GWspectrumPrior=args.GWBAmpPrior, \
                     incSingleFreqNoise=args.incSingleRed, numSingleFreqLines=1, \
@@ -405,39 +370,6 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     Tmax = args.Tspan,
                     compression=args.compression, \
                     likfunc=likfunc)
-
-
-#### Complete Hack to test CW source ####
-
-if args.CWmass_ratio:
-    print 'Fixing CW params'
-    for sig in fullmodel['signals']:
-        if sig['stype'] == 'cw':
-
-            # uniform prior on mass ratio
-            sig['prior'][-1] = 'uniform'
-
-            # gaussian prior on total mass
-            sig['prior'][2] = 'gaussian'
-            sig['mu'][2] = 9.97 + np.log10(3.06)
-            sig['sigma'][2] = 0.5
-
-            # gaussian prior on frequency
-            sig['prior'][4] = 'gaussian'
-            #sig['mu'][4] = -7.67 # orbital period
-            sig['mu'][4] = -7.369 # twice orbital period
-            sig['sigma'][4] = 0.004
-
-            # fix luminosity distance to 16331.8 Mpc
-            sig['bvary'][3] = False
-            sig['pstart'][3] = np.log10(16331.8)
-
-            # fix sky location
-            sig['bvary'][0] = False
-            sig['pstart'][0] = 1.54
-            
-            sig['bvary'][1] = False
-            sig['pstart'][1] = 5.83
 
 
 # fix spectral index
@@ -490,21 +422,6 @@ if args.fixf != 0.0:
             sig['bvary'][4] = False
             sig['pstart'][4] = np.log10(args.fixf)
 
-######################################
-#                                    #
-#   ONLY FOR 1713 21 YR ANALYSIS     #
-#                                    #
-######################################                                    
-for sig in fullmodel['signals']:
-    if sig['stype'] == 'efac':
-        if np.any([e in sig['flagvalue'] for e in ['M4', 'M3', 'ABPP']]):
-            sig['bvary'] = [False]
-
-#for sig in fullmodel['signals']:
-#    if sig['stype'] == 'jitter_equad':
-#        if np.any([e in sig['flagvalue'] for e in ['430_ASP']]):
-#            sig['bvary'] = [False]
-
 memsave = True
 if args.noVaryEfac:
     print 'Not Varying EFAC'
@@ -525,7 +442,6 @@ if args.noVaryNoise:
 
 
 if args.fixNoise:
-    #noisedir = '/Users/jaellis/Work/pulsars/NANOGrav/9yr/noisefiles/'
     noisedir = args.noisedir
     for ct, p in enumerate(model.psr):
         d = np.genfromtxt(noisedir + p.name + '_noise.txt', dtype='S42')
@@ -561,15 +477,6 @@ else:
 #args.fromFile = False
 model.initModel(fullmodel, memsave=memsave, fromFile=args.fromFile, verbose=True, write=write)
 
-
-#import matplotlib.pyplot as plt
-#for p in model.psr:
-#    plt.figure()
-#    plt.errorbar(p.toas, p.residuals, p.toaerrs, fmt='.')
-#    plt.title(p.name)
-#    plt.show()
-
-
 pardes = model.getModelParameterList()
 par_names = [p['id'] for p in pardes if p['index'] != -1]
 par_out = []
@@ -592,7 +499,7 @@ fout.close()
 # define likelihood functions
 if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multinest' \
    or args.sampler=='polychord':
-    if args.incJitter or args.incJitterEquad or args.incJitterEpoch:
+    if args.incJitterEquad:
         loglike = model.mark2LogLikelihood
     elif args.incTimingModel and args.fullmodel and not args.incNonGaussian:
         loglike = model.mark4LogLikelihood
@@ -632,16 +539,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         print 'Running model with GWB correlations'
     if args.incJitterEquad and np.any([args.mark6, args.Tmatrix, args.mark10]):
         loglkwargs['incJitter'] = True
-    if np.any([args.fixNoise, args.noVaryNoise]) and not \
-       args.fixWhite and np.any([args.mark9, args.mark6]):
-        loglkwargs['varyNoise'] = False
-    elif np.any([args.fixNoise, args.noVaryNoise]) and args.fixWhite and \
-            np.any([args.mark9, args.mark6]):
-        loglkwargs['varyNoise'] = True
-        loglkwargs['fixWhite'] = True
-    
-    if args.zerologlike:
-        loglkwargs = {}
+
    
     # get initial parameters for MCMC
     inRange = False
@@ -656,18 +554,26 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
     while not(inRange):
         p0 = model.initParameters(startEfacAtOne=True, fixpstart=fixpstart)
         startSpectrumMin = True
-        if args.fixWhite or args.fixNoise or args.noVaryNoise:
-            if logprior(p0) != -np.inf and loglike(p0) != -np.inf:
-                inRange = True
-        else:
-            print loglike(p0, **loglkwargs), logprior(p0)
-            if logprior(p0) != -np.inf and loglike(p0, **loglkwargs) != -np.inf:
-                inRange = True
+        print loglike(p0, **loglkwargs), logprior(p0)
+        if logprior(p0) != -np.inf and loglike(p0, **loglkwargs) != -np.inf:
+            inRange = True
+    
+    # add extra kwargs if fixed noise 
+    if np.any([args.fixNoise, args.noVaryNoise]) and not \
+       args.fixWhite and np.any([args.mark9, args.mark6]):
+        loglkwargs['varyNoise'] = False
+    elif np.any([args.fixNoise, args.noVaryNoise]) and args.fixWhite and \
+            np.any([args.mark9, args.mark6]):
+        loglkwargs['varyNoise'] = True
+        loglkwargs['fixWhite'] = True
+    
+    if args.zerologlike:
+        loglkwargs = {}
     
     # if fixed noise, must call likelihood once to initialize matrices
-    if args.fixNoise or args.fixWhite or args.noVaryNoise:
-        if not args.zerologlike:
-            loglike(p0, incCorrelations=False)
+    #if args.fixNoise or args.fixWhite or args.noVaryNoise:
+    #    if not args.zerologlike:
+    #        loglike(p0, incCorrelations=False)
 
     if args.sampler == 'minimize':
         import pyswarm
@@ -691,10 +597,6 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
     if args.sampler == 'mcmc':
 
         cov = model.initJumpCovariance()
-
-        ################# This is a mess, need to fix!!! #########################
-
-        
 
         ind = []
 
@@ -803,76 +705,6 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
 
         ##### all parameters #####
         ind.insert(0, range(len(p0)))
-        
-        #ind = []
-        #if args.incTimingModel and not args.fixNoise:
-        #    idx = np.arange(len(par_out))
-        #    ind = [np.array([ct for ct, par in enumerate(par_out) if 'efac' in par or \
-        #            'equad' in par or 'jitter' in par or 'RN' in par or 'DM' in par \
-        #            or 'red_' in par or 'dm_' in par or 'GWB' in par])]
-        #    ind += [idx[(ind[-1][-1]+1):]]
-        #elif args.incCW:
-        #    if (args.fixNoise and not args.fixWhite) or args.noVaryEfac or args.noVaryNoise:
-        #        ind = []
-        #    else:
-        #        ind = [np.array([ct for ct, par in enumerate(par_out) if 'efac' in par or \
-        #                'equad' in par or 'jitter' in par or 'RN' in par or 'DM' in par \
-        #                or 'red_' in par or 'dm_' in par or 'GWB' in par])]
-
-        #    ind.append(np.array([ct for ct, par in enumerate(par_out) if \
-        #                'pdist' not in par and 'efac' not in par and \
-        #                'equad' not in par and 'jitter' not in par and \
-        #                'RN' not in par and 'DM' not in par and \
-        #                'red_' not in par and 'dm_' not in par and \
-        #                'GWB' not in par and 'lpfgw' not in par and \
-        #                'pphase' not in par and 'pgamma' not in par]))
-
-        #    if args.incPdist:
-        #        ind.append(np.array([ct for ct, par in enumerate(par_out) if \
-        #                'pdist' in par]))
-        #    if args.cwModel in ['free', 'freephase', 'eccgam']:
-        #        ind.append(np.array([ct for ct, par in enumerate(par_out) if \
-        #                'pphase' in par]))
-        #        if args.cwModel == 'free':
-        #            ind.append(np.array([ct for ct, par in enumerate(par_out) if \
-        #                    'lpfgw' in par]))
-        #        if args.cwModel == 'eccgam':
-        #            ind.append(np.array([ct for ct, par in enumerate(par_out) if \
-        #                    'pgamma' in par]))
-
-        #elif args.incRed:
-        #    ind = [np.array([ct for ct, par in enumerate(par_out) if 'efac' in par or \
-        #            'equad' in par or 'jitter' in par or 'DM' in par \
-        #            or 'red_' in par or 'dm_' in par or 'GWB' in par])]
-
-        #    if len(args.pname) > 1:
-        #        for pp, p in enumerate(model.psr):
-        #            ind.append([ct for ct, par in enumerate(par_out) if 'RN' in par 
-        #                        and p.name in par])
-        #    else:
-        #        ind.append([ct for ct, par in enumerate(par_out) if 'RN' in par])
-
-
-        #    if args.incGWB:
-        #        ind.append([ct for ct, par in enumerate(par_out) if 'GWB' in par])
-
-        #    # all parameters
-        #    l = []
-        #    map(l.extend, ind)
-        #    ind.insert(0, l)
-    
-        #elif args.incWavelet:
-        #    for ww in range(args.nWavelets):
-        #        ind.append(np.array([ct for ct, par in enumerate(par_out) if
-        #                            'nwaveAmp_'+str(ww) in par or
-        #                            'nwaveFreq_'+str(ww) in par or
-        #                            'nwaveT0_'+str(ww) in par or
-        #                            'nwaveQ_'+str(ww) in par or
-        #                            'nwavePhase_'+str(ww) in par]))
-
-        #else:
-        #    ind = None
-        #ind = None
         print ind
 
         # define MCMC sampler
@@ -908,14 +740,12 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
             sampler.addProposalToCycle(model.drawFromEquadPrior, 5)
         #if args.incJitterEquad:
         #    sampler.addProposalToCycle(model.drawFromJitterEquadPrior, 5)
-        if args.incJitterEpoch:
-            sampler.addProposalToCycle(model.drawFromJitterEpochPrior, 5)
         if args.incTimingModel:
             sampler.addProposalToCycle(model.drawFromTMfisherMatrix, 40)
             #sampler.addProposalToCycle(model.drawFromTMPrior, 5)
         if args.incCW:
             if args.cwModel == 'upperLimit':
-                wgt = 10
+                wgt = 15
             else:
                 wgt = 2
             sampler.addProposalToCycle(model.drawFromCWPrior, wgt)
@@ -937,24 +767,6 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         if not args.noVaryEfac and not args.noVaryNoise and not args.fixWhite:
             sampler.addProposalToCycle(model.drawFromEfacPrior, 2)
 
-        #if args.incCW and MPIrank == 0 and not args.zerologlike:
-
-        #    # call likelihood once to set noise
-        #    loglike(p0, **loglkwargs)
-        #    f = np.logspace(-9, -7, 1000)
-        #    fpstat = np.zeros(len(f))
-        #    for ii in range(1000):
-        #        fpstat[ii] = model.fpStat(f[ii])
-
-        #    ind = np.argmax(fpstat)
-        #    print 'Starting MCMC CW frequency at {0}'.format(f[ind])
-        #    lfstart = np.log10(f[ind])
-
-        #    for sig in fullmodel['signals']:
-        #        if sig['stype'] == 'cw':
-
-        #            # start frequency
-        #            sig['pstart'][4] = lfstart
 
         # run MCMC
         print 'Engage!'
@@ -993,7 +805,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         p0 = model.initParameters(startEfacAtOne=True, fixpstart=False)
 
         # mark2 loglike
-        if args.incJitter or args.incJitterEquad:
+        if args.incJitterEquad:
 
             ndim = len(p0)
 
