@@ -1533,7 +1533,7 @@ class PTAmodels(object):
                 elif CWModel == 'upperLimit':
                     bvary = [True] * 8
                     pmin = [0, 0, 7, -17, -9, 0, 0, 0]
-                    pmax = [np.pi, 2 * np.pi, 10, -12, -7, 2*np.pi, np.pi, np.pi]
+                    pmax = [np.pi, 2 * np.pi, 10, -11, -7, 2*np.pi, np.pi, np.pi]
                     pstart = [np.pi / 2, np.pi / 2, 8, -14, -8, np.pi,
                               np.pi, np.pi / 2]
                     pwidth = [0.1, 0.1, 0.1, 0.1, 0.0001, 0.1, 0.1, 0.1]
@@ -6846,7 +6846,8 @@ class PTAmodels(object):
             if sig['stype'] == 'lineartimingmodel' or sig[
                     'stype'] == 'nonlineartimingmodel':
 
-                ecc, edot, t0, sini, a1, m2, pb, kin, stig, h3 = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+                ecc, edot, t0, sini, a1, m2, pb, kin, stig, h3, px = \
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
                 pindex = 0
                 for jj in range(sig['ntotpars']):
                     if sig['bvary'][jj]:
@@ -6871,6 +6872,8 @@ class PTAmodels(object):
                             h3 = sparameters[pindex]
                         elif sig['parid'][jj] == 'STIG':
                             stig = sparameters[pindex]
+                        elif sig['parid'][jj] == 'PX':
+                            px = sparameters[pindex]
 
                         pindex += 1
 
