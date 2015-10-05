@@ -70,7 +70,7 @@ We have included two datasets for testing purposes.
 
 ## Manual ##
 
-Example ipython notebooks are under construction...
+Example ipython notebook can be found in (here)[https://github.com/jellis18/PAL2/blob/master/demo/PAL2_demo.ipynb].
 
 ## Contact ##
 [_Justin Ellis_] (mailto:justin.ellis18@gmail.com)
