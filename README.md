@@ -50,7 +50,7 @@ This will install most of the dependencies except [libstempo](https://github.com
 
 if you have your TEMPO2 environment variable set correctly. To finalize the installation do
 
-```python setup.py```
+```python setup.py install```
 
 By default the ``PAL2_run.py`` and ``makeH5File.py`` scripts will be installed to ``$HOME/Library/Python/2.7/bin/`` on Mac and $HOME/.local/bin on Linux if not using a virtualenv. Make sure this is in your path in order to run these scripts. Otherwise you can choose the install directory by using the ``--install-scripts `` flag to `setup.py install`.
 
