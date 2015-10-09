@@ -747,10 +747,12 @@ class Pulsar(object):
 
         # For creating the auxiliaries it does not really matter: we are now
         # creating all quantities per default
-        self.twoComponentNoise = twoComponent
-        if likfunc == 'mark7' or likfunc == 'mark6' or likfunc == 'mark9' \
-                or likfunc == 'mark10':
-            self.twoComponentNoise = False
+        
+        #self.twoComponentNoise = twoComponent
+        #if likfunc == 'mark7' or likfunc == 'mark6' or likfunc == 'mark9' \
+        #        or likfunc == 'mark10':
+        #    self.twoComponentNoise = False
+        self.twoComponentNoise = False
 
         # sorting index if not sorting
         self.isort = np.arange(0, len(self.toas))

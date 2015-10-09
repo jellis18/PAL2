@@ -2466,6 +2466,24 @@ class PTAmodels(object):
         
         return ind
 
+    def initModelFromFile(self, filename, fromFile=False, write='no',
+                  verbose=False, memsave=True):
+        """
+        Inintialize model from json file
+        """
+
+        with open(filename) as data_file:
+            model = OrderedDict(json.load(data_file))
+
+        self.initModel(model, fromFile=fromFile, write=write, 
+                       verbose=verbose, memsave=memsave)
+
+    def writeModelToFile(self, model, filename):
+        #model = self.getModelDict()
+
+        with open(filename, 'w') as outfile:
+            json.dump(model, outfile, sort_keys=False, indent=4, separators=(',', ': '))
+
     """
     Initialise the model.
     @param numNoiseFreqs:       Dictionary with the full model
