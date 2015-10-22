@@ -1035,7 +1035,7 @@ class Pulsar(object):
             #Mm, s, Vh = sl.svd(Mmat, full_matrices=False)
 
         self.Mmat_reduced = Mm
-        if likfunc not in ['mark6', 'mark9', 'mark10']:
+        if likfunc not in ['mark7', 'mark6', 'mark9', 'mark10']:
             U, s, Vh = sl.svd(Mmat)
             self.Gmat = U[:, Mmat.shape[1]:].copy()
             self.Gcmat = U[:, :Mmat.shape[1]].copy()
@@ -1045,16 +1045,14 @@ class Pulsar(object):
             self.Gcmat = np.zeros((n_m, n_m))
 
         # T matrix
-        if likfunc == 'mark6' or likfunc == 'mark8' or likfunc == 'mark9':
+        if likfunc in ['mark6', 'mark7', 'mark8', 'mark9']:
             self.Tmat = np.concatenate((Mm, self.Ftot), axis=1)
             if incJitter:
                 self.avetoas, self.aveflags, U = \
                     PALutils.exploderMatrixNoSingles(
                         self.toas, np.array(self.flags),
                         dt=1)
-                # self.avetoas, aveerr, self.aveflags, U = PALutils.dailyAveMatrix(self.toas, \
-                #                                    self.toaerrs, flags=np.array(self.flags),\
-                # dt=10)
+                self.Umat = U
                 self.Tmat = np.concatenate((self.Tmat, U), axis=1)
 
             if incDMX:
@@ -1074,6 +1072,7 @@ class Pulsar(object):
             self.tm = PALutils.createTimeLags(self.avetoas, self.avetoas)
 
             self.Tmat = np.append(Mmat, U, axis=1)
+
 
         if likfunc == 'mark8':
             N = self.toaerrs ** 2

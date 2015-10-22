@@ -545,12 +545,11 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
     inRange = False
     pstart = False
     fixpstart=False
-    if args.incTimingModel or args.fixNoise or args.noVaryNoise:
+    if args.incTimingModel:#or args.fixNoise or args.noVaryNoise:
         fixpstart=True
     if MPIrank == 0:
         pstart = True
     startSpectrumMin = False
-    fixpstart = True
     while not(inRange):
         p0 = model.initParameters(startEfacAtOne=True, fixpstart=fixpstart)
         startSpectrumMin = True

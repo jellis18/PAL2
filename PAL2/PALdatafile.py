@@ -578,8 +578,9 @@ class DataFile(object):
         psr.freqs = np.array(self.getData(psrname, 'freq'))
         psr.Mmat = np.array(self.getData(psrname, 'designmatrix'))
         
-        # get number of epochs (i.e 10 s window)
-        (avetoas, Umat) = PALutils.exploderMatrix(psr.toas, dt=10)
+        # get number of epochs (i.e 1 s window)
+        (avetoas, aveflags, Umat) = PALutils.exploderMatrixNoSingles(
+            psr.toas, np.array(psr.flags), dt=1)
         psr.nepoch = len(avetoas)
 
 
