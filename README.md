@@ -59,7 +59,8 @@ By default the ``PAL2_run.py`` and ``makeH5File.py`` scripts will be installed t
 There are a few known issues with the PAL2 code that are being addressed:
 
 * During installation ``pip`` may have problems with the healpy package on Mac OSX. To overcome any potential problems you may need to include ``export CC=/path/to/gcc`` and ``export CXX=/path/to/g++``.
-* the ``mark9`` and ``mark6`` likelihood functions are currently not compatible with cross correlations in the GWB. You will need to use the ``--noCorrelations`` flag with ``PAL2_run.py`` or use the ``incCorrelations=False`` flag in the likelihood if using your own interface.
+* the ``mark6`` likelihood function is currently not compatible with cross correlations in the GWB. You will need to use the ``--noCorrelations`` flag with ``PAL2_run.py`` or use the ``incCorrelations=False`` flag in the likelihood if using your own interface.
+* You may have problems installing ``basemap`` with pip. You will first need to install ``geo`` with your package manager. Then you can install ``basemap`` via ``pip install basemap --allow-external basemap --allow-unverified basemap``.
 
 ## Example Data ##
 
