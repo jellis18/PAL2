@@ -117,7 +117,7 @@ parser.add_argument('--incORF', dest='incORF', action='store_true', \
 
 parser.add_argument('--incGWBAni', dest='incGWBAni', action='store_true',default=False,
                    help='include Anisotropic GWB [default=False]')
-parser.add_argument('--nls', dest='nls', action='store', type=int, default=2,
+parser.add_argument('--lmax', dest='lmax', action='store', type=int, default=2,
                    help='Number of ls to use in anisitropic search [default=2]')
 
 parser.add_argument('--incEquad', dest='incEquad', action='store_true',default=False,
@@ -212,6 +212,10 @@ parser.add_argument('--CWupperLimit', dest='CWupperLimit', action='store_true', 
                     default=False, help='Calculate CW upper limit (use h not d_L and use uniform prior on h)')
 parser.add_argument('--fixf', dest='fixf', action='store', type=float, default=0.0,
                    help='value of GW frequency for upper limits')
+
+parser.add_argument('--incBWM', dest='incBWM', action='store_true', \
+                    default=False, help='Include BWM signal in run [default=False]')
+
 
 
 parser.add_argument('--niter', dest='niter', action='store', type=int, default=1000000,
@@ -333,6 +337,7 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     ndmEventCoeffs=args.nshape, \
                     incDMX=args.incDMX, \
                     incORF=args.incORF, \
+                    incBWM=args.incBWM,
                     incGWWavelet=args.incGWwavelet, nGWWavelets=args.nGWwavelets,
                     incWavelet=args.incWavelet, nWavelets=args.nWavelets,
                     waveletModel=args.waveletModel,
@@ -340,7 +345,7 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     sysWaveletModel=args.sysWaveletModel,
                     incChromaticWavelet=args.incChromaticWavelet, 
                     nChromaticWavelets=args.nChromaticWavelets,
-                    incGWBAni=args.incGWBAni, lmax=args.nls,\
+                    incGWBAni=args.incGWBAni, lmax=args.lmax,\
                     incDMXKernel=incDMXKernel, DMXKernelModel=DMXKernelModel, \
                     separateEfacs=separateEfacs, separateEfacsByFreq=separateEfacsByFreq, \
                     separateEquads=separateEquads, separateEquadsByFreq=separateEquadsByFreq, \
@@ -550,6 +555,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
     if MPIrank == 0:
         pstart = True
     startSpectrumMin = False
+    fixpstart = True
     while not(inRange):
         p0 = model.initParameters(startEfacAtOne=True, fixpstart=fixpstart)
         startSpectrumMin = True
@@ -673,6 +679,10 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
                 ids = model.get_parameter_indices('spectrum', corr='gr_sph', split=False)
                 [ind.append(id) for id in ids]
 
+        ##### BWM #####
+        if args.incBWM:
+            ids = model.get_parameter_indices('bwm', corr='gr', split=True)
+            [ind.append(id) for id in ids]
         
         ##### CW #####
         if args.incCW:
@@ -742,6 +752,9 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         if args.incTimingModel:
             sampler.addProposalToCycle(model.drawFromTMfisherMatrix, 40)
             #sampler.addProposalToCycle(model.drawFromTMPrior, 5)
+        if args.incBWM:
+            sampler.addProposalToCycle(model.drawFromBWMPrior, 10)
+
         if args.incCW:
             if args.cwModel == 'upperLimit':
                 wgt = 15

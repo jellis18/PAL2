@@ -1522,6 +1522,28 @@ class PTAmodels(object):
             })
             signals.append(newsignal)
 
+        if incBWM:
+            toamax = self.psr[0].toas[0]
+            toamin = self.psr[0].toas[0]
+            for psr in self.psr:
+                if toamax < np.max(psr.toas):
+                    toamax = np.max(psr.toas)
+                if toamin > np.min(psr.toas):
+                    toamin = np.min(psr.toas)
+            newsignal = OrderedDict({
+                "stype":'bwm',
+                "corr":"gr",
+                "pulsarind":-1,
+                "bvary":[True, True, True, True, True],
+                "pmin":[toamin, -18.0, 0.0, 0.0, 0.0],
+                "pmax":[toamax, -10.0, 2*np.pi, np.pi, np.pi],
+                "pwidth":[30*24*3600.0, 0.1, 0.1, 0.1, 0.1],
+                "pstart":[0.5*(toamax+toamin), -15.0, 3.0, 1.0, 1.0],
+                "prior":['uniform', 'log', 'cyclic', 'cos', 'cyclic'],
+                "parids": ['burst-arrival', 'amplitude', 'raj', 'decj', 'polarisation']
+                })
+            signals.append(newsignal)
+
 
         if incCW:
             for cc in range(nCW):
@@ -1962,12 +1984,17 @@ class PTAmodels(object):
             # fourier amplitudes
             self.ptasignals.append(signal)
             self.haveDetSources = True
-
-        elif signal['stype'] == 'cw':
-            # a continuous GW signal
+        
+        elif signal['stype'] in ['bwm']:
+            # a BWM  GW signal
             self.ptasignals.append(signal)
             self.haveDetSources = True
 
+        elif signal['stype'] in ['cw']:
+            # a continuous  GW signal
+            self.ptasignals.append(signal)
+            self.haveDetSources = True
+        
             # if eccentric signal make interpolant for eccentricity vs nharm
             if signal['model'] in ['ecc', 'eccgam']:
                 fl = np.loadtxt(PAL2.__path__[0] + '/ecc_vs_nharm.txt')
@@ -2739,6 +2766,10 @@ class PTAmodels(object):
                 elif sig['stype'] == 'cw':
                     flagname = 'cw'
                     flagvalue = sig['parid'][jj]
+                
+                elif sig['stype'] == 'bwm':
+                    flagname = 'bwm'
+                    flagvalue = sig['parids'][jj]
 
                 elif sig['stype'] == 'gwwavelet':
                     flagname = 'gwwavelet'
@@ -4851,6 +4882,16 @@ class PTAmodels(object):
 
                 for ct, p in enumerate(self.psr):
                     p.detresiduals -= wsig[ct]
+
+            # bwm signal
+            if sig['stype'] == 'bwm':
+                
+                # TODO: using Rutgers code for now
+                for pp in self.psr:
+                    bwmsig = PALutils.bwmsignal(sparameters, pp.raj,
+                                                pp.decj, pp.toas)
+
+                    pp.detresiduals -= bwmsig
 
             # continuous wave signal
             if sig['stype'] == 'cw':
@@ -7248,6 +7289,18 @@ class PTAmodels(object):
                     if mp < 0.5 or mp > 3:
                         prior += -1e10
                     #prior += np.log(mp/ms) - (mp/ms)**2
+            
+            # BWM parameters
+            if sig['stype'] == 'bwm':
+                pindex = 0
+                for jj in range(sig['ntotpars']):
+                    if sig['bvary'][jj]:
+
+                        if sig['prior'][jj] == 'cos':
+                            prior += np.log(
+                                np.abs(np.sin(sparameters[pindex])))
+
+                        pindex += 1
 
             # CW parameters
             if sig['stype'] == 'cw':
@@ -8079,6 +8132,40 @@ class PTAmodels(object):
                 q[parind+jj] = m + np.random.randn() * s
                 qxy -= (m - sparameters[jj]) ** 2 / 2 / \
                     s ** 2 - (m - q[parind+jj]) ** 2 / 2 / s ** 2
+
+        return q, qxy
+    
+    # draw from BWM prior
+    def drawFromBWMPrior(self, parameters, iter, beta):
+
+        # post-jump parameters
+        q = parameters.copy()
+
+        # transition probability
+        qxy = 0
+
+        signum = self.getSignalNumbersFromDict(
+            self.ptasignals, stype='bwm', corr='gr')
+        nsigs = len(signum)
+        
+        # which parameters to jump
+        ind = np.random.randint(0, nsigs)
+
+        # get signal
+        sig = self.ptasignals[signum[ind]]
+        parind = sig['parindex']
+        npars = sig['npars']
+
+        # jump 
+        for jj in range(npars):
+            if sig['bvary'][jj]:
+                if sig['prior'][jj] == 'cos':
+                    q[parind+jj] = np.arccos(np.random.uniform(-1, 1))
+                    qxy += np.log(np.sin(parameters[jj]) / np.sin(q[parind+jj]))
+                else:
+                    q[parind + jj] = np.random.uniform(self.pmin[parind + jj],
+                                                       self.pmax[parind + jj])
+                    qxy += 0
 
         return q, qxy
     

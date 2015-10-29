@@ -204,6 +204,43 @@ def createAntennaPatternFuncs(psr, gwtheta, gwphi):
 
     return fplus, fcross, cosMu
 
+def bwmsignal(parameters, raj, decj, t):
+    """
+    Function that calculates the earth-term gravitational-wave burst-with-memory
+    signal, as described in:
+    Seto et al, van haasteren and Levin, phsirkov et al, Cordes and Jenet.
+    This version uses the F+/Fx polarization modes, as verified with the
+    Continuous Wave and Anisotropy papers. The rotation matrices were not very
+    insightful anyway.
+    parameter[0] = TOA time (sec) the burst hits the earth
+    parameter[1] = amplitude of the burst (strain h)
+    parameter[2] = azimuthal angle (rad)    [0, 2pi]
+    parameter[3] = polar angle (rad)        [0, pi]
+    parameter[4] = polarisation angle (rad) [0, pi]
+    raj = Right Ascension of the pulsar (rad)
+    decj = Declination of the pulsar (rad)
+    t = timestamps where the waveform should be returned
+    returns the waveform as induced timing residuals (seconds)
+    """
+    psrpos_phi = np.array([raj])
+    psrpos_theta = np.array([0.5*np.pi-decj])
+    gwphi = np.array([parameters[2]])
+    gwtheta = np.array([parameters[3]])
+
+    # Get the signal response matrix, which contains the Fplus and Fcross
+    Fr = signalResponse_fast(psrpos_theta, psrpos_phi, gwtheta, gwphi)
+    Fp = Fr[0, 0]
+    Fc = Fr[0, 1]
+
+    pol = np.cos(2*parameters[4]) * Fp + np.sin(2*parameters[4]) * Fc
+
+    # Define the heaviside function
+    heaviside = lambda x: 0.5 * (np.sign(x) + 1)
+
+    # Return the time-series for teh pulsar
+    return pol * (10**parameters[1]) * heaviside(t - parameters[0]) * (t - parameters[0])
+
+
 def createResiduals(psr, gwtheta, gwphi, mc, dist, fgw, phase0, psi, inc, pdist=None, \
                         pphase=None, psrTerm=True, evolve=False, phase_approx=True):
     """
