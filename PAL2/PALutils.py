@@ -228,7 +228,8 @@ def bwmsignal(parameters, raj, decj, t):
     gwtheta = np.array([parameters[3]])
 
     # Get the signal response matrix, which contains the Fplus and Fcross
-    Fr = signalResponse_fast(psrpos_theta, psrpos_phi, gwtheta, gwphi)
+    Fr = signalResponse_fast(psrpos_theta, psrpos_phi, 
+                             gwtheta, gwphi)
     Fp = Fr[0, 0]
     Fc = Fr[0, 1]
 
@@ -2335,7 +2336,7 @@ def createSignalResponse(pphi, ptheta, gwphi, gwtheta):
 
     return F
 
-def createSignalResponse_pol(pphi, ptheta, gwphi, gwtheta, plus=True, norm=True):
+def createSignalResponse_pol(pphi, ptheta, gwphi, gwtheta, plus=True, norm=False):
     """
     Create the signal response matrix. All parameters are assumed to be of the
     same dimensionality.

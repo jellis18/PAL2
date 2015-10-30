@@ -305,7 +305,7 @@ def getMax(samples, weights=None, range=None, bins=50):
 # make triangle plot of marginalized posterior distribution
 def triplot(chain, color='k', weights=None, interpolate=False, smooth=True, \
            labels=None, figsize=(11,8.5), title=None, inj=None, tex=True, \
-            incMaxPost=True, cmap='YlOrBr', holdon=False, lw=1.5):
+            incMaxPost=True, cmap='YlOrBr', holdon=False, lw=1.5, ranges=False):
 
     """
 
@@ -342,6 +342,20 @@ def triplot(chain, color='k', weights=None, interpolate=False, smooth=True, \
             ii = i
             jj = len(parameters) - j - 1
 
+            # get ranges
+            if ranges:
+                xmin, xmax = confinterval(chain[:, parameters[ii]], sigma=0.95, 
+                                          type='equalProb')
+                x_range = [xmin, xmax]
+                xmin, xmax = confinterval(chain[:, parameters[jj]], sigma=0.95, 
+                                          type='equalProb')
+                y_range = [xmin, xmax]
+
+            else:
+                x_range = [chain[:, parameters[ii]].min(), chain[:, parameters[ii]].max()]
+                y_range = [chain[:, parameters[jj]].min(), chain[:, parameters[jj]].max()]
+
+
             axarr[ii, jj].tick_params(axis='both', which='major', labelsize=10)
 
             xmajorLocator = matplotlib.ticker.MaxNLocator(nbins=4,prune='both')
@@ -364,7 +378,7 @@ def triplot(chain, color='k', weights=None, interpolate=False, smooth=True, \
                     # Make a 1D plot
                     makesubplot1d(axarr[ii][ii], chain[:,parameters[ii]], \
                                   weights=weights, interpolate=interpolate, \
-                                  smooth=smooth, color=color, lw=lw)
+                                  smooth=smooth, color=color, lw=lw, range=x_range)
                     axarr[ii][jj].set_ylim(ymin=0)
                     if incMaxPost:
                         mx = getMax(chain[:,parameters[ii]], weights=weights)
@@ -374,9 +388,11 @@ def triplot(chain, color='k', weights=None, interpolate=False, smooth=True, \
                         axarr[ii][ii].axvline(inj[ii], lw=2, color='k')
                 else:
                     # Make a 2D plot
-                    makesubplot2d(axarr[jj][ii], chain[:,parameters[ii]], \
-                            chain[:,parameters[jj]], cmap=cmap, color='k', weights=weights, \
-                                  smooth=smooth, lw=lw)
+                    makesubplot2d(axarr[jj][ii], chain[:,parameters[ii]],
+                                  chain[:,parameters[jj]], cmap=cmap, 
+                                  color='k', weights=weights,
+                                  smooth=smooth, lw=lw, x_range=x_range,
+                                  y_range=y_range)
 
                     if inj is not None:
                         axarr[jj][ii].plot(inj[ii], inj[jj], 'x', color='k', markersize=12, \
@@ -457,7 +473,7 @@ def greedy_bin_sky(skypos, skycarts):
 
 
 def plotSkyMap(raSample, decSample, nside=64, contours=None, colorbar=True, \
-              inj=None, psrs=None):
+              inj=None, psrs=None, cmap='YlOrBr', outfile='skymap.pdf'):
     """
 
     Plot Skymap of chain samples on Mollwiede projection.
@@ -494,7 +510,7 @@ def plotSkyMap(raSample, decSample, nside=64, contours=None, colorbar=True, \
     skymap = greedy_bin_sky(skypos, skycarts)
 
     # smooth skymap
-    skymap = hp.smoothing(skymap, 0.05)
+    skymap = hp.smoothing(skymap, sigma=0.02)
 
     # make plot
     ax = plt.subplot(111, projection='astro mollweide')
@@ -514,7 +530,7 @@ def plotSkyMap(raSample, decSample, nside=64, contours=None, colorbar=True, \
     # plot map
     ax.grid()
     plot.outline_text(ax)
-    plot.healpix_heatmap(skymap)
+    plot.healpix_heatmap(skymap, cmap=cmap)
 
     # add injection
     if inj:
@@ -522,7 +538,7 @@ def plotSkyMap(raSample, decSample, nside=64, contours=None, colorbar=True, \
 
     # add pulsars
     if np.all(psrs):
-        ax.plot(psrs[:,0], psrs[:,1], 'D', color='w', markersize=3, mew=1, mec='w')
+        ax.plot(psrs[:,0], psrs[:,1], '*', color='lime', markersize=8, mew=1, mec='k')
 
     # add colorbar and title
     if colorbar:
@@ -530,7 +546,7 @@ def plotSkyMap(raSample, decSample, nside=64, contours=None, colorbar=True, \
         plt.suptitle(r'$p(\alpha,\delta|d)$', y=0.1)
 
     # save skymap
-    plt.savefig('skymap.pdf', bbox_inches='tight')
+    plt.savefig(outfile, bbox_inches='tight')
 
 
 

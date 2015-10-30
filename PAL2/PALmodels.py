@@ -2831,8 +2831,9 @@ class PTAmodels(object):
 
                 elif sig['stype'] == 'dmpowerlaw':
                     flagname = 'dmpowerlaw'
-                    flagvalue = ['DM-Amplitude', 'DM-spectral-index',
-                                 'low-frequency-cutoff'][jj]
+                    flagvalue = ['DM-Amplitude_' + sig['flagvalue'],
+                                 'DM-spectral-index_' + sig['flagvalue'],
+                                 'DM-low-frequency-cutoff_' + sig['flagvalue']][jj]
 
                 elif sig['stype'] == 'dmse':
                     flagname = 'dmse'
