@@ -853,7 +853,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
                 
                 # check prior
                 if model.mark3LogPrior(acube) != -np.inf:
-                    ll = loglike(acube, **loglkwargs) + model.mark3LogPrior(acube)
+                    ll = loglike(acube, **loglkwargs) #+ model.mark3LogPrior(acube)
                     return ll
                 else:
                     #print 'WARNING: Prior returns -np.inf!!'
@@ -881,10 +881,10 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
 
         # run MultiNest
         pymultinest.run(myloglike, myprior, n_params, resume = args.resume, \
-                        verbose = True, sampling_efficiency = 0.2, \
+                        verbose = True, sampling_efficiency = 0.01, \
                         outputfiles_basename =  args.outDir+'/mn'+'-', \
                         n_iter_before_update=5, n_live_points=nlive, \
-                        const_efficiency_mode=False, importance_nested_sampling=False, \
+                        const_efficiency_mode=True, importance_nested_sampling=True, \
                         n_clustering_params=n_params, init_MPI=False)
 
 

@@ -1535,12 +1535,13 @@ class PTAmodels(object):
                 "corr":"gr",
                 "pulsarind":-1,
                 "bvary":[True, True, True, True, True],
-                "pmin":[toamin, -18.0, 0.0, 0.0, 0.0],
-                "pmax":[toamax, -10.0, 2*np.pi, np.pi, np.pi],
-                "pwidth":[30*24*3600.0, 0.1, 0.1, 0.1, 0.1],
-                "pstart":[0.5*(toamax+toamin), -15.0, 3.0, 1.0, 1.0],
+                "pmin":[toamin/86400, -18.0, 0.0, 0.0, 0.0],
+                "pmax":[toamax/86400, -10.0, 2*np.pi, np.pi, np.pi],
+                "pwidth":[30, 0.1, 0.1, 0.1, 0.1],
+                "pstart":[0.5*(toamax+toamin)/86400, -15.0, 3.0, 1.0, 1.0],
                 "prior":['uniform', 'log', 'cyclic', 'cos', 'cyclic'],
-                "parids": ['burst-arrival', 'amplitude', 'raj', 'decj', 'polarisation']
+                "parids": ['burst-arrival', 'amplitude', 'gwphi', 
+                           'gwtheta', 'psi']
                 })
             signals.append(newsignal)
 
@@ -4890,7 +4891,7 @@ class PTAmodels(object):
                 # TODO: using Rutgers code for now
                 for pp in self.psr:
                     bwmsig = PALutils.bwmsignal(sparameters, pp.raj,
-                                                pp.decj, pp.toas)
+                                                pp.decj, pp.toas/86400)
 
                     pp.detresiduals -= bwmsig
 
