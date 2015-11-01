@@ -216,6 +216,9 @@ parser.add_argument('--fixf', dest='fixf', action='store', type=float, default=0
 parser.add_argument('--incBWM', dest='incBWM', action='store_true', \
                     default=False, help='Include BWM signal in run [default=False]')
 
+parser.add_argument('--incGlitch', dest='incGlitch', action='store_true', \
+                    default=False, help='Include Glitch signal in run [default=False]')
+
 
 
 parser.add_argument('--niter', dest='niter', action='store', type=int, default=1000000,
@@ -338,6 +341,7 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     incDMX=args.incDMX, \
                     incORF=args.incORF, \
                     incBWM=args.incBWM,
+                    incGlitch=args.incGlitch,
                     incGWWavelet=args.incGWwavelet, nGWWavelets=args.nGWwavelets,
                     incWavelet=args.incWavelet, nWavelets=args.nWavelets,
                     waveletModel=args.waveletModel,
@@ -678,6 +682,11 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
             if args.gwbModel == 'spectrum':
                 ids = model.get_parameter_indices('spectrum', corr='gr_sph', split=False)
                 [ind.append(id) for id in ids]
+        
+        ##### Glitch #####
+        if args.incGlitch:
+            ids = model.get_parameter_indices('glitch', corr='single', split=True)
+            [ind.append(id) for id in ids]
 
         ##### BWM #####
         if args.incBWM:

@@ -204,33 +204,19 @@ def createAntennaPatternFuncs(psr, gwtheta, gwphi):
 
     return fplus, fcross, cosMu
 
-def bwmsignal_psr(parameters, t):
+def glitch_signal(gtime, gamp, gsign, t):
     """
-    Function that calculates the earth-term gravitational-wave burst-with-memory
-    signal, as described in:
-    Seto et al, van haasteren and Levin, phsirkov et al, Cordes and Jenet.
-
-    This version only has a burst epoch and a strain in order to characterize a
-    pulsar-term BWM signal.
-
-    parameter[0] = TOA time (MJD) the burst hits the earth
-    parameter[1] = amplitude of the burst (strain h)
-    parameter[2] = extra multiplier (typically -1 or 1, for sign of signal)
-
-    t = timestamps where the waveform should be returned
-
-    returns the waveform as induced timing residuals (seconds)
-
+    Glitch signal
     """
     # Define the heaviside function
     heaviside = lambda x: 0.5 * (np.sign(x) + 1)
 
-    s = np.sign(parameters[2])
-    amp = 10**parameters[1]
-    epoch = parameters[0] * 86400
+    s = np.sign(gsign)
+    amp = 10**gamp
+    epoch = gtime * 86400
 
     # Return the time-series for the pulsar
-    return amp * s * heaviside(t - epoch) * (t - epoch)
+    return amp * s * heaviside(t - epoch) * (t - epoch) 
 
 def bwmsignal(parameters, raj, decj, t):
     """
