@@ -223,6 +223,8 @@ parser.add_argument('--incGlitch', dest='incGlitch', action='store_true', \
 
 parser.add_argument('--niter', dest='niter', action='store', type=int, default=1000000,
                    help='number MCMC iterations (default=1000000)')
+parser.add_argument('--thin', dest='thin', action='store', type=int, default=10,
+                   help='Thinning factor (default=10)')
 parser.add_argument('--compression', dest='compression', action='store', type=str, \
                     default='None', help='compression type [None, frequencies, average, red]')
 parser.add_argument('--sampler', dest='sampler', action='store', type=str, \
@@ -794,7 +796,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         sampler.sample(p0, args.niter, covUpdate=1000, AMweight=15, SCAMweight=30, \
                        DEweight=50, neff=args.neff, KDEweight=0, Tmin=args.Tmin,
                        Tmax=args.Tmax, writeHotChains=args.writeHotChains,
-                      hotChain=args.hotChain)
+                      hotChain=args.hotChain, thin=args.thin)
 
     if args.sampler == 'polychord':
         print 'Using PolyChord Sampler'

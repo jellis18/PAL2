@@ -246,7 +246,7 @@ class DataFile(object):
 
         # Load pulsar data from the libstempo library
         try:
-            t2pulsar = t2.tempopulsar(relparfile, reltimfile, maxobs=20000)
+            t2pulsar = t2.tempopulsar(relparfile, reltimfile, maxobs=25000)
         except TypeError:
             t2pulsar = t2.tempopulsar(relparfile, reltimfile)
         except:

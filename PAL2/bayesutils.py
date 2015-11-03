@@ -199,9 +199,9 @@ def makesubplot2d(ax, samples1, samples2, cmap=None, color='k', weights=None,
         contourlinewidths = (lw, lw, lw)
         
 
-        c1 = ax.contour(xedges,yedges,hist2d.T,contourlevels, \
-                colors=contourcolors, linestyles=contourlinestyles, \
-                linewidths=contourlinewidths, zorder=2)
+        c1 = ax.contour(xedges,yedges,hist2d.T,contourlevels[:2], \
+                        colors=contourcolors[:2], linestyles=contourlinestyles[:2], \
+                        linewidths=contourlinewidths[:2], zorder=2)
     if cmap:
         if logz:
             c2 = ax.imshow(np.flipud(hist2d.T), extent=extent, aspect=ax.get_aspect(), \
@@ -305,7 +305,7 @@ def getMax(samples, weights=None, range=None, bins=50):
 # make triangle plot of marginalized posterior distribution
 def triplot(chain, color='k', weights=None, interpolate=False, smooth=True, \
            labels=None, figsize=(11,8.5), title=None, inj=None, tex=True, \
-            incMaxPost=True, cmap='YlOrBr', holdon=False, lw=1.5, ranges=False):
+            incMaxPost=True, cmap='YlOrBr', lw=1.5, ranges=False, axarr=None):
 
     """
 
@@ -330,9 +330,9 @@ def triplot(chain, color='k', weights=None, interpolate=False, smooth=True, \
     ndim = chain.shape[1]
     parameters = np.linspace(0,ndim-1,ndim)
     
-    if holdon:
+    if axarr is not None:
         f = plt.gcf()
-        fig, axarr = plt.subplots(nrows=len(parameters), ncols=len(parameters),figsize=figsize)
+        #fig, axarr = plt.subplots(nrows=len(parameters), ncols=len(parameters),figsize=figsize)
     else:
         f, axarr = plt.subplots(nrows=len(parameters), ncols=len(parameters),figsize=figsize)
 
@@ -390,7 +390,7 @@ def triplot(chain, color='k', weights=None, interpolate=False, smooth=True, \
                     # Make a 2D plot
                     makesubplot2d(axarr[jj][ii], chain[:,parameters[ii]],
                                   chain[:,parameters[jj]], cmap=cmap, 
-                                  color='k', weights=weights,
+                                  color=color, weights=weights,
                                   smooth=smooth, lw=lw, x_range=x_range,
                                   y_range=y_range)
 
