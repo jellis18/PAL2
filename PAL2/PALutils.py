@@ -218,7 +218,7 @@ def glitch_signal(gtime, gamp, gsign, t):
     # Return the time-series for the pulsar
     return amp * s * heaviside(t - epoch) * (t - epoch) 
 
-def bwmsignal(parameters, raj, decj, t):
+def bwmsignal(parameters, raj, decj, t, corr='gr'):
     """
     Function that calculates the earth-term gravitational-wave burst-with-memory
     signal, as described in:
@@ -236,11 +236,18 @@ def bwmsignal(parameters, raj, decj, t):
     t = timestamps where the waveform should be returned
     returns the waveform as induced timing residuals (seconds)
     """
-    gwphi = np.array([parameters[2]])
-    gwdec = np.array([np.pi/2-parameters[3]])
-    gwpol = np.array([parameters[4]])
-
-    pol = AntennaPattern(raj.flatten(), decj.flatten(), gwphi, gwdec, gwpol)
+    gwphi = parameters[2]
+    gwdec = np.pi/2-parameters[3]
+    gwpol = parameters[4]
+    
+    if corr == 'gr':
+        pol = AntennaPattern(raj, decj, gwphi, gwdec, gwpol)
+    elif corr == 'mono':
+        pol = 1
+    elif corr == 'dipole':
+        pol = DipoleAntennaPattern(raj, decj, gwphi, gwdec, gwpol)
+    elif corr == 'absgr':
+        pol = np.abs(AntennaPattern(raj, decj, gwphi, gwdec, gwpol))
 
     # Define the heaviside function
     heaviside = lambda x: 0.5 * (np.sign(x) + 1)
@@ -274,12 +281,38 @@ def AntennaPattern(rajp, decjp, raj, decj, pol):
                   np.sin(rajp)*np.cos(decjp), \
                   np.sin(decjp)]).flatten()
 
-
-
     Fp = 0.5 * (np.dot(nhat, p)**2 - np.dot(mhat, p)**2) / (1 + np.dot(Omega, p))
     Fc = np.dot(mhat, p) * np.dot(nhat, p) / (1 + np.dot(Omega, p))
 
     return np.cos(2*pol)*Fp + np.sin(2*pol)*Fc
+
+
+def DipoleAntennaPattern(rajp, decjp, raj, decj, pol):
+    """Return the dipole antenna pattern for a given source position and
+    pulsar position
+
+    :param rajp:    Right ascension pulsar (rad) [0,2pi]
+    :param decj:    Declination pulsar (rad) [-pi/2,pi/2]
+    :param raj:     Right ascension source (rad) [0,2pi]
+    :param dec:     Declination source (rad) [-pi/2,pi/2]
+    :param pol:     Polarization angle (rad) [0,2pi]
+    """
+    Omega = np.array([-np.cos(decj)*np.cos(raj), \
+                      -np.cos(decj)*np.sin(raj), \
+                      -np.sin(decj)])
+
+    mhat = np.array([-np.sin(raj), np.cos(raj), 0])
+    nhat = np.array([-np.cos(raj)*np.sin(decj), \
+                     -np.sin(decj)*np.sin(raj), \
+                     np.cos(decj)])
+
+    p = np.array([np.cos(rajp)*np.cos(decjp), \
+                  np.sin(rajp)*np.cos(decjp), \
+                  np.sin(decjp)])
+
+    return np.cos(pol) * np.dot(nhat, p) + \
+            np.sin(pol) * np.dot(mhat, p)
+
 
 
 def createResiduals(psr, gwtheta, gwphi, mc, dist, fgw, phase0, psi, inc, pdist=None, \

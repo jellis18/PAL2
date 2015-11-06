@@ -158,7 +158,8 @@ class PTAmodels(object):
                       nscatfreqs=None,
                       incGWB=False, gwbModel='powerlaw',
                       incGWBAni=False, lmax=2,
-                      incBWM=False, incDMX=False,
+                      incBWM=False, incMonoBWM=False, incDipoleBWM=False,
+                      incAbsBWM=False, incDMX=False,
                       incGlitch=False,
                       incDMXKernel=False, DMXKernelModel='linear',
                       incCW=False, incPulsarDistance=False, CWupperLimit=False,
@@ -418,6 +419,33 @@ class PTAmodels(object):
                         "prior": [equadPrior]
                     })
                     signals.append(newsignal)
+            
+            if incGlitch:
+                toamin = p.toas.min() / 86400
+                toamax = p.toas.max() / 86400
+                bvary = [True, True, True]
+                pmin = [toamin, -20, -1]
+                pmax = [toamax, -10, 1]
+                pstart = [0.5*(toamin+toamax), -15, 1]
+                pwidth = [30, 0.1, 0.1]
+                prior = ['uniform', 'log', 'uniform']
+                parids = ['glitch_time_'+str(p.name), 'glitch_amp_'+str(p.name),
+                          'glitch_sign_'+str(p.name)]
+                newsignal = OrderedDict({
+                    "stype": 'glitch',
+                    "corr": "single",
+                    "pulsarind": ii,
+                    "flagname": "pulsarname",
+                    "flagvalue": p.name,
+                    "bvary": bvary,
+                    "pmin": pmin,
+                    "pmax": pmax,
+                    "pwidth": pwidth,
+                    "pstart": pstart,
+                    "prior": prior,
+                    "parids": parids
+                })
+                signals.append(newsignal)
 
             if incRedNoise:
                 if noiseModel == 'spectrum':
@@ -1345,34 +1373,6 @@ class PTAmodels(object):
                     })
                     signals.append(newsignal)
 
-            if incGlitch:
-                toamin = p.toas.min() / 86400
-                toamax = p.toas.max() / 86400
-                bvary = [True, True, True]
-                pmin = [toamin, -20, -1]
-                pmax = [toamax, -10, 1]
-                pstart = [0.5*(toamin+toamax), -15, 1]
-                pwidth = [30, 0.1, 0.1]
-                prior = ['uniform', 'log', 'uniform']
-                parids = ['glitch_time_'+str(p.name), 'glitch_amp_'+str(p.name),
-                          'glitch_sign_'+str(p.name)]
-                newsignal = OrderedDict({
-                    "stype": 'glitch',
-                    "corr": "single",
-                    "pulsarind": ii,
-                    "flagname": "pulsarname",
-                    "flagvalue": p.name,
-                    "bvary": bvary,
-                    "pmin": pmin,
-                    "pmax": pmax,
-                    "pwidth": pwidth,
-                    "pstart": pstart,
-                    "prior": prior,
-                    "parids": parids
-                })
-                signals.append(newsignal)
-
-
             
             if incWavelet:
                 Tspan = (p.toas.max() - p.toas.min())
@@ -1560,18 +1560,54 @@ class PTAmodels(object):
                     toamax = np.max(psr.toas)
                 if toamin > np.min(psr.toas):
                     toamin = np.min(psr.toas)
+            
+            bvary = [True, True, True, True, True]
+            pmin = [toamin/86400, -18.0, 0.0, 0.0, 0.0]
+            pmax = [toamax/86400, -11.0, 2*np.pi, np.pi, np.pi]
+            pwidth = [30, 0.1, 0.1, 0.1, 0.1]
+            pstart = [0.5*(toamax+toamin)/86400, -15.0, 3.0, 1.0, 1.0]
+            prior = ['uniform', 'log', 'cyclic', 'cos', 'cyclic']
+            parids = ['bwm-epoch', 'bwm-lamp', 'bwm-phi', 
+                           'bwm-theta', 'bwm-psi']
+
+            if incMonoBWM:
+                bvary += [True]
+                pmin += [-18.0]
+                pmax += [-11.0]
+                pwidth += [0.1]
+                pstart += [-15.0]
+                prior += ['log']
+                parids += ['mono-lamp']
+
+            if incDipoleBWM:
+                bvary += [True, True, True, True]
+                pmin += [-18.0, 0.0, 0.0, 0.0]
+                pmax += [-11.0, 2*np.pi, np.pi, np.pi]
+                pwidth += [0.1, 0.1, 0.1, 0.1]
+                pstart += [-15.0, 3.0, 1.0, 1.0]
+                prior += ['log', 'cyclic', 'cos', 'cyclic']
+                parids += ['dip-lamp', 'dip-phi', 'dip-theta', 'dip-psi']
+            
+            if incAbsBWM:
+                bvary += [True, True, True, True]
+                pmin += [-18.0, 0.0, 0.0, 0.0]
+                pmax += [-11.0, 2*np.pi, np.pi, np.pi]
+                pwidth += [0.1, 0.1, 0.1, 0.1]
+                pstart += [-15.0, 3.0, 1.0, 1.0]
+                prior += ['log', 'cyclic', 'cos', 'cyclic']
+                parids += ['bwm-abs-lamp', 'bwm-abs-phi', 'bwm-abs-theta', 
+                           'bwm-abs-psi']
             newsignal = OrderedDict({
                 "stype":'bwm',
                 "corr":"gr",
                 "pulsarind":-1,
-                "bvary":[True, True, True, True, True],
-                "pmin":[toamin/86400, -18.0, 0.0, 0.0, 0.0],
-                "pmax":[toamax/86400, -10.0, 2*np.pi, np.pi, np.pi],
-                "pwidth":[30, 0.1, 0.1, 0.1, 0.1],
-                "pstart":[0.5*(toamax+toamin)/86400, -15.0, 3.0, 1.0, 1.0],
-                "prior":['uniform', 'log', 'cyclic', 'cos', 'cyclic'],
-                "parids": ['burst-arrival', 'amplitude', 'gwphi', 
-                           'gwtheta', 'psi']
+                "bvary":bvary,
+                "pmin":pmin,
+                "pmax":pmax,
+                "pwidth":pwidth,
+                "pstart":pstart,
+                "prior":prior,
+                "parids":parids
                 })
             signals.append(newsignal)
 
@@ -4929,12 +4965,11 @@ class PTAmodels(object):
                 psr.detresiduals -= PALutils.glitch_signal(gtime, gamp, gsign, psr.toas)
 
             # bwm signal
-            if sig['stype'] == 'bwm':
+            if sig['stype'] == 'bwm' and np.all(selection[parind:parind+npars]):
                 
-                # TODO: using Rutgers code for now
                 for pp in self.psr:
-                    bwmsig = PALutils.bwmsignal(sparameters, pp.raj,
-                                                pp.decj, pp.toas/86400)
+                    bwmsig = PALutils.bwmsignal(sparameters, np.double(pp.raj),
+                                                np.double(pp.decj), pp.toas/86400)
 
                     pp.detresiduals -= bwmsig
 
