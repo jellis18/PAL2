@@ -473,8 +473,8 @@ def construct_gw_wavelet(psr, gwtheta, gwphi, gwpsi, gweps, gwA, gwt0, gwf0, gwQ
         rr = 0
         for A, t0, f0, Q, phi0 in zip(gwA, gwt0, gwf0, gwQ, gwphi0):
 
-            wplus = constuct_wavelet(p.toas, A, t0, f0, Q, phi0)
-            wcross = gweps * constuct_wavelet(p.toas, A, t0, f0, Q, phi0+3*np.pi/2)
+            wplus = construct_wavelet(p.toas, A, t0, f0, Q, phi0)
+            wcross = gweps * construct_wavelet(p.toas, A, t0, f0, Q, phi0+3*np.pi/2)
 
             rr += fplus * (wplus*cos2psi - wcross*sin2psi) + \
                     fcross * (wplus*sin2psi + wcross*cos2psi)

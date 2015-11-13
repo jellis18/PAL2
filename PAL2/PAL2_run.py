@@ -218,6 +218,8 @@ parser.add_argument('--incBWM', dest='incBWM', action='store_true', \
 
 parser.add_argument('--incGlitch', dest='incGlitch', action='store_true', \
                     default=False, help='Include Glitch signal in run [default=False]')
+parser.add_argument('--incGlitchBand', dest='incGlitchBand', action='store_true', \
+                    default=False, help='Include Glitch Band signal in run [default=False]')
 
 
 
@@ -343,7 +345,7 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     incDMX=args.incDMX, \
                     incORF=args.incORF, \
                     incBWM=args.incBWM,
-                    incGlitch=args.incGlitch,
+                    incGlitch=args.incGlitch, incGlitchBand=args.incGlitchBand,
                     incGWWavelet=args.incGWwavelet, nGWWavelets=args.nGWwavelets,
                     incWavelet=args.incWavelet, nWavelets=args.nWavelets,
                     waveletModel=args.waveletModel,
@@ -664,6 +666,10 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
             ids = model.get_parameter_indices('syswavelet', corr='single', split=True)
             [ind.append(id) for id in ids]
         
+        if args.incGWwavelet:
+            ids = model.get_parameter_indices('gwwavelet', corr='gr', split=True)
+            [ind.append(id) for id in ids]
+        
         ##### GWB #####
         if args.incGWB:
             if args.gwbModel == 'powerlaw':
@@ -688,6 +694,11 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         ##### Glitch #####
         if args.incGlitch:
             ids = model.get_parameter_indices('glitch', corr='single', split=True)
+            [ind.append(id) for id in ids]
+
+        ##### Band Glitch #####
+        if args.incGlitchBand:
+            ids = model.get_parameter_indices('glitch_band', corr='single', split=True)
             [ind.append(id) for id in ids]
 
         ##### BWM #####

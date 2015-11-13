@@ -160,7 +160,7 @@ class PTAmodels(object):
                       incGWBAni=False, lmax=2,
                       incBWM=False, incMonoBWM=False, incDipoleBWM=False,
                       incAbsBWM=False, incDMX=False,
-                      incGlitch=False,
+                      incGlitch=False, incGlitchBand=False,
                       incDMXKernel=False, DMXKernelModel='linear',
                       incCW=False, incPulsarDistance=False, CWupperLimit=False,
                       mass_ratio=False, CWModel='standard', nCW=1,
@@ -446,6 +446,42 @@ class PTAmodels(object):
                     "parids": parids
                 })
                 signals.append(newsignal)
+
+            if incGlitchBand:
+                lbands = [0, 1000, 2000]
+                lhbands = [1000, 2000, 5000]
+                for lb, hb in zip(lbands, lhbands):
+                    lidx = np.logical_and(p.freqs <= hb, p.freqs > lb)
+                    if np.any(lidx):
+                        print lb, hb, np.sum(lidx)
+                        toamin = p.toas[lidx].min() / 86400
+                        toamax = p.toas[lidx].max() / 86400
+                        bvary = [True, True, True]
+                        pmin = [toamin, -20, -1]
+                        pmax = [toamax, -10, 1]
+                        pstart = [0.5*(toamin+toamax), -15, 1]
+                        pwidth = [30, 0.1, 0.1]
+                        prior = ['uniform', 'log', 'uniform']
+                        parids = ['glitch_time-{0}-{1}-{2}'.format(str(p.name), lb, hb), 
+                                  'glitch_amp-{0}-{1}-{2}'.format(str(p.name), lb, hb),
+                                  'glitch_sign-{0}-{1}-{2}'.format(str(p.name), lb, hb)]
+
+                        newsignal = OrderedDict({
+                            "stype": 'glitch_band',
+                            "bidx":lidx,
+                            "corr": "single",
+                            "pulsarind": ii,
+                            "flagname": "pulsarname",
+                            "flagvalue": p.name,
+                            "bvary": bvary,
+                            "pmin": pmin,
+                            "pmax": pmax,
+                            "pwidth": pwidth,
+                            "pstart": pstart,
+                            "prior": prior,
+                            "parids": parids
+                        })
+                        signals.append(newsignal)
 
             if incRedNoise:
                 if noiseModel == 'spectrum':
@@ -1408,6 +1444,7 @@ class PTAmodels(object):
                     newsignal = OrderedDict({
                         "stype": "wavelet",
                         "model": waveletModel,
+                        "flagvalue":p.name,
                         "corr": "single",
                         "pulsarind": ii,
                         "mu": mu,
@@ -2053,7 +2090,7 @@ class PTAmodels(object):
             self.haveDetSources = True
 
         
-        elif signal['stype'] in ['bwm', 'glitch']:
+        elif signal['stype'] in ['bwm', 'glitch', 'glitch_band']:
             # a BWM  GW signal
             self.ptasignals.append(signal)
             self.haveDetSources = True
@@ -2824,7 +2861,9 @@ class PTAmodels(object):
                     flagname = 'frequency'
                     if sig['corr'] == 'single':
                         flagvalue = 'red_cp_' + \
-                            str(self.psr[psrindex].Ffreqs[2 * jj])
+                                str(self.psr[psrindex].Ffreqs[2 * jj]) + \
+                                '_' + sig['flagvalue']
+
 
                 elif sig['stype'] == 'dmspectrum':
                     flagname = 'dmfrequency'
@@ -2842,6 +2881,10 @@ class PTAmodels(object):
                 elif sig['stype'] == 'glitch':
                     flagname = 'glitch'
                     flagvalue = sig['parids'][jj]
+                
+                elif sig['stype'] == 'glitch_band':
+                    flagname = 'glitch_band'
+                    flagvalue = sig['parids'][jj]
 
                 elif sig['stype'] == 'gwwavelet':
                     flagname = 'gwwavelet'
@@ -2853,7 +2896,8 @@ class PTAmodels(object):
 
                 elif sig['stype'] == 'wavelet':
                     flagname = 'wavelet'
-                    flagvalue = sig['parid'][jj]
+                    flagvalue = sig['parid'][jj] + \
+                            '_' + sig['flagvalue']
                 
                 elif sig['stype'] == 'chrowavelet':
                     flagname = 'chrowavelet'
@@ -4963,6 +5007,16 @@ class PTAmodels(object):
                 gamp = sparameters[1]
                 gsign = sparameters[2]
                 psr.detresiduals -= PALutils.glitch_signal(gtime, gamp, gsign, psr.toas)
+            
+            # band glitch
+            if sig['stype'] == 'glitch_band':
+                psr = self.psr[psrind]
+                idx = sig['bidx']
+                gtime = sparameters[0]
+                gamp = sparameters[1]
+                gsign = sparameters[2]
+                psr.detresiduals[idx] -= PALutils.glitch_signal(
+                    gtime, gamp, gsign, psr.toas[idx])
 
             # bwm signal
             if sig['stype'] == 'bwm' and np.all(selection[parind:parind+npars]):
