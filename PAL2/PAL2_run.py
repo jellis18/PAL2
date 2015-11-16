@@ -615,11 +615,11 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
 
         ##### white noise #####
         if not args.noVaryEfac and not args.noVaryNoise:
-            ids = model.get_parameter_indices('efac', corr='single', split=False)
+            ids = model.get_parameter_indices('efac', corr='single', split=True)
             [ind.append(id) for id in ids if len(id) > 0]
 
         if args.incEquad:
-            ids = model.get_parameter_indices('equad', corr='single', split=False)
+            ids = model.get_parameter_indices('equad', corr='single', split=True)
             [ind.append(id) for id in ids if len(id) > 0]
         
         if args.incJitterEquad:
@@ -633,7 +633,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
                 ids = model.get_parameter_indices('powerlaw', corr='single', split=True)
                 [ind.append(id) for id in ids if len(id) > 0]
             if args.redModel == 'spectrum':
-                ids = model.get_parameter_indices('spectrum', corr='single', split=False)
+                ids = model.get_parameter_indices('spectrum', corr='single', split=True)
                 [ind.append(id) for id in ids if len(id) > 0]
             if args.redModel == 'interpolate':
                 ids = model.get_parameter_indices('interpolate', corr='single', split=False)
