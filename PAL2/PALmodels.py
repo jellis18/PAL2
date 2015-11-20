@@ -159,6 +159,7 @@ class PTAmodels(object):
                       incGWB=False, gwbModel='powerlaw',
                       incGWBAni=False, lmax=2,
                       incBWM=False, incMonoBWM=False, incDipoleBWM=False,
+                      incSingleGWGP=False, singleGWGPModel='se',
                       incAbsBWM=False, incDMX=False,
                       incGlitch=False, incGlitchBand=False,
                       incDMXKernel=False, DMXKernelModel='linear',
@@ -1837,6 +1838,38 @@ class PTAmodels(object):
         #        "mass_ratio": mass_ratio,
         #    })
         #    signals.append(newsignal)
+        
+        if incSingleGWGP:
+            bvary = [True] * 11
+            pmin = [-1, 0, 0, -18, 0, -9, 0, -18, 0, -9, 0]
+            pmax = [1, 2*np.pi, np.pi, -11, 7, -7, 7, -11, 7, -7, 7]
+            pstart = [0, np.pi, np.pi/2, -15, 3, -8, 3, -15, 3, -8, 3]
+            pwidth = [0.1] * 11
+            prior = ['uniform', 'uniform', 'uniform', 'log', 'uniform', 
+                     'log', 'uniform', 'log', 'uniform', 'log', 'uniform']
+            parids = ['gp-cos-theta', 'gp-phi', 'gp-psi', 'gp-lA-plus', 
+                      'gp-gamma-plus', 'gp-lf0-plus', 'gp-kappa-plus',
+                      'gp-lA-cross', 'gp-gamma-cross', 'gp-lf0-cross', 
+                      'gp-kappa-cross']
+            mu = [None] * 11
+            sigma = [None] * 11
+
+            newsignal = OrderedDict({
+                "stype": "gw-gp",
+                #"kernel":singleGWGPModel,
+                "corr": "gr",
+                "pulsarind": -1,
+                "mu": mu,
+                "sigma": sigma,
+                "bvary": bvary,
+                "pmin": pmin,
+                "pmax": pmax,
+                "pwidth": pwidth,
+                "pstart": pstart,
+                "parid": parids,
+                "prior": prior,
+            })
+            signals.append(newsignal)
 
         if incGWB:
             if gwbModel == 'spectrum':
@@ -2047,6 +2080,9 @@ class PTAmodels(object):
 
         elif signal['stype'] == 'pulsarTerm':
             # pulsar phase and frequency
+            self.ptasignals.append(signal)
+
+        elif signal['stype'] == 'gw-gp':
             self.ptasignals.append(signal)
 
         elif signal['stype'] in ['env_powerlaw', 'env_spectrum']:
@@ -2890,6 +2926,10 @@ class PTAmodels(object):
                     flagname = 'gwwavelet'
                     flagvalue = sig['parid'][jj]
                 
+                elif sig['stype'] == 'gw-gp':
+                    flagname = 'gw-gp'
+                    flagvalue = sig['parid'][jj]
+                
                 elif sig['stype'] == 'syswavelet':
                     flagname = sig['flagname']
                     flagvalue = sig['parid'][jj]
@@ -3327,6 +3367,28 @@ class PTAmodels(object):
             ret = np.array(aarray).flatten()
 
         return ret
+
+    def compute_ss_corrmat(self, gwtheta, gwphi, gwpsi):
+
+        self.corrmat = np.zeros((2, self.npsr, self.npsr))
+
+        fplus, fcross = np.zeros(self.npsr), np.zeros(self.npsr)
+
+        for ct, p in enumerate(self.psr):
+            fplus[ct], fcross[ct], _ = PALutils.createAntennaPatternFuncs(
+                p, gwtheta, gwphi)
+
+        for ii in range(self.npsr):
+            A1p = fplus[ii]*np.cos(2*gwpsi) + fcross[ii]*np.sin(2*gwpsi)
+            A1c = fcross[ii]*np.cos(2*gwpsi) - fplus[ii]*np.sin(2*gwpsi)
+            for jj in range(self.npsr):
+                A2p = fplus[jj]*np.cos(2*gwpsi) + fcross[jj]*np.sin(2*gwpsi)
+                A2c = fcross[jj]*np.cos(2*gwpsi) - fplus[jj]*np.sin(2*gwpsi)
+                self.corrmat[0, ii, jj] = A1p * A2p
+                self.corrmat[1, ii, jj] = A1c * A2c
+
+        return self.corrmat
+
 
 
     def computeAniORF(self, clms):
@@ -3971,6 +4033,7 @@ class PTAmodels(object):
         incDMshapelet = False
         incDMXconstantKernel = False
         incDMXseKernel = False
+        incGP = False
         for p in self.psr:
             p.band = []
             p.dmband = []
@@ -4042,6 +4105,38 @@ class PTAmodels(object):
 
                     # define rho
                     rho = np.array([rhovals, rhovals]).T.flatten()
+
+            # Single GW GP
+            if sig['stype'] == 'gw-gp':
+
+                incGP = True
+
+                # parameters
+                gwtheta = np.arccos(sparameters[0])
+                gwphi = sparameters[1]
+                gwpsi = sparameters[2]
+                A_plus = 10**sparameters[3]
+                gamma_plus = sparameters[4]
+                f0_plus = 10**sparameters[5]
+                kappa_plus = sparameters[6]
+                A_cross = 10**sparameters[7]
+                gamma_cross = sparameters[8]
+                f0_cross = 10**sparameters[9]
+                kappa_cross = sparameters[10]
+
+                self.corrmat = self.compute_ss_corrmat(gwtheta, gwphi, gwpsi)
+                
+                freqpy = self.gwfreqs
+                f1yr = 1 / 3.16e7
+                hcf_plus = A_plus * (freqpy / f1yr) ** ((3 - gamma_plus) / 2) / \
+                    (1 + (f0_plus / freqpy) ** kappa_plus) ** 0.5
+                hcf_cross = A_cross * (freqpy / f1yr) ** ((3 - gamma_cross) / 2) / \
+                    (1 + (f0_cross / freqpy) ** kappa_cross) ** 0.5
+                rho_plus = hcf_plus ** 2 / 12 / np.pi ** 2 / freqpy ** 3 / \
+                        self.psr[psrind].Tmax
+                rho_cross = hcf_cross ** 2 / 12 / np.pi ** 2 / freqpy ** 3 / \
+                        self.psr[psrind].Tmax
+
 
             # spectral Model
             if sig['stype'] == 'spectralModel':
@@ -4353,6 +4448,8 @@ class PTAmodels(object):
         # now that we have obtained rho and kappa, we can construct Phiinv
         sigdiag = []
         sigoffdiag = []
+        sig_offdiag_plus = []
+        sig_offdiag_cross = []
         self.gwamp = 0
 
         # no correlated signals (easy)
@@ -4515,7 +4612,7 @@ class PTAmodels(object):
             self.logdetPhi = np.sum(np.log(self.Phi))
 
         # correlated signals (not as easy)
-        if rho is not None and incCorrelations:
+        if incCorrelations:
             
             sigdiag_red, sigdiag = [], []
             self.logdetPhi = 0
@@ -4543,14 +4640,18 @@ class PTAmodels(object):
                 ndmfreq = np.sum(p.kappadm != 0)
 
                 # append to rho
-                if ndmfreq > 0:
-                    self.gwamp = np.concatenate((10 ** rho, np.zeros(ndmfreq)))
-                else:
-                    self.gwamp = 10 ** rho
+                if rho is not None:
+                    if ndmfreq > 0:
+                        self.gwamp = np.concatenate((10 ** rho, np.zeros(ndmfreq)))
+                    else:
+                        self.gwamp = 10 ** rho
+
+                    # append to signal diagonal
+                    p.kappa_tot = np.log10(10 ** p.kappa_tot + self.gwamp)
 
                 # append to signal diagonal
-                p.kappa_tot = np.log10(10 ** p.kappa_tot + self.gwamp)
                 sigdiag_red.append(10**p.kappa_tot)
+
                 if incTM:
                     p.kappa_tot = np.concatenate((np.ones(p.Mmat_reduced.shape[1]) * 80,
                                                   p.kappa_tot))
@@ -4559,9 +4660,15 @@ class PTAmodels(object):
                         p.kappa_tot = np.concatenate(
                             (p.kappa_tot, np.log10(p.Qamp)))
                         self.logdetPhi += np.sum(np.log(p.Qamp))
+                
+                if rho is not None:
+                    # append to off diagonal elements
+                    sigoffdiag.append(self.gwamp)
 
-                # append to off diagonal elements
-                sigoffdiag.append(self.gwamp)
+                if incGP:
+                    sig_offdiag_plus.append(rho_plus)
+                    sig_offdiag_cross.append(rho_cross)
+                
                 sigdiag.append(10**p.kappa_tot)
             
             # diagonal of phi matrix
@@ -4573,13 +4680,21 @@ class PTAmodels(object):
             nftot = self.ngwf + np.max(self.npfdm)
             smallMatrix = np.zeros((nftot, self.npsr, self.npsr))
             for ii in range(self.npsr):
-
                 for jj in range(ii, self.npsr):
-                    if ii == jj:
-                        smallMatrix[:, ii, jj] = self.corrmat[ii, jj] * sigdiag_red[jj]
+                    if incGP:
+                        smallMatrix[:, ii, jj] = self.corrmat[0][ii, jj] * \
+                                sig_offdiag_plus[jj]
+                        smallMatrix[:, ii, jj] += self.corrmat[1][ii, jj] * \
+                                sig_offdiag_cross[jj]
+                        if ii == jj:
+                            smallMatrix[:, ii, jj] += sigdiag_red[jj] 
+
                     else:
-                        smallMatrix[:, ii, jj] = self.corrmat[ii, jj] * sigoffdiag[jj]
-                        smallMatrix[:, jj, ii] = smallMatrix[:, ii, jj]
+                        if ii == jj:
+                            smallMatrix[:, ii, jj] = self.corrmat[ii, jj] * sigdiag_red[jj]
+                        else:
+                            smallMatrix[:, ii, jj] = self.corrmat[ii, jj] * sigoffdiag[jj]
+                            smallMatrix[:, jj, ii] = smallMatrix[:, ii, jj]
 
             # invert them
             for ii in range(nftot):

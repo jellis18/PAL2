@@ -3158,3 +3158,17 @@ def binresults(x, y, yerr, nbins=20):
             newx.append(xx[ll])
     
     return np.array(newx), np.array(newy), np.array(newyerr)
+
+
+def make_linear_interp_basis(t, npts=80):
+
+    x = np.linspace(t.min(), t.max(), npts)
+
+    M = np.zeros((len(t), len(x)))
+
+    for ii in range(len(x)-1):
+        idx = np.logical_and(t>=x[ii], t<=x[ii+1])
+        M[idx, ii] = (t[idx] - x[ii+1]) / (x[ii] - x[ii+1])
+        M[idx, ii+1] = (t[idx] - x[ii]) / (x[ii+1] - x[ii])
+
+    return M

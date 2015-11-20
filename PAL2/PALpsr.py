@@ -743,7 +743,7 @@ class Pulsar(object):
                                 tmpars=None, memsave=True, incJitter=False, incDMX=False,
                                 incRedBand=False, incDMBand=False, incRedGroup=False,
                                 redGroups=None, incRedExt=False, nfredExt=20,
-                                redExtFx=None):
+                                redExtFx=None, incGP=False):
 
         # For creating the auxiliaries it does not really matter: we are now
         # creating all quantities per default
@@ -1063,6 +1063,12 @@ class Pulsar(object):
                 print self.nDMX
                 self.Tmat = np.concatenate(
                     (self.Tmat, self.DMXDesignMat), axis=1)
+
+            if incGP:
+                self.Mgp = PALutils.make_linear_interp_basis(self.toas)
+                self.Mgp = np.concatenate((self.Mgp, self.Mgp), axis=1)
+                self.ngp = self.Mgp.shape[1] // 2
+                self.Tmat = np.concatenate((self.Tmat, self.Mgp), axis=1)
 
         # dense covariance likelihood
         if likfunc == 'mark10':

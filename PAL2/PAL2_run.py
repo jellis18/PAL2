@@ -216,6 +216,10 @@ parser.add_argument('--fixf', dest='fixf', action='store', type=float, default=0
 parser.add_argument('--incBWM', dest='incBWM', action='store_true', \
                     default=False, help='Include BWM signal in run [default=False]')
 
+parser.add_argument('--incGP', dest='incGP', action='store_true', \
+                    default=False, help='Include GP GW signal in run [default=False]')
+
+
 parser.add_argument('--incGlitch', dest='incGlitch', action='store_true', \
                     default=False, help='Include Glitch signal in run [default=False]')
 parser.add_argument('--incGlitchBand', dest='incGlitchBand', action='store_true', \
@@ -345,6 +349,7 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     incDMX=args.incDMX, \
                     incORF=args.incORF, \
                     incBWM=args.incBWM,
+                    incSingleGWGP=args.incGP,
                     incGlitch=args.incGlitch, incGlitchBand=args.incGlitchBand,
                     incGWWavelet=args.incGWwavelet, nGWWavelets=args.nGWwavelets,
                     incWavelet=args.incWavelet, nWavelets=args.nWavelets,
@@ -544,7 +549,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
     
     # log likelihood arguments
     loglkwargs = {}
-    if args.noCorrelations or not(np.any([args.incGWB, args.incGWBAni])):
+    if args.noCorrelations or not(np.any([args.incGWB, args.incGWBAni, args.incGP])):
         print 'Running model with no GWB correlations'
         loglkwargs['incCorrelations'] = False
     else:
@@ -704,6 +709,11 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         ##### BWM #####
         if args.incBWM:
             ids = model.get_parameter_indices('bwm', corr='gr', split=True)
+            [ind.append(id) for id in ids]
+        
+        ##### GP #####
+        if args.incGP:
+            ids = model.get_parameter_indices('gw-gp', corr='gr', split=True)
             [ind.append(id) for id in ids]
         
         ##### CW #####
