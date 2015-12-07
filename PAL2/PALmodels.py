@@ -158,9 +158,9 @@ class PTAmodels(object):
                       nscatfreqs=None,
                       incGWB=False, gwbModel='powerlaw',
                       incGWBAni=False, lmax=2,
-                      incBWM=False, incMonoBWM=False, incDipoleBWM=False,
+                      incBWM=False, BWMmodel='gr',
                       incSingleGWGP=False, singleGWGPModel='se',
-                      incAbsBWM=False, incDMX=False,
+                      incDMX=False,
                       incGlitch=False, incGlitchBand=False,
                       incDMXKernel=False, DMXKernelModel='linear',
                       incCW=False, incPulsarDistance=False, CWupperLimit=False,
@@ -1598,46 +1598,49 @@ class PTAmodels(object):
                     toamax = np.max(psr.toas)
                 if toamin > np.min(psr.toas):
                     toamin = np.min(psr.toas)
-            
-            bvary = [True, True, True, True, True]
-            pmin = [toamin/86400, -18.0, 0.0, 0.0, 0.0]
-            pmax = [toamax/86400, -11.0, 2*np.pi, np.pi, np.pi]
-            pwidth = [30, 0.1, 0.1, 0.1, 0.1]
-            pstart = [0.5*(toamax+toamin)/86400, -15.0, 3.0, 1.0, 1.0]
-            prior = ['uniform', 'log', 'cyclic', 'cos', 'cyclic']
-            parids = ['bwm-epoch', 'bwm-lamp', 'bwm-phi', 
-                           'bwm-theta', 'bwm-psi']
 
-            if incMonoBWM:
-                bvary += [True]
-                pmin += [-18.0]
-                pmax += [-11.0]
-                pwidth += [0.1]
-                pstart += [-15.0]
-                prior += ['log']
-                parids += ['mono-lamp']
+            if BWMmodel == 'gr':
+                bvary = [True, True, True, True, True]
+                pmin = [toamin/86400, -18.0, 0.0, 0.0, 0.0]
+                pmax = [toamax/86400, -11.0, 2*np.pi, np.pi, np.pi]
+                pwidth = [30, 0.1, 0.1, 0.1, 0.1]
+                pstart = [0.5*(toamax+toamin)/86400, -15.0, 3.0, 1.0, 1.0]
+                prior = ['uniform', 'log', 'cyclic', 'cos', 'cyclic']
+                parids = ['bwm-epoch', 'bwm-lamp', 'bwm-phi', 
+                               'bwm-theta', 'bwm-psi']
 
-            if incDipoleBWM:
-                bvary += [True, True, True, True]
-                pmin += [-18.0, 0.0, 0.0, 0.0]
-                pmax += [-11.0, 2*np.pi, np.pi, np.pi]
-                pwidth += [0.1, 0.1, 0.1, 0.1]
-                pstart += [-15.0, 3.0, 1.0, 1.0]
-                prior += ['log', 'cyclic', 'cos', 'cyclic']
-                parids += ['dip-lamp', 'dip-phi', 'dip-theta', 'dip-psi']
+            elif BWMmodel == 'mono':
+                bvary = [True, True]
+                pmin = [toamin/86400, -18.0]
+                pmax = [toamax/86400, -11.0]
+                pwidth = [30, 0.1]
+                pstart = [0.5*(toamax+toamin)/86400, -15.0]
+                prior = ['uniform', 'log']
+                parids = ['bwm-mono-epoch', 'bwm-mono-lamp']
             
-            if incAbsBWM:
-                bvary += [True, True, True, True]
-                pmin += [-18.0, 0.0, 0.0, 0.0]
-                pmax += [-11.0, 2*np.pi, np.pi, np.pi]
-                pwidth += [0.1, 0.1, 0.1, 0.1]
-                pstart += [-15.0, 3.0, 1.0, 1.0]
-                prior += ['log', 'cyclic', 'cos', 'cyclic']
-                parids += ['bwm-abs-lamp', 'bwm-abs-phi', 'bwm-abs-theta', 
-                           'bwm-abs-psi']
+            elif BWMmodel == 'dipole':
+                bvary = [True, True, True, True, True]
+                pmin = [toamin/86400, -18.0, 0.0, 0.0, 0.0]
+                pmax = [toamax/86400, -11.0, 2*np.pi, np.pi, np.pi]
+                pwidth = [30, 0.1, 0.1, 0.1, 0.1]
+                pstart = [0.5*(toamax+toamin)/86400, -15.0, 3.0, 1.0, 1.0]
+                prior = ['uniform', 'log', 'cyclic', 'cos', 'cyclic']
+                parids = ['bwm-dip-epoch', 'bwm-dip-lamp', 'bwm-dip-phi', 
+                               'bwm-dip-theta', 'bwm-dip-psi']
+            
+            elif BWMmodel == 'abs':
+                bvary = [True, True, True, True, True]
+                pmin = [toamin/86400, -18.0, 0.0, 0.0, 0.0]
+                pmax = [toamax/86400, -11.0, 2*np.pi, np.pi, np.pi]
+                pwidth = [30, 0.1, 0.1, 0.1, 0.1]
+                pstart = [0.5*(toamax+toamin)/86400, -15.0, 3.0, 1.0, 1.0]
+                prior = ['uniform', 'log', 'cyclic', 'cos', 'cyclic']
+                parids = ['bwm-abs-epoch', 'bwm-abs-lamp', 'bwm-abs-phi', 
+                               'bwm-abs-theta', 'bwm-abs-psi']
+
             newsignal = OrderedDict({
                 "stype":'bwm',
-                "corr":"gr",
+                "corr":BWMmodel,
                 "pulsarind":-1,
                 "bvary":bvary,
                 "pmin":pmin,
@@ -4688,6 +4691,8 @@ class PTAmodels(object):
                                 sig_offdiag_cross[jj]
                         if ii == jj:
                             smallMatrix[:, ii, jj] += sigdiag_red[jj] 
+                        
+                        smallMatrix[:, jj, ii] = smallMatrix[:, ii, jj]
 
                     else:
                         if ii == jj:
@@ -4698,7 +4703,12 @@ class PTAmodels(object):
 
             # invert them
             for ii in range(nftot):
-                L = sl.cho_factor(smallMatrix[ii, :, :])
+                try:
+                    L = sl.cho_factor(smallMatrix[ii, :, :])
+                except np.linalg.LinAlgError:
+                    print smallMatrix[ii,:,:]
+                    smallMatrix[ii,:,:] = np.diag(np.diag(smallMatrix[ii,:,:]))
+                    L = sl.cho_factor(smallMatrix[ii, :, :])
                 smallMatrix[ii, :, :] = sl.cho_solve(L, np.eye(self.npsr))
                 self.logdetPhi += np.sum(2 * np.log(np.diag(L[0])))
 
@@ -5135,10 +5145,12 @@ class PTAmodels(object):
 
             # bwm signal
             if sig['stype'] == 'bwm' and np.all(selection[parind:parind+npars]):
-                
+
                 for pp in self.psr:
                     bwmsig = PALutils.bwmsignal(sparameters, np.double(pp.raj),
-                                                np.double(pp.decj), pp.toas/86400)
+                                                np.double(pp.decj), 
+                                                pp.toas/86400, 
+                                                corr=sig['corr'])
 
                     pp.detresiduals -= bwmsig
 

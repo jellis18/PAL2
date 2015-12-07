@@ -236,9 +236,11 @@ def bwmsignal(parameters, raj, decj, t, corr='gr'):
     t = timestamps where the waveform should be returned
     returns the waveform as induced timing residuals (seconds)
     """
-    gwphi = parameters[2]
-    gwdec = np.pi/2-parameters[3]
-    gwpol = parameters[4]
+
+    if corr != 'mono':
+        gwphi = parameters[2]
+        gwdec = np.pi/2-parameters[3]
+        gwpol = parameters[4]
     
     if corr == 'gr':
         pol = AntennaPattern(raj, decj, gwphi, gwdec, gwpol)
@@ -246,7 +248,7 @@ def bwmsignal(parameters, raj, decj, t, corr='gr'):
         pol = 1
     elif corr == 'dipole':
         pol = DipoleAntennaPattern(raj, decj, gwphi, gwdec, gwpol)
-    elif corr == 'absgr':
+    elif corr == 'abs':
         pol = np.abs(AntennaPattern(raj, decj, gwphi, gwdec, gwpol))
 
     # Define the heaviside function

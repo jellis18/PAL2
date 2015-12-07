@@ -216,6 +216,9 @@ parser.add_argument('--fixf', dest='fixf', action='store', type=float, default=0
 parser.add_argument('--incBWM', dest='incBWM', action='store_true', \
                     default=False, help='Include BWM signal in run [default=False]')
 
+parser.add_argument('--BWMmodel', dest='BWMmodel', action='store', type=str,
+                    default='gr', help='BWM correlation [default=gr]')
+
 parser.add_argument('--incGP', dest='incGP', action='store_true', \
                     default=False, help='Include GP GW signal in run [default=False]')
 
@@ -348,7 +351,7 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     ndmEventCoeffs=args.nshape, \
                     incDMX=args.incDMX, \
                     incORF=args.incORF, \
-                    incBWM=args.incBWM,
+                    incBWM=args.incBWM, BWMmodel=args.BWMmodel,
                     incSingleGWGP=args.incGP,
                     incGlitch=args.incGlitch, incGlitchBand=args.incGlitchBand,
                     incGWWavelet=args.incGWwavelet, nGWWavelets=args.nGWwavelets,
@@ -432,6 +435,7 @@ if not(args.incRed):
             sig['bvary'][1] = False
             sig['bvary'][0] = False
             sig['pstart'][0] = -20
+
 
 if args.fixf != 0.0:
     print 'Warning: Fixing CW frequency to {0}'.format(args.fixf) 
@@ -661,7 +665,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         ##### wavelets #####
         if args.incWavelet:
             ids = model.get_parameter_indices('wavelet', corr='single', split=True)
-            [ind.append(id) for id in ids]
+            [ind.append(id) for id in ids if id != []]
         
         if args.incChromaticWavelet:
             ids = model.get_parameter_indices('chrowavelet', corr='single', split=True)
@@ -708,7 +712,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
 
         ##### BWM #####
         if args.incBWM:
-            ids = model.get_parameter_indices('bwm', corr='gr', split=True)
+            ids = model.get_parameter_indices('bwm', corr=args.BWMmodel, split=True)
             [ind.append(id) for id in ids]
         
         ##### GP #####
@@ -784,8 +788,8 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         if args.incTimingModel:
             sampler.addProposalToCycle(model.drawFromTMfisherMatrix, 40)
             #sampler.addProposalToCycle(model.drawFromTMPrior, 5)
-        if args.incBWM:
-            sampler.addProposalToCycle(model.drawFromBWMPrior, 10)
+        #if args.incBWM:
+        #    sampler.addProposalToCycle(model.drawFromBWMPrior, 10)
 
         if args.incCW:
             if args.cwModel == 'upperLimit':

@@ -37,5 +37,5 @@ timFiles.sort()
 df = PALdatafile.DataFile(args.h5file)
 for t,p in zip(timFiles, parFiles):
     print '\n', t, p, '\n'
-    df.addTempoPulsar(p, t, iterations=3)
+    df.addTempoPulsar(p, t, iterations=1)
 
