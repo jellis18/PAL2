@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.interpolate as interp
 import scipy.ndimage.filters as filter
+from PAL2 import PALutils
 try:
     import healpy as hp
 except ImportError:
@@ -744,4 +745,35 @@ def makePostPlots(chain, labels, outDir='./postplots'):
                    dpi=200)
 
 
+def makeSkyMap(samples, lmax, nside=16, psrs=None):
 
+    # number of pixels total
+    npix = hp.nside2npix(nside)   
+
+    # initialize theta and phi map coordinantes
+    skypos=[]
+    for ii in range(npix):
+        skypos.append(np.array(hp.pix2ang(nside,ii)))
+    
+    skypos = np.array(skypos)
+    harmvals = PALutils.SetupSkymapPlottingGrid(lmax,skypos)
+
+    pwr = []
+    for ii in range(len(samples)):
+        samples_tot = np.append(2.*np.sqrt(np.pi), samples[ii])
+        pwr.append(PALutils.GWpower(samples_tot, harmvals))
+
+    pwr = np.array(pwr)
+    pwr = np.sum(pwr, axis=0) / len(samples)
+    
+    ax = plt.subplot(111, projection='astro mollweide')
+    ax.grid()
+    plot.outline_text(ax)
+    plot.healpix_heatmap(pwr)
+    plt.colorbar(orientation='horizontal')
+
+    # add pulsars locations
+    if np.all(psrs):
+        ax.plot(psrs[:,0], psrs[:,1], '*', color='w', markersize=6, mew=1, mec='w')
+
+    return pwr

@@ -157,7 +157,7 @@ class PTAmodels(object):
                       incScattering=False, scatteringModel='powerlaw',
                       nscatfreqs=None,
                       incGWB=False, gwbModel='powerlaw',
-                      incGWBAni=False, lmax=2,
+                      incGWBAni=False, lmax=2, clmPrior='uniform',
                       incBWM=False, BWMmodel='gr',
                       incSingleGWGP=False, singleGWGPModel='se',
                       incDMX=False,
@@ -1957,19 +1957,19 @@ class PTAmodels(object):
 
             elif gwbModel == 'powerlaw':
                 ncoeff = (lmax + 1) ** 2 - 1
-                bvary = [True, True, False]
+                bvary = [True, True]
                 bvary += [True] * (ncoeff)
-                pmin = [-17.0, 1.02, 1.0e-11]
-                pmin += [-3] * (ncoeff)
-                pmax = [-11.0, 6.98, 3.0e-9]
-                pmax += [3] * (ncoeff)
-                pstart = [-15.0, 2.01, 1.0e-10]
+                pmin = [-17.0, 1.02]
+                pmin += [-4] * (ncoeff)
+                pmax = [-11.0, 6.98]
+                pmax += [4] * (ncoeff)
+                pstart = [-15.0, 2.01]
                 pstart += [0.0] * (ncoeff)
-                pwidth = [0.1, 0.1, 5.0e-11]
+                pwidth = [0.1, 0.1]
                 pwidth += [0.1] * (ncoeff)
-                prior = [GWAmpPrior, GWSiPrior, 'log']
-                prior += ['uniform'] * (ncoeff)
-                parids = ['aGWB-Amplitude', 'aGWB-SpectralIndex', 'fL']
+                prior = [GWAmpPrior, GWSiPrior]
+                prior += [clmPrior] * (ncoeff)
+                parids = ['aGWB-Amplitude', 'aGWB-SpectralIndex']
                 parids += ['c_' + str(l) + str(m) for l in range(lmax + 1)
                            for m in range(-l, l + 1) if l != 0]
                 print len(parids), np.sum(bvary)
@@ -4221,7 +4221,7 @@ class PTAmodels(object):
                 if sig['corr'] in ['gr_sph']:
 
                     # correlation matrix
-                    clms = np.append(2 * np.sqrt(np.pi), sparameters[3:])
+                    clms = np.append(2 * np.sqrt(np.pi), sparameters[2:])
                     self.corrmat = self.computeAniORF(clms)
 
                     # number of GW frequencies is the max from all pulsars
@@ -4617,7 +4617,7 @@ class PTAmodels(object):
         # correlated signals (not as easy)
         if incCorrelations:
             
-            sigdiag_red, sigdiag = [], []
+            sigdiag_red_gw, sigdiag_red, sigdiag = [], [], []
             self.logdetPhi = 0
             for ii, p in enumerate(self.psr):
 
@@ -4650,10 +4650,11 @@ class PTAmodels(object):
                         self.gwamp = 10 ** rho
 
                     # append to signal diagonal
+                    sigdiag_red.append(10**p.kappa_tot)
                     p.kappa_tot = np.log10(10 ** p.kappa_tot + self.gwamp)
 
                 # append to signal diagonal
-                sigdiag_red.append(10**p.kappa_tot)
+                sigdiag_red_gw.append(10**p.kappa_tot)
 
                 if incTM:
                     p.kappa_tot = np.concatenate((np.ones(p.Mmat_reduced.shape[1]) * 80,
@@ -4677,7 +4678,7 @@ class PTAmodels(object):
             # diagonal of phi matrix
             np.fill_diagonal(self.Phiinv, 1/np.hstack(sigdiag))
             self.logdetPhi = np.sum(np.log(np.hstack(sigdiag)))
-            self.logdetPhi -= np.sum(np.log(np.hstack(sigdiag_red)))
+            self.logdetPhi -= np.sum(np.log(np.hstack(sigdiag_red_gw)))
 
             # compute Phi inverse from Lindley's code
             nftot = self.ngwf + np.max(self.npfdm)
@@ -4690,13 +4691,14 @@ class PTAmodels(object):
                         smallMatrix[:, ii, jj] += self.corrmat[1][ii, jj] * \
                                 sig_offdiag_cross[jj]
                         if ii == jj:
-                            smallMatrix[:, ii, jj] += sigdiag_red[jj] 
+                            smallMatrix[:, ii, jj] += sigdiag_red_gw[jj] 
                         
                         smallMatrix[:, jj, ii] = smallMatrix[:, ii, jj]
 
                     else:
                         if ii == jj:
-                            smallMatrix[:, ii, jj] = self.corrmat[ii, jj] * sigdiag_red[jj]
+                            smallMatrix[:, ii, jj] = self.corrmat[ii, jj] * self.gwamp + \
+                                    sigdiag_red[jj]
                         else:
                             smallMatrix[:, ii, jj] = self.corrmat[ii, jj] * sigoffdiag[jj]
                             smallMatrix[:, jj, ii] = smallMatrix[:, ii, jj]
@@ -4706,9 +4708,10 @@ class PTAmodels(object):
                 try:
                     L = sl.cho_factor(smallMatrix[ii, :, :])
                 except np.linalg.LinAlgError:
-                    print smallMatrix[ii,:,:]
-                    smallMatrix[ii,:,:] = np.diag(np.diag(smallMatrix[ii,:,:]))
-                    L = sl.cho_factor(smallMatrix[ii, :, :])
+                    return 0
+                    #smallMatrix[ii,:,:] = np.diag(np.diag(smallMatrix[ii,:,:]))
+                    #print np.diag(smallMatrix[ii,:,:])
+                    #L = sl.cho_factor(smallMatrix[ii, :, :])
                 smallMatrix[ii, :, :] = sl.cho_solve(L, np.eye(self.npsr))
                 self.logdetPhi += np.sum(2 * np.log(np.diag(L[0])))
 
@@ -4772,6 +4775,8 @@ class PTAmodels(object):
                     ind1 = np.arange(ii * nftot, ii * nftot + nftot)
                     for jj in range(0, self.npsr):
                         self.Phiinv[ind1, ind2[jj]] = smallMatrix[:, ii, jj]
+        
+        return 1
 
     
     def construct_dense_cov_matrix(self, parameters, incJitter=False):
@@ -5768,14 +5773,7 @@ class PTAmodels(object):
                 expval2 = sl.cho_solve(cf, d)
                 logdet_Sigma = np.sum(2 * np.log(np.diag(cf[0])))
             except np.linalg.LinAlgError:
-                print 'Error'
-                U, s, Vh = sl.svd(Sigma)
-                if not np.all(s > 0):
-                    raise ValueError("ERROR: Sigma singular according to SVD")
-                logdet_Sigma = np.sum(np.log(s))
-                sinv = 1 / s
-                sinv[s / s[0] < 1e-15] = 0
-                expval2 = np.dot(Vh.T * sinv, U.T, d)
+                return -np.inf
 
             loglike += -0.5 * \
                 (self.logdetPhi + logdet_Sigma) + 0.5 * (np.dot(d, expval2))
@@ -6723,9 +6721,13 @@ class PTAmodels(object):
             self.updateTmatrix(parameters)
 
             # set red noise, DM and GW parameters
-            self.constructPhiMatrix(parameters, incCorrelations=incCorrelations,
-                                    incTM=True, incJitter=False,
-                                    selection=selection)
+            check = self.constructPhiMatrix(parameters, 
+                                           incCorrelations=incCorrelations,
+                                           incTM=True, incJitter=False,
+                                           selection=selection)
+
+            if not check:
+                return -np.inf
 
         # set deterministic sources
         if self.haveDetSources:
@@ -7464,11 +7466,12 @@ class PTAmodels(object):
 
             if sig['corr'] in ['gr_sph']:
                 if sig['stype'] == 'powerlaw':
-                    clms = np.append(2 * np.sqrt(np.pi), sparameters[3:])
+                    clms = np.append(2 * np.sqrt(np.pi), sparameters[2:])
                 elif sig['stype'] == 'spectrum':
                     clms = np.append(
                         2 * np.sqrt(np.pi), sparameters[int(self.npf[psrind] / 2):])
-                prior += PALutils.PhysPrior(clms, self.harm_sky_vals)
+                if np.any(np.array(sig['prior']) == 'phys'):
+                    prior += PALutils.PhysPrior(clms, self.harm_sky_vals)
                 if sig['prior'][0] == 'uniform' and sig['stype'] == 'powerlaw':
                     prior += np.log(10 ** sparameters[0])
 
@@ -8159,71 +8162,67 @@ class PTAmodels(object):
         signum = self.getSignalNumbersFromDict(
             self.ptasignals, stype='powerlaw', corr='gr_sph')
 
-        # which parameters to jump
-        ind = np.unique(np.random.randint(0, nsigs, nsigs))
-        ind = np.unique(np.random.randint(0, nsigs, 1))
 
-        # draw params from prior
-        for ii in ind:
+        # get signal
+        sig = self.ptasignals[signum[0]]
+        parind = sig['parindex']
+        npars = sig['npars']
 
-            # get signal
-            sig = self.ptasignals[signum[ii]]
-            parind = sig['parindex']
-            npars = sig['npars']
+        # draw parameter to jump in 
+        jj = np.random.randint(0, npars)
 
-            # jump in amplitude if varying
-            if sig['bvary'][0]:
+        # jump in amplitude if varying
+        if sig['bvary'][0] and jj == 0:
 
-                # log prior
-                if sig['prior'][0] == 'log':
-                    q[parind] = np.random.uniform(
-                        self.pmin[parind], self.pmax[parind])
-                    qxy += 0
+            # log prior
+            if sig['prior'][0] == 'log':
+                q[parind] = np.random.uniform(
+                    self.pmin[parind], self.pmax[parind])
+                qxy += 0
 
-                elif sig['prior'][0] == 'uniform':
+            elif sig['prior'][0] == 'uniform':
 
-                    # draw from log-uniform prior
-                    # to get more samples in right range
-                    q[parind] = np.random.uniform(
-                        self.pmin[parind], self.pmax[parind])
-                    qxy += 0
-                    #q[parind] = np.log10(np.random.uniform(10 ** self.pmin[parind],
-                    #                                       10 ** self.pmax[parind]))
-                    #qxy += np.log(10 ** parameters[parind] / 10 ** q[parind])
+                # draw from log-uniform prior
+                # to get more samples in right range
+                q[parind] = np.random.uniform(
+                    self.pmin[parind], self.pmax[parind])
+                qxy += 0
+                #q[parind] = np.log10(np.random.uniform(10 ** self.pmin[parind],
+                #                                       10 ** self.pmax[parind]))
+                #qxy += np.log(10 ** parameters[parind] / 10 ** q[parind])
 
-                elif sig['prior'][0] == 'sesana':
-                    m = -15
-                    s = 0.22
-                    q[parind] = m + np.random.randn() * s
-                    qxy -= (m - parameters[parind]) ** 2 / 2 / \
-                        s ** 2 - (m - q[parind]) ** 2 / 2 / s ** 2
-                elif sig['prior'][0] == 'mcwilliams':
-                    m = np.log10(4.1e-15)
-                    s = 0.26
-                    q[parind] = m + np.random.randn() * s
-                    qxy -= (m - parameters[parind]) ** 2 / 2 / \
-                        s ** 2 - (m - q[parind]) ** 2 / 2 / s ** 2
+            elif sig['prior'][0] == 'sesana':
+                m = -15
+                s = 0.22
+                q[parind] = m + np.random.randn() * s
+                qxy -= (m - parameters[parind]) ** 2 / 2 / \
+                    s ** 2 - (m - q[parind]) ** 2 / 2 / s ** 2
+            elif sig['prior'][0] == 'mcwilliams':
+                m = np.log10(4.1e-15)
+                s = 0.26
+                q[parind] = m + np.random.randn() * s
+                qxy -= (m - parameters[parind]) ** 2 / 2 / \
+                    s ** 2 - (m - q[parind]) ** 2 / 2 / s ** 2
 
-                else:
-                    print 'Prior type not recognized for parameter'
-                    q[parind] = parameters[parind]
+            else:
+                print 'Prior type not recognized for parameter'
+                q[parind] = parameters[parind]
 
-            # jump in spectral index if varying
-            if sig['bvary'][1]:
+        # jump in spectral index if varying
+        if sig['bvary'][1] and jj == 1:
 
-                if sig['prior'][1] == 'uniform':
-                    q[parind +
-                        1] = np.random.uniform(self.pmin[parind + 1], self.pmax[parind + 1])
-                    qxy += 0
+            if sig['prior'][1] == 'uniform':
+                q[parind +
+                    1] = np.random.uniform(self.pmin[parind + 1], self.pmax[parind + 1])
+                qxy += 0
 
-                else:
-                    q[parind + 1] = parameters[parind + 1]
+            else:
+                q[parind + 1] = parameters[parind + 1]
 
-            jj = np.random.randint(2, np.sum(sig['bvary']))
-            if sig['bvary'][jj]:
-                    q[parind + jj] = np.random.uniform(self.pmin[parind + jj],
-                                                       self.pmax[parind + jj])
-                    qxy += 0
+        if sig['bvary'][jj] and jj > 1:
+                q[parind + jj] = np.random.uniform(self.pmin[parind + jj],
+                                                   self.pmax[parind + jj])
+                qxy += 0
 
         return q, qxy
 

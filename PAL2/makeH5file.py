@@ -15,6 +15,8 @@ parser.add_argument('--timdir', dest='timdir', action='store', type=str, require
                    help='Full path to tim files')
 parser.add_argument('--h5File', dest='h5file', action='store', type=str, required=True,
                    help='output hdf5 file')
+parser.add_argument('--iter', dest='iter', action='store', type=int, default=0,
+                   help='Number of iterations in fit [default=0]')
 
 
 # parse arguments
@@ -37,5 +39,5 @@ timFiles.sort()
 df = PALdatafile.DataFile(args.h5file)
 for t,p in zip(timFiles, parFiles):
     print '\n', t, p, '\n'
-    df.addTempoPulsar(p, t, iterations=1)
+    df.addTempoPulsar(p, t, iterations=args.iter)
 

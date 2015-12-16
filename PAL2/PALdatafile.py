@@ -279,7 +279,7 @@ class DataFile(object):
         self.writeData(psrGroup, 'timfile', timfile_content, overwrite=overwrite)
 
         # Iterate the fitting a few times if necessary
-        if iterations > 1:
+        if iterations >= 1:
             t2pulsar.fit(iters=iterations)
 
 

@@ -119,6 +119,8 @@ parser.add_argument('--incGWBAni', dest='incGWBAni', action='store_true',default
                    help='include Anisotropic GWB [default=False]')
 parser.add_argument('--lmax', dest='lmax', action='store', type=int, default=2,
                    help='Number of ls to use in anisitropic search [default=2]')
+parser.add_argument('--clmPrior', dest='clmPrior', action='store', type=str, 
+                    default='uniform', help='clm prior [uniform, phys] [default=uniform]')
 
 parser.add_argument('--incEquad', dest='incEquad', action='store_true',default=False,
                    help='Include Equad [default=False]')
@@ -362,6 +364,7 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     incChromaticWavelet=args.incChromaticWavelet, 
                     nChromaticWavelets=args.nChromaticWavelets,
                     incGWBAni=args.incGWBAni, lmax=args.lmax,\
+                    clmPrior=args.clmPrior,
                     incDMXKernel=incDMXKernel, DMXKernelModel=DMXKernelModel, \
                     separateEfacs=separateEfacs, separateEfacsByFreq=separateEfacsByFreq, \
                     separateEquads=separateEquads, separateEquadsByFreq=separateEquadsByFreq, \
@@ -516,7 +519,6 @@ fout = open(args.outDir + '/pars.txt', 'w')
 for nn in par_out:
     fout.write('%s\n'%(nn))
 fout.close()
-
 
 # define likelihood functions
 if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multinest' \

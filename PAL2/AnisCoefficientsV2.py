@@ -278,7 +278,10 @@ def AnisCoeff(psr_locs, lmax):
 
 def CorrBasis(psr_locs,lmax):
     
-    positions = np.array([np.array([np.sin(psr_locs[i][1])*np.cos(psr_locs[i][0]),np.sin(psr_locs[i][1])*np.sin(psr_locs[i][0]),np.cos(psr_locs[i][1])]) for i in range(len(psr_locs))])
+    positions = np.array([np.array([
+        np.sin(psr_locs[i][1])*np.cos(psr_locs[i][0]),
+        np.sin(psr_locs[i][1])*np.sin(psr_locs[i][0]),
+        np.cos(psr_locs[i][1])]) for i in range(len(psr_locs))])
 
     AngSepGrid = np.zeros((len(positions),len(positions)))
     for i in range(len(positions)):
