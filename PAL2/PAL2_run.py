@@ -113,7 +113,14 @@ parser.add_argument('--GWBAmpPrior', dest='GWBAmpPrior', action='store', type=st
                     default='log', 
                     help='prior on GWB Amplitude [uniform, log, sesana, mcwilliams] [default=log]')
 parser.add_argument('--incORF', dest='incORF', action='store_true', \
-                    default=False, help='Include generic ORF to be parameterized [default=False]')
+                    default=False, 
+                    help='Include generic ORF to be parameterized [default=False]')
+parser.add_argument('--gwbSingleModel', dest='gwbSingleModel', action='store', 
+                    type=str, default='powerlaw', 
+                    help='GWB point source model [powerlaw, spectrum]')
+
+parser.add_argument('--incGWBSingle', dest='incGWBSingle', action='store_true',default=False,
+                   help='include GWB point source? [default=False]')
 
 parser.add_argument('--incGWBAni', dest='incGWBAni', action='store_true',default=False,
                    help='include Anisotropic GWB [default=False]')
@@ -390,6 +397,7 @@ fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
                     incSingleFreqDMNoise=args.incSingleDM, numSingleFreqDMLines=1, \
                     DMAmpPrior=args.DMAmpPrior, \
                     incGWB=incGWB, nfreqs=args.nfreqs, ndmfreqs=args.ndmfreqs, \
+                    incGWBSingle=args.incGWBSingle, gwbSingleModel=args.gwbSingleModel,
                     gwbModel=args.gwbModel, \
                     Tmax = args.Tspan,
                     compression=args.compression, \
@@ -555,7 +563,8 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
     
     # log likelihood arguments
     loglkwargs = {}
-    if args.noCorrelations or not(np.any([args.incGWB, args.incGWBAni, args.incGP])):
+    if args.noCorrelations or not(np.any([
+        args.incGWB, args.incGWBAni, args.incGP, args.incGWBSingle])):
         print 'Running model with no GWB correlations'
         loglkwargs['incCorrelations'] = False
     else:
@@ -693,6 +702,15 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
                 ids = model.get_parameter_indices('turnover', corr='gr', split=False)
                 [ind.append(id) for id in ids]
         
+        ##### GWB Point Source #####
+        if args.incGWBSingle:
+            if args.gwbSingleModel == 'powerlaw':
+                ids = model.get_parameter_indices('powerlaw', corr='grs', split=False)
+                [ind.append(id) for id in ids]
+            if args.gwbSingleModel == 'spectrum':
+                ids = model.get_parameter_indices('spectrum', corr='grs', split=False)
+                [ind.append(id) for id in ids]
+        
         ##### Anisotropic GWB #####
         if args.incGWBAni:
             if args.gwbModel == 'powerlaw':
@@ -769,6 +787,8 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
                 sampler.addProposalToCycle(model.drawFromGWBTurnoverPrior, 10)
         if args.incGWBAni and args.gwbModel == 'powerlaw':
                 sampler.addProposalToCycle(model.drawFromaGWBPrior, 10)
+        if args.incGWBSingle and args.gwbSingleModel == 'spectrum':
+                sampler.addProposalToCycle(model.drawFromsGWBPrior, 10)
         if args.incRed and args.redModel=='powerlaw':
             sampler.addProposalToCycle(model.drawFromRedNoisePrior, 5)
         if args.incRedBand and args.redModel=='powerlaw':

@@ -473,8 +473,8 @@ def greedy_bin_sky(skypos, skycarts):
     return skymap
 
 
-def plotSkyMap(raSample, decSample, nside=64, contours=None, colorbar=True, \
-              inj=None, psrs=None, cmap='YlOrBr', outfile='skymap.pdf'):
+def plotSkyMap(raSample, decSample, nside=16, contours=None, colorbar=True, \
+              inj=None, psrs=None, smooth=True, cmap='YlOrBr', outfile='skymap.pdf'):
     """
 
     Plot Skymap of chain samples on Mollwiede projection.
@@ -511,7 +511,8 @@ def plotSkyMap(raSample, decSample, nside=64, contours=None, colorbar=True, \
     skymap = greedy_bin_sky(skypos, skycarts)
 
     # smooth skymap
-    skymap = hp.smoothing(skymap, sigma=0.02)
+    if smooth:
+        skymap = hp.smoothing(skymap, sigma=0.02)
 
     # make plot
     ax = plt.subplot(111, projection='astro mollweide')
@@ -745,7 +746,7 @@ def makePostPlots(chain, labels, outDir='./postplots'):
                    dpi=200)
 
 
-def makeSkyMap(samples, lmax, nside=16, psrs=None):
+def makeSkyMap(samples, lmax, nside=16, psrs=None, checkphys=False):
 
     # number of pixels total
     npix = hp.nside2npix(nside)   
@@ -761,10 +762,12 @@ def makeSkyMap(samples, lmax, nside=16, psrs=None):
     pwr = []
     for ii in range(len(samples)):
         samples_tot = np.append(2.*np.sqrt(np.pi), samples[ii])
-        pwr.append(PALutils.GWpower(samples_tot, harmvals))
+        gwp = PALutils.GWpower(samples_tot, harmvals)
+        if np.all(gwp > 0) and checkphys:
+            pwr.append(gwp)
 
     pwr = np.array(pwr)
-    pwr = np.sum(pwr, axis=0) / len(samples)
+    pwr = np.mean(pwr, axis=0)
     
     ax = plt.subplot(111, projection='astro mollweide')
     ax.grid()
