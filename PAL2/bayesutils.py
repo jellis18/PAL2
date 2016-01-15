@@ -746,7 +746,7 @@ def makePostPlots(chain, labels, outDir='./postplots'):
                    dpi=200)
 
 
-def makeSkyMap(samples, lmax, nside=16, psrs=None, checkphys=False):
+def makeSkyMap(samples, lmax, nside=16, psrs=None):
 
     # number of pixels total
     npix = hp.nside2npix(nside)   
@@ -763,8 +763,7 @@ def makeSkyMap(samples, lmax, nside=16, psrs=None, checkphys=False):
     for ii in range(len(samples)):
         samples_tot = np.append(2.*np.sqrt(np.pi), samples[ii])
         gwp = PALutils.GWpower(samples_tot, harmvals)
-        if np.all(gwp > 0) and checkphys:
-            pwr.append(gwp)
+        pwr.append(gwp)
 
     pwr = np.array(pwr)
     pwr = np.mean(pwr, axis=0)

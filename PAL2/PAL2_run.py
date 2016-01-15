@@ -238,7 +238,6 @@ parser.add_argument('--incGlitchBand', dest='incGlitchBand', action='store_true'
                     default=False, help='Include Glitch Band signal in run [default=False]')
 
 
-
 parser.add_argument('--niter', dest='niter', action='store', type=int, default=1000000,
                    help='number MCMC iterations (default=1000000)')
 parser.add_argument('--thin', dest='thin', action='store', type=int, default=10,
@@ -751,7 +750,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
                 [ind.append(id) for id in ids]
 
             # pulsar phase terms
-            if args.cwModel in ['free', 'freephase', 'eccgam']:
+            if args.cwModel in ['free', 'freephase', 'eccgam', 'upperLimit_phase']:
                 ids = model.get_parameter_indices('pulsarTerm', corr='single', split=True)
                 [ind.append(id) for id in ids]
 

@@ -205,7 +205,7 @@ class PTAmodels(object):
 
         # check to make sure that we don't include more
         # than 1 single source for some models
-        if nCW > 1 and CWModel not in ['free', 'freephase']:
+        if nCW > 1 and CWModel not in ['free', 'freephase', 'upperLimit_phase']:
             raise NotImplementedError('Cant use multiple single sources with this model')
 
         # start loop over pulsars
@@ -1375,7 +1375,7 @@ class PTAmodels(object):
                 signals.append(newsignal)
 
             # separate pulsar phase and frequency
-            if incCW and CWModel in ['free', 'freephase', 'eccgam']:
+            if incCW and CWModel in ['free', 'freephase', 'eccgam', 'upperLimit_phase']:
                 for cc in range(nCW):
                     if CWModel == 'free':
                         bvary = [True] * 2
@@ -1397,7 +1397,7 @@ class PTAmodels(object):
                         parids = ['pphase_' + str(cc) + '_' + str(p.name), 
                                   'pgamma_' + str(cc) + '_' + str(p.name)]
 
-                    if CWModel in ['freephase']:
+                    if CWModel in ['freephase', 'upperLimit_phase']:
                         bvary = [True] 
                         pmin = [0]
                         pmax = [2*np.pi]
@@ -1686,7 +1686,7 @@ class PTAmodels(object):
                     mu = [None] * 8
                     sigma = [None] * 8
 
-                elif CWModel == 'upperLimit':
+                elif CWModel in ['upperLimit', 'upperLimit_phase']:
                     bvary = [True] * 8
                     pmin = [0, 0, 7, -17, -9, 0, 0, 0]
                     pmax = [np.pi, 2 * np.pi, 10, -11, -7, 2*np.pi, np.pi, np.pi]
@@ -5283,7 +5283,7 @@ class PTAmodels(object):
                             pgam.append(parameters[sig0['parindex']+1])
 
                 # upper limit (h=2M^{5/3}(\pi f)^{2/3}/d_L)
-                if sig['model'] == 'upperLimit':
+                if sig['model'] in ['upperLimit', 'upperLimit_phase']:
                     dist = 2 * (10 ** sparameters[2] * PALutils.SOLAR2S) ** (5 / 3) \
                         * (np.pi * 10 ** sparameters[4]) ** (2 / 3) / 10 ** sparameters[3]
                     dist /= PALutils.MPC2S
