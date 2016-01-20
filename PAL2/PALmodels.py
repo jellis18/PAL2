@@ -1672,8 +1672,8 @@ class PTAmodels(object):
             for cc in range(nCW):
                 if CWModel in ['standard', 'freephase']:
                     bvary = [True] * 8
-                    pmin = [0, 0, 7, 0.1, -9, 0, 0, 0]
-                    pmax = [np.pi, 2 * np.pi, 10, 10, -7, 2*np.pi, np.pi, np.pi]
+                    pmin = [0, 0, 7, 0.01, -9, 0, 0, 0]
+                    pmax = [np.pi, 2 * np.pi, 10, 4, -7, 2*np.pi, np.pi, np.pi]
                     pstart = [np.pi / 2, np.pi / 2, 8, 1, -8, np.pi,
                               np.pi, np.pi / 2]
                     pwidth = [0.1, 0.1, 0.1, 0.1, 0.0001, 0.1, 0.1, 0.1]

@@ -221,6 +221,10 @@ parser.add_argument('--CWupperLimit', dest='CWupperLimit', action='store_true', 
                     default=False, help='Calculate CW upper limit (use h not d_L and use uniform prior on h)')
 parser.add_argument('--fixf', dest='fixf', action='store', type=float, default=0.0,
                    help='value of GW frequency for upper limits')
+parser.add_argument('--cwtheta', dest='cwtheta', action='store', type=float, default=None,
+                   help='value of GW theta for CW source')
+parser.add_argument('--cwphi', dest='cwphi', action='store', type=float, default=None,
+                   help='value of GW phi for CW source')
 
 parser.add_argument('--incBWM', dest='incBWM', action='store_true', \
                     default=False, help='Include BWM signal in run [default=False]')
@@ -453,6 +457,20 @@ if args.fixf != 0.0:
         if sig['stype'] == 'cw':
             sig['bvary'][4] = False
             sig['pstart'][4] = np.log10(args.fixf)
+
+if args.cwtheta is not None:
+    print 'Warning: Fixing CW theta to {0}'.format(args.cwtheta) 
+    for sig in fullmodel['signals']:
+        if sig['stype'] == 'cw':
+            sig['bvary'][0] = False
+            sig['pstart'][0] = args.cwtheta
+
+if args.cwphi is not None:
+    print 'Warning: Fixing CW phi to {0}'.format(args.cwphi) 
+    for sig in fullmodel['signals']:
+        if sig['stype'] == 'cw':
+            sig['bvary'][1] = False
+            sig['pstart'][1] = args.cwphi
 
 memsave = True
 if args.noVaryEfac:
@@ -827,7 +845,8 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
                 sampler.addProposalToCycle(model.pulsarPhaseJump, 5)
             if args.incPdist:
                 sampler.addProposalToCycle(model.pulsarDistanceJump, 10)
-                if args.cwModel not in ['freephase', 'free', 'ecc']:
+                if args.cwModel not in ['freephase', 'free', 'ecc', 'upperLimit_phase']:
+                    print 'Adding auxiliary pulsar phase jump'
                     sampler.addAuxilaryJump(model.pulsarPhaseFix)
                 elif args.cwModel == 'ecc':
                     sampler.addAuxilaryJump(model.pulsarGammaFix)
