@@ -36,7 +36,30 @@ PAL2 also supports MultiNest but it must be installed separately.
 
 You will need to have [tempo2](http://www.atnf.csiro.au/research/pulsar/tempo2/index.php?n=Main.Download) and a working C, C++ and Fortran compiler.
 
-The best way to install PAL2 is with a [python virutal environment](https://virtualenvwrapper.readthedocs.org/en/latest/). However for some clusters this may not be appropriate and you can follow the instructions below but append a --user flag on all of the ``pip`` and ``setup.py`` commands. Once you have the virualenv activated first do:
+### Anaconda Install ###
+
+The easiest way for installation is to use [Anaconda](http://docs.continuum.io/anaconda/install) or [Miniconda](http://conda.pydata.org/miniconda.html).
+Anaconda comes with many of the packages that we will need whereas Miniconda only comes with a small base Python installation. Once you have Anaconda 
+(or Miniconda) installed you should get a [academic license](https://www.continuum.io/anaconda-academic-subscriptions-available) and install the 
+MKL optimizations for fast linear algebra. With either installation it is best to set up an python environment with all of the needed dependencies. 
+This can easily be done in Anaconda with
+
+```
+conda env create -f environment.yml
+```
+
+This will create an Anaconda environment with nearly all of the required dependencies installed except [libstempo](https://github.com/vallis/libstempo). 
+The libstempo package can be installed with
+
+```pip install libstempo --install-option="--with-tempo2=$TEMPO2"```
+
+if you have your TEMPO2 environment variable set correctly. To finalize the installation do
+
+```python setup.py install```
+
+### Standard Install ###
+
+You can also install PAL2 with a [python virutal environment](https://virtualenvwrapper.readthedocs.org/en/latest/). However for some clusters this may not be appropriate and you can follow the instructions below but append a --user flag on all of the ``pip`` and ``setup.py`` commands. Once you have the virualenv activated first do:
 
 ```
 pip install numpy
@@ -52,7 +75,6 @@ if you have your TEMPO2 environment variable set correctly. To finalize the inst
 
 ```python setup.py install```
 
-By default the ``PAL2_run.py`` and ``makeH5File.py`` scripts will be installed to ``$HOME/Library/Python/2.7/bin/`` on Mac and $HOME/.local/bin on Linux if not using a virtualenv. Make sure this is in your path in order to run these scripts. Otherwise you can choose the install directory by using the ``--install-scripts `` flag to `setup.py install`.
 
 ## Known Issues ##
 

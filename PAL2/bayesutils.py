@@ -21,6 +21,11 @@ from optparse import OptionParser
 from statsmodels.distributions.empirical_distribution import ECDF
 import os
 
+import matplotlib
+import distutils.version
+mpl_version = distutils.version.LooseVersion(matplotlib.__version__)
+
+
 """
 Given a 2D matrix of (marginalised) likelihood levels, this function returns
 the 1, 2, 3- sigma levels. The 2D matrix is usually either a 2D histogram or a
@@ -193,11 +198,18 @@ def makesubplot2d(ax, samples1, samples2, cmap=None, color='k', weights=None,
         
         level1, level2, level3 = getsigmalevels(hist2d, conf_levels)
         
-        contourlevels = (level1, level2, level3)
+        contourlevels = (level1, level2)
         
-        contourcolors = (color, color, color)
-        contourlinestyles = ('-', '--', '-.')
-        contourlinewidths = (lw, lw, lw)
+        contourcolors = (color, color)
+        contourlinestyles = ('-', '--')
+        contourlinewidths = (lw, lw)
+
+        # patch to fix new level ordering in mpl v 1.5.1
+        if mpl_version >= '1.5.1':
+            contourlevels = contourlevels[::-1]
+            contourcolors = contourcolors[::-1]
+            contourlinestyles = contourlinestyles[::-1]
+            contourlinewidths = contourlinewidths[::-1]
         
 
         c1 = ax.contour(xedges,yedges,hist2d.T,contourlevels[:2], \
