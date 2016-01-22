@@ -48,7 +48,7 @@ This can easily be done in Anaconda with
 conda env create -f environment.yml
 ```
 
-This will create an Anaconda environment with nearly all of the required dependencies installed except [libstempo](https://github.com/vallis/libstempo). 
+Be sure to follow the instructions and activate the Anaconda environment. This will create an Anaconda environment with nearly all of the required dependencies installed except [libstempo](https://github.com/vallis/libstempo). 
 The libstempo package can be installed with
 
 ```pip install libstempo --install-option="--with-tempo2=$TEMPO2"```
