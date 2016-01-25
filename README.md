@@ -12,20 +12,15 @@ meant to perform a large number of analyses on pulsar timing data including:
 
 ## Dependencies ##
 
-The code has a large number of dependencies all of which should be installed
-automatically when using ``setup.py`` or ``pip``.
+The code has a large number of Python and non-Python dependencies. 
+The python dependencies should should be installed automatically when 
+following the directions below. You will have to manually install the
+following non-Python packages (preferably with a package manager):
 
-* Python 2.7
-* [numpy](http://numpy.scipy.org)
-* [scipy](http://numpy.scipy.org)
-* [matplotlib](http://matplotlib.org), for plotting only
-* [h5py](http://www.h5py.org)
-* [tempo2](http://www.atnf.csiro.au/research/pulsar/tempo2/index.php?n=Main.Download)
-* [libstempo](https://github.com/vallis/libstempo) (version >= 2.2.2)
-* [pyephem](http://rhodesmill.org/pyephem/)
-* [statsmodels](http://statsmodels.sourceforge.net)
-* [healpy](https://healpy.readthedocs.org)
-* [numexpr](https://github.com/pydata/numexpr)
+* [tempo2] (https://bitbucket.org/psrsoft/tempo2.git)
+* hdf5
+* healpix
+* openmpi
 
 PAL2 also supports MultiNest but it must be installed separately.
 
