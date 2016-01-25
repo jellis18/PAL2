@@ -41,6 +41,7 @@ This can easily be done in Anaconda with
 
 ```
 conda env create -f environment.yml
+source activate pal2_conda
 ```
 
 Be sure to follow the instructions and activate the Anaconda environment. This will create an Anaconda environment with nearly all of the required dependencies installed except [libstempo](https://github.com/vallis/libstempo). 
