@@ -55,14 +55,14 @@ class PTAmodels(object):
     """
 
     def __init__(self, h5filename=None, jsonfilename=None,
-                 pulsars='all', auxFromFile=True):
+                 pulsars='all'):
         self.clear()
 
         if h5filename is not None:
             self.initFromFile(h5filename, pulsars=pulsars)
 
             if jsonfilename is not None:
-                self.initModelFromFile(jsonfilename, auxFromFile=auxFromFile)
+                self.initModelFromFile(jsonfilename)
 
     """
     Clear all the structures present in the object
@@ -171,7 +171,7 @@ class PTAmodels(object):
                       incJitter=False, separateJitter=False, separateJitterByFreq=True,
                       incJitterFourierMode=False,
                       incTimingModel=False, nonLinear=False, fulltimingmodel=False,
-                      addPars=None, subPars=None,
+                      addPars=None, subPars=None, add_all_timing_pars=False,
                       incJitterEpoch=False, nepoch=None,
                       incNonGaussian=False, nnongaussian=3,
                       incEnvelope=False, envelopeModel='powerlaw',
@@ -518,7 +518,7 @@ class PTAmodels(object):
                 if noiseModel == 'interpolate':
                     #nfreqs = numNoiseFreqs[ii]
                     bvary = [True] * nfreqs
-                    pmin = [-28.0] * nfreqs
+                    pmin = [-35.0] * nfreqs
                     pmax = [-10] * nfreqs
                     pstart = [-18.0] * nfreqs
                     pwidth = [0.1] * nfreqs
@@ -950,12 +950,6 @@ class PTAmodels(object):
                                     p.t2psr[key].val = 0.99
                                 if key == 'M2' and p.t2psr['M2'].val == 0:
                                     p.t2psr[key].val = 0.3
-                        # p.t2psr.fit(iters=1)
-                        p.ptmdescription = ['Offset'] + map(str, p.t2psr.pars())
-                        p.ptmpars = np.array([0] + list(p.t2psr.vals()))
-                        p.ptmparerrs = np.array([0] + list(p.t2psr.errs()))
-                        #p.residuals = p.t2psr.residuals()
-                        p.Mmat = p.t2psr.designmatrix(fixunits=True)
 
                     if subPars is not None:
                         for key in subPars:
@@ -970,12 +964,34 @@ class PTAmodels(object):
                                 print 'Turning off fit for {0}'.format(key)
                                 p.t2psr[key].fit = False
                                 p.t2psr[key].val = 0.0
-                        # p.t2psr.fit(iters=1)
-                        p.ptmdescription = ['Offset'] + map(str, p.t2psr.pars())
-                        p.ptmpars = np.array([0] + list(p.t2psr.vals()))
-                        p.ptmparerrs = np.array([0] + list(p.t2psr.errs()))
-                        #p.residuals = p.t2psr.residuals()
-                        p.Mmat = p.t2psr.designmatrix(fixunits=True)
+                    
+                    if add_all_timing_pars:
+                        if p.t2psr.binarymodel in ['DD', 'T2']:
+                            pars = ['M2', 'SINI', 'PBDOT', 'OMDOT', 
+                                    'XDOT', 'EDOT']
+
+                        elif p.t2psr.binarymodel in ['ELL1']:
+                            pars = ['M2', 'SINI', 'PBDOT', 'XDOT', 
+                                    'EPS1DOT', 'EPS2DOT']
+                        else:
+                            pars = None
+
+                        # turn on fits for parameters
+                        if pars is not None:
+                            for key in pars:
+                                print 'Turning on fit for {0}\n'.format(key)
+                                p.t2psr[key].fit = True
+                                if key == 'SINI' and p.t2psr['SINI'].val == 0:
+                                    p.t2psr[key].val = 0.99
+                                elif key == 'M2' and p.t2psr['M2'].val == 0:
+                                    p.t2psr[key].val = 0.3
+                            
+
+                    # Get updated model
+                    p.ptmdescription = ['Offset'] + map(str, p.t2psr.pars())
+                    p.ptmpars = np.array([0] + list(p.t2psr.vals()))
+                    p.ptmparerrs = np.array([0] + list(p.t2psr.errs()))
+                    p.Mmat = p.t2psr.designmatrix(fixunits=True)
 
                 # Just do the timing-model fit ourselves here, in order to set
                 # the prior.
@@ -1012,12 +1028,18 @@ class PTAmodels(object):
                     newptmdescription = p.getNewTimingModelParameterList(keep=True,
                                                                          tmpars=[])
                 else:
+                    #newptmdescription = p.getNewTimingModelParameterList(keep=True,
+                    #                    tmpars=['Offset', 'F0', 'F1', 'RAJ', 'DECJ',
+                    #                            'LAMBDA','ELONG', 'ELAT',
+                    #                            'BETA', 'PMELONG', 'PMRA', 'PMDEC',
+                    #                            'PMELAT', 'DM', 'DM1','DM2'] + \
+                    #                            jumps + dmx + fds)
                     newptmdescription = p.getNewTimingModelParameterList(keep=True,
                                         tmpars=['Offset', 'F0', 'F1', 'RAJ', 'DECJ',
                                                 'LAMBDA','ELONG', 'ELAT',
                                                 'BETA', 'PMELONG', 'PMRA', 'PMDEC',
                                                 'PMELAT', 'DM', 'DM1','DM2'] + \
-                                                jumps + dmx + fds)
+                                                jumps + dmx)
 
                 # Select the numerical parameters. These are the ones not
                 # present in the quantities that getModifiedDesignMatrix
@@ -2720,7 +2742,8 @@ class PTAmodels(object):
         #model = self.getModelDict()
 
         with open(filename, 'w') as outfile:
-            json.dump(model, outfile, sort_keys=False, indent=4, separators=(',', ': '))
+            json.dump(model, outfile, sort_keys=False, indent=4, 
+                      separators=(',', ': '))
 
     """
     Initialise the model.
@@ -3921,6 +3944,7 @@ class PTAmodels(object):
                     pequadsqr = 10 ** (2 * sig['pstart'][0])
 
                 self.psr[psrind].Qamp += sig['Jvec'] * pequadsqr
+                #print '{0}\n\n'.format(sig['Jvec'])
 
                 if incJitter:
                     self.psr[psrind].Nvec += sig['Nvec'] * pequadpsr
@@ -6783,7 +6807,6 @@ class PTAmodels(object):
                            fixWhite=False, selection=None):
 
         loglike = 0
-
         if varyNoise:
 
             # set pulsar white noise parameters

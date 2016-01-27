@@ -127,6 +127,7 @@ class Pulsar(object):
         self.nDMX = 0
 
         self.Qam = 0.0
+        self.ndmEventCoeffs = 0
 
     """
     Read the pulsar data (TOAs, residuals, design matrix, etc..) from an HDF5

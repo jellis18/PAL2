@@ -26,6 +26,8 @@ parser = argparse.ArgumentParser(description = 'Run PAL2 Data analysis pipeline'
 # options
 parser.add_argument('--h5File', dest='h5file', action='store', type=str, required=True,
                    help='Full path to hdf5 file containing PTA data')
+parser.add_argument('--jsonfile', dest='jsonfile', action='store', type=str, default=None,
+                   help='Full path to json file containing model')
 parser.add_argument('--fromFile', dest='fromFile', action='store_true', \
                     default=False, help='Init model from file?')
 
@@ -175,6 +177,8 @@ parser.add_argument('--addpars', dest='addpars', action='store', nargs='+', \
 parser.add_argument('--delpars', dest='delpars', action='store', nargs='+', \
                     type=str, required=False, 
                     help='parameters to remove from timing model separated by space')
+parser.add_argument('--addAllPars', dest='addAllPars', action='store_true',
+                    required=False, help='Add all timing model parameters')
 
 parser.add_argument('--incNonGaussian', dest='incNonGaussian', action='store_true', \
                     default=False, \
@@ -355,158 +359,166 @@ else:
     incDMXKernel = False
     DMXKernelModel = args.dmxKernelModel
 
-fullmodel = model.makeModelDict(incRedNoise=True, noiseModel=args.redModel, \
-                    incRedBand=args.incRedBand, \
-                    incDMBand=args.incDMBand, \
-                    incDM=args.incDM, dmModel=args.dmModel, \
-                    incDMEvent=args.incDMshapelet, dmEventModel=dmEventModel, \
-                    ndmEventCoeffs=args.nshape, \
-                    incDMX=args.incDMX, \
-                    incORF=args.incORF, \
-                    incBWM=args.incBWM, BWMmodel=args.BWMmodel,
-                    incSingleGWGP=args.incGP,
-                    incGlitch=args.incGlitch, incGlitchBand=args.incGlitchBand,
-                    incGWWavelet=args.incGWwavelet, nGWWavelets=args.nGWwavelets,
-                    incWavelet=args.incWavelet, nWavelets=args.nWavelets,
-                    waveletModel=args.waveletModel,
-                    incSysWavelet=args.incSysWavelet, nSysWavelets=args.nSysWavelets,
-                    sysWaveletModel=args.sysWaveletModel,
-                    incChromaticWavelet=args.incChromaticWavelet, 
-                    nChromaticWavelets=args.nChromaticWavelets,
-                    incGWBAni=args.incGWBAni, lmax=args.lmax,\
-                    clmPrior=args.clmPrior,
-                    incDMXKernel=incDMXKernel, DMXKernelModel=DMXKernelModel, \
-                    separateEfacs=separateEfacs, separateEfacsByFreq=separateEfacsByFreq, \
-                    separateEquads=separateEquads, separateEquadsByFreq=separateEquadsByFreq, \
-                    separateJitterEquad=separateJitterEquad, \
-                    separateJitterEquadByFreq=separateJitterEquadByFreq, \
-                    incRedFourierMode=incRedFourierMode, incDMFourierMode=incDMFourierMode, \
-                    incGWFourierMode=incGWFourierMode, \
-                    incEquad=args.incEquad,\
-                    incTimingModel=args.incTimingModel, nonLinear=args.tmmodel=='nonlinear', \
-                    addPars=args.addpars, subPars=args.delpars, \
-                    fulltimingmodel=args.fullmodel, incNonGaussian=args.incNonGaussian, \
-                    nnongaussian=args.nnongauss, \
-                    incRedExt=args.incRedExt, redExtModel=args.redExtModel, \
-                    redExtNf=args.nfext, \
-                    incEnvelope=args.incRedEnv, envelopeModel=args.redEnvModel,
-                    incCW=args.incCW, incPulsarDistance=args.incPdist, \
-                    CWModel=args.cwModel, nCW=args.nCW, \
-                    CWupperLimit=args.CWupperLimit, \
-                    incJitterEquad=args.incJitterEquad, \
-                    redAmpPrior=args.redAmpPrior, GWAmpPrior=args.GWBAmpPrior, \
-                    redSpectrumPrior=args.redAmpPrior, GWspectrumPrior=args.GWBAmpPrior, \
-                    incSingleFreqNoise=args.incSingleRed, numSingleFreqLines=1, \
-                    incSingleFreqDMNoise=args.incSingleDM, numSingleFreqDMLines=1, \
-                    DMAmpPrior=args.DMAmpPrior, \
-                    incGWB=incGWB, nfreqs=args.nfreqs, ndmfreqs=args.ndmfreqs, \
-                    incGWBSingle=args.incGWBSingle, gwbSingleModel=args.gwbSingleModel,
-                    gwbModel=args.gwbModel, \
-                    Tmax = args.Tspan,
-                    compression=args.compression, \
-                    likfunc=likfunc)
+if args.jsonfile is None:
+
+    fullmodel = model.makeModelDict(
+        incRedNoise=True, noiseModel=args.redModel, 
+        incRedBand=args.incRedBand, 
+        incDMBand=args.incDMBand, 
+        incDM=args.incDM, dmModel=args.dmModel, 
+        incDMEvent=args.incDMshapelet, dmEventModel=dmEventModel, 
+        ndmEventCoeffs=args.nshape, 
+        incDMX=args.incDMX, 
+        incORF=args.incORF, 
+        incBWM=args.incBWM, BWMmodel=args.BWMmodel,
+        incSingleGWGP=args.incGP,
+        incGlitch=args.incGlitch, incGlitchBand=args.incGlitchBand,
+        incGWWavelet=args.incGWwavelet, nGWWavelets=args.nGWwavelets,
+        incWavelet=args.incWavelet, nWavelets=args.nWavelets,
+        waveletModel=args.waveletModel,
+        incSysWavelet=args.incSysWavelet, nSysWavelets=args.nSysWavelets,
+        sysWaveletModel=args.sysWaveletModel,
+        incChromaticWavelet=args.incChromaticWavelet, 
+        nChromaticWavelets=args.nChromaticWavelets,
+        incGWBAni=args.incGWBAni, lmax=args.lmax,
+        clmPrior=args.clmPrior,
+        incDMXKernel=incDMXKernel, DMXKernelModel=DMXKernelModel, 
+        separateEfacs=separateEfacs, separateEfacsByFreq=separateEfacsByFreq, 
+        separateEquads=separateEquads, separateEquadsByFreq=separateEquadsByFreq, 
+        separateJitterEquad=separateJitterEquad, 
+        separateJitterEquadByFreq=separateJitterEquadByFreq, 
+        incRedFourierMode=incRedFourierMode, incDMFourierMode=incDMFourierMode, 
+        incGWFourierMode=incGWFourierMode, 
+        incEquad=args.incEquad,
+        incTimingModel=args.incTimingModel, nonLinear=args.tmmodel=='nonlinear', 
+        addPars=args.addpars, subPars=args.delpars, 
+        add_all_timing_pars=args.addAllPars,
+        fulltimingmodel=args.fullmodel, incNonGaussian=args.incNonGaussian, 
+        nnongaussian=args.nnongauss, 
+        incRedExt=args.incRedExt, redExtModel=args.redExtModel, 
+        redExtNf=args.nfext, 
+        incEnvelope=args.incRedEnv, envelopeModel=args.redEnvModel,
+        incCW=args.incCW, incPulsarDistance=args.incPdist, 
+        CWModel=args.cwModel, nCW=args.nCW, 
+        CWupperLimit=args.CWupperLimit, 
+        incJitterEquad=args.incJitterEquad, 
+        redAmpPrior=args.redAmpPrior, GWAmpPrior=args.GWBAmpPrior, 
+        redSpectrumPrior=args.redAmpPrior, GWspectrumPrior=args.GWBAmpPrior, 
+        incSingleFreqNoise=args.incSingleRed, numSingleFreqLines=1, 
+        incSingleFreqDMNoise=args.incSingleDM, numSingleFreqDMLines=1, 
+        DMAmpPrior=args.DMAmpPrior, 
+        incGWB=incGWB, nfreqs=args.nfreqs, ndmfreqs=args.ndmfreqs, 
+        incGWBSingle=args.incGWBSingle, gwbSingleModel=args.gwbSingleModel,
+        gwbModel=args.gwbModel, 
+        Tmax = args.Tspan,
+        compression=args.compression, 
+        likfunc=likfunc)
 
 
-# fix spectral index
-if args.fixSi:
-    print 'Fixing GWB spectral index to {0}'.format(args.fixSi)
-    for sig in fullmodel['signals']:
-        if sig['corr'] == 'gr' and sig['stype'] in ['powerlaw', 'turnover']:
-            sig['bvary'][1] = False
-            sig['pstart'][1] = args.fixSi
-        elif sig['corr'] == 'gr_sph' and sig['stype'] == 'powerlaw':
-            sig['bvary'][1] = False
-            sig['pstart'][1] = args.fixSi
+    # fix spectral index
+    if args.fixSi:
+        print 'Fixing GWB spectral index to {0}'.format(args.fixSi)
+        for sig in fullmodel['signals']:
+            if sig['corr'] == 'gr' and sig['stype'] in ['powerlaw', 'turnover']:
+                sig['bvary'][1] = False
+                sig['pstart'][1] = args.fixSi
+            elif sig['corr'] == 'gr_sph' and sig['stype'] == 'powerlaw':
+                sig['bvary'][1] = False
+                sig['pstart'][1] = args.fixSi
 
-# fix spectral index
-if args.fixKappa:
-    print 'Fixing GWB kappa to {0}'.format(args.fixKappa)
-    for sig in fullmodel['signals']:
-        if sig['corr'] == 'gr' and sig['stype'] in ['turnover']:
-            sig['bvary'][3] = False
-            sig['pstart'][3] = args.fixKappa
+    # fix spectral index
+    if args.fixKappa:
+        print 'Fixing GWB kappa to {0}'.format(args.fixKappa)
+        for sig in fullmodel['signals']:
+            if sig['corr'] == 'gr' and sig['stype'] in ['turnover']:
+                sig['bvary'][3] = False
+                sig['pstart'][3] = args.fixKappa
 
-# fix spectral indexa of chromatic wavelet
-if args.fixcBeta:
-    print 'Fixing chromatic wavelet index to {0}'.format(args.fixcBeta)
-    for sig in fullmodel['signals']:
-        if sig['stype'] in ['chrowavelet']:
-            sig['bvary'][0] = False
-            sig['pstart'][0] = args.fixcBeta
+    # fix spectral indexa of chromatic wavelet
+    if args.fixcBeta:
+        print 'Fixing chromatic wavelet index to {0}'.format(args.fixcBeta)
+        for sig in fullmodel['signals']:
+            if sig['stype'] in ['chrowavelet']:
+                sig['bvary'][0] = False
+                sig['pstart'][0] = args.fixcBeta
 
-# fix spectral index for red nosie
-if args.fixRedSi:
-    print 'Fixing red noise spectral index to 4.33'
-    for sig in fullmodel['signals']:
-        if sig['corr'] == 'single' and sig['stype'] == 'powerlaw':
-            sig['bvary'][1] = False
-            sig['pstart'][1] = 4.33
+    # fix spectral index for red nosie
+    if args.fixRedSi:
+        print 'Fixing red noise spectral index to 4.33'
+        for sig in fullmodel['signals']:
+            if sig['corr'] == 'single' and sig['stype'] == 'powerlaw':
+                sig['bvary'][1] = False
+                sig['pstart'][1] = 4.33
 
-if not(args.incRed):
-    print 'Warning: Not varying red noise' 
-    for sig in fullmodel['signals']:
-        if sig['corr'] == 'single' and sig['stype'] == 'powerlaw':
-            sig['bvary'][1] = False
-            sig['bvary'][0] = False
-            sig['pstart'][0] = -20
-
-
-if args.fixf != 0.0:
-    print 'Warning: Fixing CW frequency to {0}'.format(args.fixf) 
-    for sig in fullmodel['signals']:
-        if sig['stype'] == 'cw':
-            sig['bvary'][4] = False
-            sig['pstart'][4] = np.log10(args.fixf)
-
-if args.cwtheta is not None:
-    print 'Warning: Fixing CW theta to {0}'.format(args.cwtheta) 
-    for sig in fullmodel['signals']:
-        if sig['stype'] == 'cw':
-            sig['bvary'][0] = False
-            sig['pstart'][0] = args.cwtheta
-
-if args.cwphi is not None:
-    print 'Warning: Fixing CW phi to {0}'.format(args.cwphi) 
-    for sig in fullmodel['signals']:
-        if sig['stype'] == 'cw':
-            sig['bvary'][1] = False
-            sig['pstart'][1] = args.cwphi
-
-memsave = True
-if args.noVaryEfac:
-    print 'Not Varying EFAC'
-    for sig in fullmodel['signals']:
-        if sig['corr'] == 'single' and sig['stype'] == 'efac':
-            sig['bvary'][0] = False
-            sig['pstart'][0] = 1
-
-if args.noVaryNoise:
-    print 'Fixing Noise values to defaults'
-    nflags = ['efac', 'equad', 'jitter', 'jitter_equad']
-    for sig in fullmodel['signals']:
-        if sig['stype'] in nflags:
-            sig['bvary'][0] = False
-            print '{0} for {1} set to {2}'.format(sig['stype'],
-                                                 sig['flagvalue'],
-                                                 sig['pstart'])
+    if not(args.incRed):
+        print 'Warning: Not varying red noise' 
+        for sig in fullmodel['signals']:
+            if sig['corr'] == 'single' and sig['stype'] == 'powerlaw':
+                sig['bvary'][1] = False
+                sig['bvary'][0] = False
+                sig['pstart'][0] = -20
 
 
-if args.fixNoise:
-    noisedir = args.noisedir
-    for ct, p in enumerate(model.psr):
-        d = np.genfromtxt(noisedir + p.name + '_noise.txt', dtype='S42')
-        pars = d[:,0]
-        vals = np.array([float(d[ii,1]) for ii in range(d.shape[0])])
-        sigs = [psig for psig in fullmodel['signals'] if psig['pulsarind'] == ct]
-        sigs = PALutils.fixNoiseValues(sigs, vals, pars, bvary=False, verbose=True)
+    if args.fixf != 0.0:
+        print 'Warning: Fixing CW frequency to {0}'.format(args.fixf) 
+        for sig in fullmodel['signals']:
+            if sig['stype'] == 'cw':
+                sig['bvary'][4] = False
+                sig['pstart'][4] = np.log10(args.fixf)
 
-# turn red noise back on
-if args.fixNoise and args.fixWhite:
-    print 'Turning on red noise and only fixing white noise'
-    for sig in fullmodel['signals']:
-        if sig['corr'] == 'single' and sig['stype'] == 'powerlaw':
-            sig['bvary'][1] = True
-            sig['bvary'][0] = True
+    if args.cwtheta is not None:
+        print 'Warning: Fixing CW theta to {0}'.format(args.cwtheta) 
+        for sig in fullmodel['signals']:
+            if sig['stype'] == 'cw':
+                sig['bvary'][0] = False
+                sig['pstart'][0] = args.cwtheta
+
+    if args.cwphi is not None:
+        print 'Warning: Fixing CW phi to {0}'.format(args.cwphi) 
+        for sig in fullmodel['signals']:
+            if sig['stype'] == 'cw':
+                sig['bvary'][1] = False
+                sig['pstart'][1] = args.cwphi
+
+    memsave = True
+    if args.noVaryEfac:
+        print 'Not Varying EFAC'
+        for sig in fullmodel['signals']:
+            if sig['corr'] == 'single' and sig['stype'] == 'efac':
+                sig['bvary'][0] = False
+                sig['pstart'][0] = 1
+
+    if args.noVaryNoise:
+        print 'Fixing Noise values to defaults'
+        nflags = ['efac', 'equad', 'jitter', 'jitter_equad']
+        for sig in fullmodel['signals']:
+            if sig['stype'] in nflags:
+                sig['bvary'][0] = False
+                print '{0} for {1} set to {2}'.format(sig['stype'],
+                                                     sig['flagvalue'],
+                                                     sig['pstart'])
+
+
+    if args.fixNoise:
+        noisedir = args.noisedir
+        for ct, p in enumerate(model.psr):
+            d = np.genfromtxt(noisedir + p.name + '_noise.txt', dtype='S42')
+            pars = d[:,0]
+            vals = np.array([float(d[ii,1]) for ii in range(d.shape[0])])
+            sigs = [psig for psig in fullmodel['signals'] if psig['pulsarind'] == ct]
+            sigs = PALutils.fixNoiseValues(sigs, vals, pars, bvary=False, verbose=True)
+
+    # turn red noise back on
+    if args.fixNoise and args.fixWhite:
+        print 'Turning on red noise and only fixing white noise'
+        for sig in fullmodel['signals']:
+            if sig['corr'] == 'single' and sig['stype'] == 'powerlaw':
+                sig['bvary'][1] = True
+                sig['bvary'][0] = True
+    
+    # write JSON file
+    if not args.incTimingModel:
+        model.writeModelToFile(fullmodel, args.outDir + '/model.json')
 
 
 # check for single efacs
@@ -524,8 +536,16 @@ if args.fromFile:
     write = True
 else:
     write = 'no'
-#args.fromFile = False
-model.initModel(fullmodel, memsave=memsave, fromFile=args.fromFile, verbose=True, write=write)
+
+if args.jsonfile is None:
+    model.initModel(fullmodel, memsave=memsave, fromFile=args.fromFile, 
+                    verbose=True, write=write)
+
+else:
+    print 'Initializing Model from JSON file {0}\n'.format(args.jsonfile)
+    model.initModelFromFile(args.jsonfile, memsave=True, fromFile=args.fromFile, 
+                    verbose=True, write=write)
+    
 
 pardes = model.getModelParameterList()
 par_names = [p['id'] for p in pardes if p['index'] != -1]
