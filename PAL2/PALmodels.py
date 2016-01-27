@@ -1028,18 +1028,18 @@ class PTAmodels(object):
                     newptmdescription = p.getNewTimingModelParameterList(keep=True,
                                                                          tmpars=[])
                 else:
-                    #newptmdescription = p.getNewTimingModelParameterList(keep=True,
-                    #                    tmpars=['Offset', 'F0', 'F1', 'RAJ', 'DECJ',
-                    #                            'LAMBDA','ELONG', 'ELAT',
-                    #                            'BETA', 'PMELONG', 'PMRA', 'PMDEC',
-                    #                            'PMELAT', 'DM', 'DM1','DM2'] + \
-                    #                            jumps + dmx + fds)
                     newptmdescription = p.getNewTimingModelParameterList(keep=True,
                                         tmpars=['Offset', 'F0', 'F1', 'RAJ', 'DECJ',
                                                 'LAMBDA','ELONG', 'ELAT',
                                                 'BETA', 'PMELONG', 'PMRA', 'PMDEC',
                                                 'PMELAT', 'DM', 'DM1','DM2'] + \
-                                                jumps + dmx)
+                                                jumps + dmx + fds)
+                    #newptmdescription = p.getNewTimingModelParameterList(keep=True,
+                    #                    tmpars=['Offset', 'F0', 'F1', 'RAJ', 'DECJ',
+                    #                            'LAMBDA','ELONG', 'ELAT',
+                    #                            'BETA', 'PMELONG', 'PMRA', 'PMDEC',
+                    #                            'PMELAT', 'DM', 'DM1','DM2'] + \
+                    #                            jumps + dmx)
 
                 # Select the numerical parameters. These are the ones not
                 # present in the quantities that getModifiedDesignMatrix
@@ -9336,8 +9336,8 @@ class PTAmodels(object):
         qxy = 0
 
         # find number of signals
-        nsigs = np.sum(self.getNumberOfSignalsFromDict(self.ptasignals,
-                                                       stype='nonlineartimingmodel', corr='single'))
+        nsigs = np.sum(self.getNumberOfSignalsFromDict(
+            self.ptasignals, stype='nonlineartimingmodel', corr='single'))
         if np.any(nsigs):
             signum = self.getSignalNumbersFromDict(self.ptasignals,
                                                    stype='nonlineartimingmodel', corr='single')
