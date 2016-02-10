@@ -449,7 +449,8 @@ def construct_wavelet(t, A, t0, f0, Q, phi0, idx=None):
     
     return wave
 
-def construct_gw_wavelet(psr, gwtheta, gwphi, gwpsi, gweps, gwA, gwt0, gwf0, gwQ, gwphi0):
+def construct_gw_wavelet(psr, gwtheta, gwphi, gwpsi, gweps, 
+                         gwA, gwt0, gwf0, gwQ, gwphi0):
     
     # define variable for later use
     cosgwtheta, cosgwphi = np.cos(gwtheta), np.cos(gwphi)

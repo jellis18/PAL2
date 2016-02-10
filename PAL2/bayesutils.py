@@ -758,7 +758,7 @@ def makePostPlots(chain, labels, outDir='./postplots'):
                    dpi=200)
 
 
-def makeSkyMap(samples, lmax, nside=16, psrs=None):
+def makeSkyMap(samples, lmax, nside=16, psrs=None, cmap='YlOrBr'):
 
     # number of pixels total
     npix = hp.nside2npix(nside)   
@@ -783,7 +783,7 @@ def makeSkyMap(samples, lmax, nside=16, psrs=None):
     ax = plt.subplot(111, projection='astro mollweide')
     ax.grid()
     plot.outline_text(ax)
-    plot.healpix_heatmap(pwr)
+    plot.healpix_heatmap(pwr, cmap=cmap)
     plt.colorbar(orientation='horizontal')
 
     # add pulsars locations
