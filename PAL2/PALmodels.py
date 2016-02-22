@@ -594,7 +594,7 @@ class PTAmodels(object):
                     noiseModel = 'ext_spectrum'
                 elif redExtModel == 'powerlaw':
                     bvary = [True, True, False]
-                    pmin = [-20.0, 1.02, 1.0e-11]
+                    pmin = [-20.0, 0.02, 1.0e-11]
                     pmax = [-11.0, 6.98, 3.0e-9]
                     pstart = [-19.0, 2.01, 1.0e-10]
                     pwidth = [0.1, 0.1, 5.0e-11]
@@ -950,20 +950,6 @@ class PTAmodels(object):
                                     p.t2psr[key].val = 0.99
                                 if key == 'M2' and p.t2psr['M2'].val == 0:
                                     p.t2psr[key].val = 0.3
-
-                    if subPars is not None:
-                        for key in subPars:
-                            if key == 'DMX':
-                                dmxs = np.array([par for par in p.ptmdescription
-                                                 if 'DMX' in par])
-                                for dmx in dmxs:
-                                    print 'Turning off fit for {0}'.format(dmx)
-                                    p.t2psr[dmx].fit = False
-                                    p.t2psr[dmx].val = 0.0
-                            else:
-                                print 'Turning off fit for {0}'.format(key)
-                                p.t2psr[key].fit = False
-                                p.t2psr[key].val = 0.0
                     
                     if add_all_timing_pars:
                         if p.t2psr.binarymodel in ['DD', 'T2']:
@@ -985,8 +971,21 @@ class PTAmodels(object):
                                     p.t2psr[key].val = 0.99
                                 elif key == 'M2' and p.t2psr['M2'].val == 0:
                                     p.t2psr[key].val = 0.3
-                            
 
+                    if subPars is not None:
+                        for key in subPars:
+                            if key == 'DMX':
+                                dmxs = np.array([par for par in p.ptmdescription
+                                                 if 'DMX' in par])
+                                for dmx in dmxs:
+                                    print 'Turning off fit for {0}'.format(dmx)
+                                    p.t2psr[dmx].fit = False
+                                    p.t2psr[dmx].val = 0.0
+                            else:
+                                print 'Turning off fit for {0}'.format(key)
+                                p.t2psr[key].fit = False
+                                p.t2psr[key].val = 0.0
+                    
                     # Get updated model
                     p.ptmdescription = ['Offset'] + map(str, p.t2psr.pars())
                     p.ptmpars = np.array([0] + list(p.t2psr.vals()))
@@ -1454,7 +1453,7 @@ class PTAmodels(object):
                         bvary = [True] * 5
                         pmin = [0, np.log10(3/Tspan), p.toas.min()/86400, 0.5, 0]
                         pmax = [100, np.log10(ntoa/4/Tspan), p.toas.max()/86400, 40, 2*np.pi]
-                        pstart = [6, -7.6, (p.toas.max() + p.toas.min())/2/86400,
+                        pstart = [6, -7, (p.toas.max() + p.toas.min())/2/86400,
                                  30, np.pi]
                         pwidth = [0.1, 0.1, 10, 2, 0.1]
                         prior = ['uniform', 'log', 'uniform', 'uniform', 'cyclic']
@@ -1467,7 +1466,7 @@ class PTAmodels(object):
                         bvary = [True] * 5
                         pmin = [-8, np.log10(3/Tspan), p.toas.min()/86400, 0.5, 0]
                         pmax = [-5, np.log10(ntoa/4/Tspan), p.toas.max()/86400, 40, 2*np.pi]
-                        pstart = [-7, -7.6, (p.toas.max() + p.toas.min())/2/86400,
+                        pstart = [-7, -7, (p.toas.max() + p.toas.min())/2/86400,
                                  30, np.pi]
                         pwidth = [0.1, 0.1, 10, 2, 0.1]
                         prior = ['log', 'log', 'uniform', 'uniform', 'cyclic']
