@@ -486,7 +486,8 @@ def greedy_bin_sky(skypos, skycarts):
 
 
 def plotSkyMap(raSample, decSample, nside=16, contours=None, colorbar=True, \
-              inj=None, psrs=None, smooth=True, cmap='YlOrBr', outfile='skymap.pdf'):
+              inj=None, psrs=None, smooth=True, smoothsigma=0.1, cmap='YlOrBr', 
+               outfile='skymap.pdf'):
     """
 
     Plot Skymap of chain samples on Mollwiede projection.
@@ -524,7 +525,7 @@ def plotSkyMap(raSample, decSample, nside=16, contours=None, colorbar=True, \
 
     # smooth skymap
     if smooth:
-        skymap = hp.smoothing(skymap, sigma=0.02)
+        skymap = hp.smoothing(skymap, sigma=smoothsigma)
 
     # make plot
     ax = plt.subplot(111, projection='astro mollweide')

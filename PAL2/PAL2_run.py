@@ -781,6 +781,9 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         if args.incCW:
             ids = model.get_parameter_indices('cw', corr='gr', split=True)
             [ind.append(id) for id in ids]
+            for id in ids:
+                for idd in id:
+                    ind.append([idd])
             
             # pulsar distances
             if args.incPdist:
@@ -851,10 +854,10 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         #    sampler.addProposalToCycle(model.drawFromBWMPrior, 10)
 
         if args.incCW:
-            if args.cwModel == 'upperLimit':
-                wgt = 15
+            if args.cwModel in ['upperLimit', 'upperLimit_phase']:
+                wgt = 30
             else:
-                wgt = 2
+                wgt = 5
             sampler.addProposalToCycle(model.drawFromCWPrior, wgt)
             #sampler.addProposalToCycle(model.massDistanceJump, 2)
             sampler.addProposalToCycle(model.phaseAndPolarizationReverseJump, 5)

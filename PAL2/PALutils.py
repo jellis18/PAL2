@@ -432,9 +432,6 @@ def construct_wavelet(t, A, t0, f0, Q, phi0, idx=None):
 
     wave = np.zeros(len(t))
 
-    if idx is None:
-        idx = np.array([1]*len(t), dtype=np.bool)
-
     # width of gaussian
     tau = Q / (2*np.pi*f0)
 
@@ -445,7 +442,8 @@ def construct_wavelet(t, A, t0, f0, Q, phi0, idx=None):
             np.cos(2*np.pi*f0*(t[tind]-t0)+phi0)
 
     # fileter
-    wave[~idx] = 0
+    if idx is not None:
+        wave[~idx] = 0
     
     return wave
 
