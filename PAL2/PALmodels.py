@@ -5342,7 +5342,12 @@ class PTAmodels(object):
                                     snr += np.dot(wv/pp.Nvec, wv)
 
                                 A = sparameters[0] / np.sqrt(snr)
-                                pp.detresiduals -= A * wv
+                                for pp in self.psr:
+                                    fplus, fcross, _ = PALutils.createAntennaPatternFuncs(
+                                        pp, theta, phi)
+                                    wv = fplus * (pp.splus*cos2psi - pp.scross*sin2psi) + \
+                                            fcross * (pp.splus*sin2psi + pp.scross*cos2psi)
+                                    pp.detresiduals -= A * wv
 
                             else:
                                 A = 10 ** sparameters[0]

@@ -29,13 +29,10 @@ class PTSampler(object):
     This implementation uses an adaptive jump proposal scheme
     by default using both standard and single component Adaptive
     Metropolis (AM) and Differential Evolution (DE) jumps.
-
     This implementation also makes use of MPI (mpi4py) to run
     the parallel chains.
-
     Along with the AM and DE jumps, the user can add custom
     jump proposals with the ``addProposalToCycle`` fuction.
-
     @param ndim: number of dimensions in problem
     @param logl: log-likelihood function
     @param logp: log prior function (must be normalized for evidence evaluation)
@@ -52,7 +49,6 @@ class PTSampler(object):
     @param outDir: Full path to output directory for chain files (default = ./chains)
     @param verbose: Update current run-status to the screen (default=True)
     @param resume: Resume from a previous chain (still in testing so beware) (default=False)
-
     """
 
     def __init__(self, ndim, logl, logp, cov, groups=None, loglargs=[], loglkwargs={},
@@ -114,10 +110,8 @@ class PTSampler(object):
                    writeHotChains=False, hotChain=False):
         """
         Initialize MCMC quantities
-
         @param maxIter: maximum number of iterations
         @Tmin: minumum temperature to use in temperature ladder
-
         """
         # get maximum number of iteration
         if maxIter is None and self.MPIrank > 0:
@@ -205,7 +199,6 @@ class PTSampler(object):
     def updateChains(self, p0, lnlike0, lnprob0, iter):
         """
         Update chains after jump proposals
-
         """
         # update buffer
         if self.MPIrank == 0:
@@ -239,7 +232,6 @@ class PTSampler(object):
                writeHotChains=False, hotChain=False):
         """
         Function to carry out PTMCMC sampling.
-
         @param p0: Initial parameter vector
         @param self.Niter: Number of iterations to use for T = 1 chain
         @param ladder: User defined temperature ladder
@@ -259,7 +251,6 @@ class PTSampler(object):
         @param self.thin: Save every self.thin MCMC samples
         @param i0: Iteration to start MCMC (if i0 !=0, do not re-initialize)
         @param neff: Number of effective samples to collect before terminating
-
         """
 
         # get maximum number of iteration
@@ -324,7 +315,7 @@ class PTSampler(object):
             if iter % 1000 == 0 and iter > 2 * self.burn and self.MPIrank == 0:
                 try:
                     Neff = iter / \
-                            np.max([acor.acor(self._AMbuffer[self.burn:(iter - 1), ii])[0]
+                            np.nanmax([acor.acor(self._AMbuffer[self.burn:(iter - 1), ii])[0]
                                           for ii in range(self.ndim)])
                     # print '\n {0} effective samples'.format(Neff)
                 except NameError:
@@ -355,16 +346,13 @@ class PTSampler(object):
     def PTMCMCOneStep(self, p0, lnlike0, lnprob0, iter):
         """
         Function to carry out PTMCMC sampling.
-
         @param p0: Initial parameter vector
         @param lnlike0: Initial log-likelihood value
         @param lnprob0: Initial log probability value
         @param iter: iteration number
-
         @return p0: next value of parameter vector after one MCMC step
         @return lnlike0: next value of likelihood after one MCMC step
         @return lnprob0: next value of posterior after one MCMC step
-
         """
         # update covariance matrix
         if (iter - 1) % self.covUpdate == 0 and (iter -
@@ -487,20 +475,16 @@ class PTSampler(object):
     def PTswap(self, p0, lnlike0, lnprob0, iter):
         """
         Do parallel tempering swap.
-
         @param p0: current parameter vector
         @param lnlike0: current log-likelihood
         @param lnprob0: current log posterior value
         @param iter: current iteration number
-
         @return swapReturn: 0 = no swap proposed,
         1 = swap proposed and rejected,
         2 = swap proposed and accepted
-
         @return p0: new parameter vector
         @return lnlike0: new log-likelihood
         @return lnprob0: new log posterior value
-
         """
 
         # initialize variables
@@ -514,20 +498,23 @@ class PTSampler(object):
             swapProposed = 1
 
             # send current likelihood for swap proposal
-            self.comm.send(lnlike0, dest=self.MPIrank + 1)
+            self.comm.send(lnlike0, dest=self.MPIrank + 1, tag=18)
 
             # determine if swap was accepted
-            swapAccepted = self.comm.recv(source=self.MPIrank + 1)
+            swapAccepted = self.comm.recv(source=self.MPIrank + 1, tag=888)
 
             # perform swap
             if swapAccepted:
 
                 # exchange likelihood
-                lnlike0 = self.comm.recv(source=self.MPIrank + 1)
+                lnlike0 = self.comm.recv(source=self.MPIrank + 1, tag=18)
 
                 # exchange parameters
-                self.comm.send(p0, dest=self.MPIrank + 1)
-                p0 = self.comm.recv(source=self.MPIrank + 1)
+                pnew = np.empty(self.ndim)
+                self.comm.Sendrecv(p0, dest=self.MPIrank+1, sendtag=19, 
+                              recvbuf=pnew, source=self.MPIrank+1, 
+                              recvtag=19)
+                p0 = pnew
 
                 # calculate new posterior values
                 lnprob0 = 1 / self.temp * lnlike0 + self.logp(p0)
@@ -535,13 +522,13 @@ class PTSampler(object):
         # check if next lowest temperature is ready to swap
         elif self.MPIrank > 0:
 
-            readyToSwap = self.comm.Iprobe(source=self.MPIrank - 1)
+            readyToSwap = self.comm.Iprobe(source=self.MPIrank - 1, tag=18)
             # trick to get around processor using 100% cpu while waiting
             time.sleep(0.000001)
 
             # hotter chain decides acceptance
             if readyToSwap:
-                newlnlike = self.comm.recv(source=self.MPIrank - 1)
+                newlnlike = self.comm.recv(source=self.MPIrank - 1, tag=18)
 
                 # determine if swap is accepted and tell other chain
                 logChainSwap = (1 / self.ladder[self.MPIrank - 1] -
@@ -554,18 +541,21 @@ class PTSampler(object):
                     swapAccepted = 0
 
                 # send out result
-                self.comm.send(swapAccepted, dest=self.MPIrank - 1)
+                self.comm.send(swapAccepted, dest=self.MPIrank - 1, tag=888)
 
                 # perform swap
                 if swapAccepted:
 
                     # exchange likelihood
-                    self.comm.send(lnlike0, dest=self.MPIrank - 1)
+                    self.comm.send(lnlike0, dest=self.MPIrank - 1, tag=18)
                     lnlike0 = newlnlike
 
                     # exchange parameters
-                    self.comm.send(p0, dest=self.MPIrank - 1)
-                    p0 = self.comm.recv(source=self.MPIrank - 1)
+                    pnew = np.empty(self.ndim)
+                    self.comm.Sendrecv(p0, dest=self.MPIrank-1, sendtag=19, 
+                                  recvbuf=pnew, source=self.MPIrank-1, 
+                                  recvtag=19)
+                    p0 = pnew
 
                     # calculate new posterior values
                     lnprob0 = 1 / self.temp * lnlike0 + self.logp(p0)
@@ -587,7 +577,6 @@ class PTSampler(object):
         Method to compute temperature ladder. At the moment this uses
         a geometrically spaced temperature ladder with a temperature
         spacing designed to give 25 % temperature swap acceptance rate.
-
         """
 
         # TODO: make options to do other temperature ladders
@@ -610,9 +599,7 @@ class PTSampler(object):
         Function to write chain file. File has 3+ndim columns,
         the first is log-posterior (unweighted), log-likelihood,
         and acceptance probability, followed by parameter values.
-
         @param iter: Iteration of sampler
-
         """
 
         self._chainfile = open(self.fname, 'a+')
@@ -659,10 +646,8 @@ class PTSampler(object):
     def _updateRecursive(self, iter, mem):
         """
         Function to recursively update sample covariance matrix.
-
         @param iter: Iteration of sampler
         @param mem: Number of steps between updates
-
         """
 
         it = iter - mem
@@ -698,9 +683,7 @@ class PTSampler(object):
     def _updateKDE(self, iter):
         """
         Update gaussian KDE of posterior using previous samples
-
         @param iter: current iteration of chain
-
         """
         chain = self._AMbuffer[self.burn:iter, :]
         self.kde = ss.gaussian_kde(chain.T)
@@ -710,10 +693,8 @@ class PTSampler(object):
         """
         Update Differential Evolution with last burn
         values in the total chain
-
         @param iter: Iteration of sampler
         @param burn: Total number of samples in DE buffer
-
         """
 
         self._DEbuffer = self._AMbuffer[iter - burn:iter]
@@ -724,14 +705,11 @@ class PTSampler(object):
         Use Gaussian KDE from previous chain values to propose new parameters.
         This does not depend on the current position in parameter space and should
         help reduce the ACL of the chain.
-
         @param x: Parameter vector at current position
         @param iter: Iteration of sampler
         @param beta: Inverse temperature of chain
-
         @return: q: New position in parameter space
         @return: qxy: Forward-Backward jump probability
-
         """
         # new parameters
         q = self.kde.resample(1).flatten()
@@ -749,14 +727,11 @@ class PTSampler(object):
         Single Component Adaptive Jump Proposal. This function will occasionally
         jump in more than 1 parameter. It will also occasionally use different
         jump sizes to ensure proper mixing.
-
         @param x: Parameter vector at current position
         @param iter: Iteration of sampler
         @param beta: Inverse temperature of chain
-
         @return: q: New position in parameter space
         @return: qxy: Forward-Backward jump probability
-
         """
 
         q = x.copy()
@@ -811,14 +786,11 @@ class PTSampler(object):
         """
         Adaptive Jump Proposal. This function will occasionally
         use different jump sizes to ensure proper mixing.
-
         @param x: Parameter vector at current position
         @param iter: Iteration of sampler
         @param beta: Inverse temperature of chain
-
         @return: q: New position in parameter space
         @return: qxy: Forward-Backward jump probability
-
         """
 
         q = x.copy()
@@ -870,14 +842,11 @@ class PTSampler(object):
         """
         Differential Evolution Jump. This function will  occasionally
         use different jump sizes to ensure proper mixing.
-
         @param x: Parameter vector at current position
         @param iter: Iteration of sampler
         @param beta: Inverse temperature of chain
-
         @return: q: New position in parameter space
         @return: qxy: Forward-Backward jump probability
-
         """
 
         # get old parameters
@@ -924,10 +893,8 @@ class PTSampler(object):
     def addProposalToCycle(self, func, weight):
         """
         Add jump proposal distributions to cycle with a given weight.
-
         @param func: jump proposal function
         @param weight: jump proposal function weight in cycle
-
         """
 
         # get length of cycle so far
@@ -955,9 +922,7 @@ class PTSampler(object):
         Add auxilary jump proposal distribution. This will be called after every
         standard jump proposal. Examples include cyclic boundary conditions and
         pulsar phase fixes
-
         @param func: jump proposal function
-
         """
 
         # set auxilary jump
@@ -967,7 +932,6 @@ class PTSampler(object):
     def randomizeProposalCycle(self):
         """
         Randomize proposal cycle that has already been filled
-
         """
 
         # get length of full cycle
@@ -984,7 +948,6 @@ class PTSampler(object):
     def _jump(self, x, iter):
         """
         Call Jump proposals
-
         """
 
         # get length of cycle
@@ -1010,7 +973,6 @@ class _function_wrapper(object):
     """
     This is a hack to make the likelihood function pickleable when ``args``
     or ``kwargs`` are also included.
-
     """
 
     def __init__(self, f, args, kwargs):
