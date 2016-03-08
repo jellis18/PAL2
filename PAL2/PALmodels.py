@@ -1397,7 +1397,8 @@ class PTAmodels(object):
                 signals.append(newsignal)
 
             # separate pulsar phase and frequency
-            if incCW and CWModel in ['free', 'freephase', 'eccgam', 'upperLimit_phase']:
+            if incCW and CWModel in ['free', 'freephase', 'eccgam', 
+                                     'upperLimit_phase', 'mass_ratio']:
                 for cc in range(nCW):
                     if CWModel == 'free':
                         bvary = [True] * 2
@@ -1419,7 +1420,7 @@ class PTAmodels(object):
                         parids = ['pphase_' + str(cc) + '_' + str(p.name), 
                                   'pgamma_' + str(cc) + '_' + str(p.name)]
 
-                    if CWModel in ['freephase', 'upperLimit_phase']:
+                    if CWModel in ['freephase', 'upperLimit_phase', 'mass_ratio']:
                         bvary = [True] 
                         pmin = [0]
                         pmax = [2*np.pi]
