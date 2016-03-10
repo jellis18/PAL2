@@ -1647,18 +1647,6 @@ class PTAmodels(object):
                                  'gwwavePhase_'+str(ww)]
                         mu = [None] * 5
                         sigma = [None] * 5
-                    #bvary = [True] * 5
-                    #pmin = [-10, -9, p.toas.min()/86400, 2, 0]
-                    #pmax = [-5, -7, p.toas.max()/86400, 100, 2*np.pi]
-                    #pstart = [-7, -8, (p.toas.max() + p.toas.min())/2/86400,
-                    #         30, np.pi]
-                    #pwidth = [0.1, 0.1, 10, 2, 0.1]
-                    #prior = ['log', 'log', 'uniform', 'uniform', 'uniform']
-                    #parids = ['waveAmp_'+str(ww), 'waveFreq_'+str(ww),
-                    #         'waveT0_'+str(ww), 'waveQ_'+str(ww),
-                    #         'wavePhase_'+str(ww)]
-                    #mu = [None] * 5
-                    #sigma = [None] * 5
 
                     newsignal = OrderedDict({
                         "stype": "gwwavelet",
@@ -1680,12 +1668,12 @@ class PTAmodels(object):
 
             elif gw_wave_model == 'independent':
                 bvary = [True] * 3
-                pmin = [0, 0, 0]
-                pmax = [np.pi, 2*np.pi, np.pi]
-                pstart = [np.pi/2, np.pi, np.pi/2]
+                pmin = [-1, 0, 0]
+                pmax = [1, 2*np.pi, np.pi]
+                pstart = [0, np.pi, np.pi/2]
                 pwidth = [0.1, 0.1, 0.1]
-                prior = ['cos', 'uniform', 'uniform']
-                parids = ['wavetheta', 'wavephi', 'wavepsi']
+                prior = ['uniform', 'uniform', 'uniform']
+                parids = ['wavecostheta', 'wavephi', 'wavepsi']
                 mu = [None] * 3
                 sigma = [None] * 3
                 pols = ['plus', 'cross']
@@ -1693,6 +1681,7 @@ class PTAmodels(object):
                 newsignal = OrderedDict({
                     "stype": "gwwavelet",
                     "gwwavemodel": gw_wave_model,
+                    "model": waveletModel,
                     "corr": "gr",
                     "pulsarind": -1,
                     "mu": mu,
@@ -1707,26 +1696,48 @@ class PTAmodels(object):
                 })
                 signals.append(newsignal)
 
+                Tspan = np.max([(pp.toas.max()-pp.toas.min()) for pp in self.psr])
+                ntoa = int(24 * Tspan / 3.16e7)
                 for pol in pols:
                     for ww in range(nGWWavelets):
-                        bvary = [True] * 5
-                        pmin = [-10, -9, p.toas.min()/86400, 2, 0]
-                        pmax = [-5, -7, p.toas.max()/86400, 100, 2*np.pi]
-                        pstart = [-7, -8, (p.toas.max() + p.toas.min())/2/86400,
-                                 30, np.pi]
-                        pwidth = [0.1, 0.1, 10, 2, 0.1]
-                        prior = ['log', 'log', 'uniform', 'uniform', 'uniform']
-                        parids = ['waveAmp_'+pol+'_'+str(ww), 
-                                   'waveFreq_'+pol+'_'+str(ww),
-                                   'waveT0_'+pol+'_'+str(ww), 
-                                   'waveQ_'+pol+'_'+str(ww),
-                                   'wavePhase_'+pol+'_'+str(ww)]
-                        mu = [None] * 5
-                        sigma = [None] * 5
+                        if waveletModel == 'snr':
+                            bvary = [True] * 5
+                            pmin = [0, np.log10(3/Tspan), p.toas.min()/86400, 0.5, 0]
+                            pmax = [100, np.log10(ntoa/4/Tspan), p.toas.max()/86400, 40, 
+                                    2*np.pi]
+                            pstart = [6, -7, (p.toas.max() + p.toas.min())/2/86400,
+                                     30, np.pi]
+                            pwidth = [0.1, 0.1, 10, 2, 0.1]
+                            prior = ['uniform', 'log', 'uniform', 'uniform', 'cyclic']
+                            parids = ['gwwaveSNR_'+pol+'_'+str(ww), 
+                                       'gwwaveFreq_'+pol+'_'+str(ww),
+                                       'gwwaveT0_'+pol+'_'+str(ww), 
+                                       'gwwaveQ_'+pol+'_'+str(ww),
+                                       'gwwavePhase_'+pol+'_'+str(ww)]
+                            mu = [None] * 5
+                            sigma = [None] * 5
+                        else:
+                            bvary = [True] * 5
+                            pmin = [-8, np.log10(3/Tspan), p.toas.min()/86400, 0.5, 0]
+                            pmax = [-5, np.log10(ntoa/4/Tspan), p.toas.max()/86400, 40, 
+                                    2*np.pi]
+                            pstart = [-7, -7, (p.toas.max() + p.toas.min())/2/86400,
+                                     30, np.pi]
+                            pwidth = [0.1, 0.1, 10, 2, 0.1]
+                            prior = ['log', 'log', 'uniform', 'uniform', 'cyclic']
+                            parids = ['gwwaveAmp_'+pol+'_'+str(ww), 
+                                       'gwwaveFreq_'+pol+'_'+str(ww),
+                                       'gwwaveT0_'+pol+'_'+str(ww), 
+                                       'gwwaveQ_'+pol+'_'+str(ww),
+                                       'gwwavePhase_'+pol+'_'+str(ww)]
+                            mu = [None] * 5
+                            sigma = [None] * 5
                     
                         newsignal = OrderedDict({
                             "stype": "gwwavelet",
                             "gwwavemodel": gw_wave_model,
+                            "polarization": pol,
+                            "model": waveletModel,
                             "corr": "single",
                             "pulsarind": -1,
                             "mu": mu,
@@ -5364,21 +5375,81 @@ class PTAmodels(object):
                                             fcross * (pp.splus*sin2psi + pp.scross*cos2psi)
                                     pp.detresiduals -= wv
 
-                            
-
-                                 
-
-
-                if sig['gwwavemodel'] == 'independent' and \
-                   np.any(selection[parind+3:parind+3+npars]):
-                    theta = sparameters[0]
+                
+                if sig['gwwavemodel'] == 'independent':
+                    theta = np.arccos(sparameters[0])
                     phi = sparameters[1]
                     psi = sparameters[2]
-                    A = 10**sparameters[4::5]
-                    f0 = 10**sparameters[5::5]
-                    t0 = sparameters[6::5] * 86400
-                    Q = sparameters[7::5]
-                    phase0 = sparameters[8::5]
+                    sin2psi, cos2psi = np.sin(2*psi), np.cos(2*psi)
+
+                    # get wavelet parameters
+                    signums = self.getSignalNumbersFromDict(
+                        self.ptasignals, stype='gwwavelet', 
+                        corr='single')
+
+                    for signum in signums:
+                        sig0 = self.ptasignals[signum]
+                        parind = sig0['parindex']
+                        npars = sig0['npars']
+
+                        # parameters for this sig0nal
+                        sparameters = sig0['pstart'].copy()
+
+                        # which ones are varying
+                        sparameters[sig0['bvary']] = parameters[parind:parind + npars]
+
+                        if np.all(selection[parind:parind+npars]):
+
+                            f0 = 10**sparameters[1]
+                            t0 = sparameters[2] * 86400
+                            Q = sparameters[3]
+                            phase0 = sparameters[4]
+                            
+                            # get SNR and amplitude
+                            snr = 0
+                            if sig['model'] == 'snr':
+                                for pp in self.psr:
+                                    fplus, fcross, _ = PALutils.createAntennaPatternFuncs(
+                                        pp, theta, phi)
+                                   
+                                    if sig0['polarization'] == 'plus':
+                                        pp.splus = PALutils.construct_wavelet(
+                                            pp.toas, 1, t0, f0, Q, phase0)
+                                        wv = fplus*pp.splus*cos2psi + fcross*pp.splus*sin2psi
+                                    elif sig0['polarization'] == 'cross':
+                                        pp.scross = PALutils.construct_wavelet(
+                                            pp.toas, 1, t0, f0, Q, phase0)
+                                        wv = fcross*pp.scross*cos2psi - fplus*pp.scross*sin2psi
+                                    
+                                    snr += np.dot(wv/pp.Nvec, wv)
+
+                                A = sparameters[0] / np.sqrt(snr)
+                                for pp in self.psr:
+                                    fplus, fcross, _ = PALutils.createAntennaPatternFuncs(
+                                        pp, theta, phi)
+                                    if sig0['polarization'] == 'plus':
+                                        wv = fplus*pp.splus*cos2psi + fcross*pp.splus*sin2psi
+                                    elif sig0['polarization'] == 'cross':
+                                        wv = fcross*pp.scross*cos2psi - fplus*pp.scross*sin2psi
+                                    pp.detresiduals -= A * wv
+
+                            else:
+                                A = 10 ** sparameters[0]
+                                for pp in self.psr:
+                                    fplus, fcross, _ = PALutils.createAntennaPatternFuncs(
+                                        pp, theta, phi)
+
+                                    if sig0['polarization'] == 'plus':
+                                        pp.splus = PALutils.construct_wavelet(
+                                            pp.toas, A, t0, f0, Q, phase0)
+                                        wv = fplus*pp.splus*cos2psi + fcross*pp.splus*sin2psi
+                                    elif sig0['polarization'] == 'cross':
+                                        pp.scross = PALutils.construct_wavelet(
+                                            pp.toas, A, t0, f0, Q, phase0)
+                                        wv = fcross*pp.scross*cos2psi - fplus*pp.scross*sin2psi
+                                    
+                                    pp.detresiduals -= wv
+
 
             # glitch
             if sig['stype'] == 'glitch':
