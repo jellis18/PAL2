@@ -214,7 +214,8 @@ class DataFile(object):
                         does not delete the auxiliary fields. New requires the
                         pulsar not to exist, and throws an exception otherwise.
     """
-    def addTempoPulsar(self, parfile, timfile, iterations=1, mode='replace'):
+    def addTempoPulsar(self, parfile, timfile, iterations=1, 
+                       mode='replace', maxobs=30000):
         # Check whether the two files exist
         if not os.path.isfile(parfile) or not os.path.isfile(timfile):
             raise IOError, "Cannot find parfile (%s) or timfile (%s)!" % (parfile, timfile)
@@ -246,7 +247,7 @@ class DataFile(object):
 
         # Load pulsar data from the libstempo library
         try:
-            t2pulsar = t2.tempopulsar(relparfile, reltimfile, maxobs=30000)
+            t2pulsar = t2.tempopulsar(relparfile, reltimfile, maxobs=maxobs)
         except TypeError:
             t2pulsar = t2.tempopulsar(relparfile, reltimfile)
         except:

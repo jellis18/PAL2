@@ -17,6 +17,8 @@ parser.add_argument('--h5File', dest='h5file', action='store', type=str, require
                    help='output hdf5 file')
 parser.add_argument('--iter', dest='iter', action='store', type=int, default=0,
                    help='Number of iterations in fit [default=0]')
+parser.add_argument('--maxobs', dest='maxobs', action='store', type=int, default=30000,
+                   help='Maximum number of TOAs [default=30000]')
 
 
 # parse arguments
@@ -39,5 +41,5 @@ timFiles.sort()
 df = PALdatafile.DataFile(args.h5file)
 for t,p in zip(timFiles, parFiles):
     print '\n', t, p, '\n'
-    df.addTempoPulsar(p, t, iterations=args.iter)
+    df.addTempoPulsar(p, t, iterations=args.iter, maxobs=args.maxobs)
 
