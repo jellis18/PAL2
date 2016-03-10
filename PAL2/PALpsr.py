@@ -168,7 +168,7 @@ class Pulsar(object):
 
         # Create the libstempo object
         try:
-            self.t2psr = t2.tempopulsar(parfilename, timfilename, maxobs=20000)
+            self.t2psr = t2.tempopulsar(parfilename, timfilename, maxobs=30000)
         except TypeError:
             self.t2psr = t2.tempopulsar(parfilename, timfilename)
 
