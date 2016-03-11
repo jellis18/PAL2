@@ -995,8 +995,8 @@ class PTAmodels(object):
 
                 # Just do the timing-model fit ourselves here, in order to set
                 # the prior.
-                w = 1.0 / p.toaerrs ** 2
-                Sigi = np.dot(p.Mmat.T, (w * p.Mmat.T).T)
+                w = 1.0 / (p.toaerrs*1e6) ** 2
+                Sigi = np.dot(p.Mmat.T, (w * p.Mmat.T).T) / 1e-12
                 try:
                     cf = sl.cho_factor(Sigi)
                     Sigma = sl.cho_solve(cf, np.eye(Sigi.shape[0]))
@@ -1141,6 +1141,7 @@ class PTAmodels(object):
                                 pwidth += [tmperrs[jj]]
                                 pstart += [tmpest[jj]]
                                 priors += ['uniform']
+
                 else:
                     # get normalization for design matrix
                     norm = np.sqrt(np.sum(p.Mmat ** 2, axis=0))
