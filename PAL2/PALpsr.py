@@ -710,7 +710,6 @@ class Pulsar(object):
         elif compression == 'dont' or compression is None or compression == 'None':
             self.Hmat = self.Gmat
             self.Hcmat = self.Gcmat
-            self.Homat = np.zeros(self.Gmat.shape)
             pass
         else:
             raise IOError("Invalid compression argument")
@@ -1210,7 +1209,6 @@ class Pulsar(object):
                     h5df.addData(self.name, 'AoGU', self.AoGU)
 
         self.nbasis = self.Hmat.shape[1]
-        self.nobasis = self.Homat.shape[1]
 
         if write != 'no':
             h5df.addData(self.name, 'nbasis', self.nbasis)

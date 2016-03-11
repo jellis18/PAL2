@@ -3407,7 +3407,6 @@ class PTAmodels(object):
             # noise vectors
             p.Nvec = np.zeros(len(p.toas))
             p.Nwvec = np.zeros(p.nbasis)
-            p.Nwovec = np.zeros(p.nobasis)
 
         # number of GW frequencies
         self.ngwf = np.max(self.npf)
@@ -3992,7 +3991,6 @@ class PTAmodels(object):
         for p in self.psr:
             if p.twoComponentNoise:
                 p.Nwvec[:] = 0
-                p.Nwovec[:] = 0
 
             p.Nvec[:] = 0
             p.Qamp = 0
@@ -4020,7 +4018,6 @@ class PTAmodels(object):
                     self.psr[
                         psrind].Nwvec += self.psr[psrind].Wvec * pefac ** 2
                     self.psr[
-                        psrind].Nwovec += self.psr[psrind].Wovec * pefac ** 2
                     self.psr[psrind].Nvec += sig['Nvec'] * pefac ** 2
 
                 else:   # use Nvec stored in dictionary
@@ -4040,7 +4037,6 @@ class PTAmodels(object):
                 # if two component noise, use weighted noise vectors
                 if self.psr[psrind].twoComponentNoise and twoComponent:
                     self.psr[psrind].Nwvec += pequadsqr
-                    self.psr[psrind].Nwovec += pequadsqr
                     self.psr[psrind].Nvec += sig['Nvec'] * pequadsqr
 
                 else:   # use Nvec stored in dictionary
