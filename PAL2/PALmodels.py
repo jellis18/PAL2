@@ -4017,7 +4017,6 @@ class PTAmodels(object):
                 if self.psr[psrind].twoComponentNoise and twoComponent:
                     self.psr[
                         psrind].Nwvec += self.psr[psrind].Wvec * pefac ** 2
-                    self.psr[
                     self.psr[psrind].Nvec += sig['Nvec'] * pefac ** 2
 
                 else:   # use Nvec stored in dictionary
