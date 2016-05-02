@@ -215,7 +215,7 @@ class DataFile(object):
                         pulsar not to exist, and throws an exception otherwise.
     """
     def addTempoPulsar(self, parfile, timfile, iterations=1, 
-                       mode='replace', maxobs=30000):
+                       mode='overwrite', maxobs=30000):
         # Check whether the two files exist
         if not os.path.isfile(parfile) or not os.path.isfile(timfile):
             raise IOError, "Cannot find parfile (%s) or timfile (%s)!" % (parfile, timfile)
@@ -290,7 +290,7 @@ class DataFile(object):
                        overwrite=overwrite)  # Seconds
         self.writeData(psrGroup, 'toaErr', np.double(1e-6*t2pulsar.toaerrs),
                        overwrite=overwrite)    # Seconds
-        self.writeData(psrGroup, 'freq', np.double(t2pulsar.ssbfreqs()),
+        self.writeData(psrGroup, 'freq', np.double(t2pulsar.ssbfreqs())/1e6,
                        overwrite=overwrite)    # MHz
 
         # design matrix
@@ -344,6 +344,17 @@ class DataFile(object):
             self.writeData(flagGroup, flagid,
                            map(str, t2pulsar.flagvals(flagid)),
                            overwrite=overwrite)
+
+        # check for pp dm flags
+        if 'pp_dm' in uflags and 'pp_dme' in uflags:
+            ppdm = map(float, flagGroup['pp_dm'])
+            ppdm -= np.mean(ppdm)
+            ppdme = map(float, flagGroup['pp_dme'])
+        else:
+            ppdm = np.zeros(len(t2pulsar.toas()))
+            ppdme = np.zeros(len(t2pulsar.toas()))
+        self.writeData(flagGroup, "ppdm", ppdm, overwrite=overwrite)
+        self.writeData(flagGroup, "ppdme", ppdme, overwrite=overwrite)
         
 
         if not "efacequad" in flagGroup:
@@ -570,6 +581,12 @@ class DataFile(object):
         psr.pdist = np.double(self.getData(psrname, 'pdist'))
         psr.pdistErr = np.double(self.getData(psrname, 'pdistErr'))
 
+        # ppdm
+        psr.ppdm = np.array(self.getData(psrname, 'ppdm', 'Flags'))
+        psr.ppdmerr = np.array(self.getData(psrname, 'ppdme', 'Flags'))
+        if np.all(psr.ppdm!=0):
+            dmin = psr.ppdmerr == 0
+            psr.ppdmerr[dmin] = np.min(psr.ppdmerr[~dmin])
 
         # Obtain residuals, TOAs, etc.
         psr.toas = np.array(self.getData(psrname, 'TOAs'))

@@ -229,6 +229,10 @@ parser.add_argument('--cwtheta', dest='cwtheta', action='store', type=float, def
                    help='value of GW theta for CW source')
 parser.add_argument('--cwphi', dest='cwphi', action='store', type=float, default=None,
                    help='value of GW phi for CW source')
+parser.add_argument('--cwdist', dest='cwdist', action='store', type=float, default=None,
+                   help='value of distance for CW source')
+parser.add_argument('--cwsnrprior', dest='cwsnrprior', action='store_true', 
+                    default=False, help='Use CW snr prior')
 
 parser.add_argument('--incBWM', dest='incBWM', action='store_true', \
                     default=False, help='Include BWM signal in run [default=False]')
@@ -273,6 +277,8 @@ parser.add_argument('--mark9', dest='mark9', action='store_true', \
                     default=False, help='Use mark9 likelihood')
 parser.add_argument('--mark10', dest='mark10', action='store_true', \
                     default=False, help='Use mark10 likelihood')
+parser.add_argument('--mark11', dest='mark11', action='store_true', \
+                    default=False, help='Use mark11 likelihood')
 
 parser.add_argument('--Tmin', dest='Tmin', type=float, action='store', \
                      default=1, help='Minimum temperature for parallel tempering')
@@ -346,6 +352,8 @@ if args.mark9:
     likfunc = 'mark9'
 if args.mark10:
     likfunc = 'mark10'
+if args.mark11:
+    likfunc = 'mark11'
 
 if args.margShapelet:
     dmEventModel = 'shapeletmarg'
@@ -399,6 +407,7 @@ if args.jsonfile is None:
         redExtNf=args.nfext, 
         incEnvelope=args.incRedEnv, envelopeModel=args.redEnvModel,
         incCW=args.incCW, incPulsarDistance=args.incPdist, 
+        cwsnrprior=args.cwsnrprior,
         CWModel=args.cwModel, nCW=args.nCW, 
         CWupperLimit=args.CWupperLimit, 
         incJitterEquad=args.incJitterEquad, 
@@ -479,6 +488,13 @@ if args.jsonfile is None:
             if sig['stype'] == 'cw':
                 sig['bvary'][1] = False
                 sig['pstart'][1] = args.cwphi
+
+    if args.cwdist is not None:
+        print 'Warning: Fixing dist to {0} Mpc'.format(args.cwdist) 
+        for sig in fullmodel['signals']:
+            if sig['stype'] == 'cw':
+                sig['bvary'][3] = False
+                sig['pstart'][3] = np.log10(args.cwdist)
 
     memsave = True
     if args.noVaryEfac:
@@ -584,7 +600,9 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
     if args.mark9:
         loglike = model.mark9LogLikelihood
     if args.mark10:
-        loglike = model.mark10LogLikelihood
+        loglike = model.mark10loglikelihood
+    if args.mark11:
+        loglike = model.mark11LogLikelihood
                                 
 
     # if zero log-likeihood
@@ -980,10 +998,10 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
 
         # run MultiNest
         pymultinest.run(myloglike, myprior, n_params, resume = args.resume, \
-                        verbose = True, sampling_efficiency = 0.01, \
+                        verbose = True, sampling_efficiency = 0.3, \
                         outputfiles_basename =  args.outDir+'/mn'+'-', \
                         n_iter_before_update=5, n_live_points=nlive, \
-                        const_efficiency_mode=True, importance_nested_sampling=True, \
+                        const_efficiency_mode=False, importance_nested_sampling=False, \
                         n_clustering_params=n_params, init_MPI=False)
 
 

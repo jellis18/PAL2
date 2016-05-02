@@ -960,9 +960,6 @@ class Pulsar(object):
             if useAverage:
                 self.FtotAv = self.FAvmat
 
-        #plt.matshow(self.Ftot, aspect='auto')
-        # plt.show()
-
         # Write these quantities to disk
         if write != 'no':
             h5df.addData(self.name, 'Fmat', self.Fmat)
@@ -992,8 +989,7 @@ class Pulsar(object):
                     keep=True,
                     tmpars=tmpars)
                 print 'Numerically including', tmparkeep
-                print self.Mmat.shape
-                Mmat, newptmpars, newptmdescription = self.delFromDesignMatrix(
+                Mmat, newptmpars, self.newdes = self.delFromDesignMatrix(
                     tmparkeep)
 
             tmpardel = self.getNewTimingModelParameterList(
@@ -1031,6 +1027,7 @@ class Pulsar(object):
             Mm = self.Mmat.copy()
             self.norm = np.sqrt(np.sum(Mm ** 2, axis=0))
             Mm /= self.norm
+            self.newdes = self.ptmdescription
             #print '\n', 'HERE', '\n'
             #Mm, s, Vh = sl.svd(Mmat, full_matrices=False)
 
@@ -1043,9 +1040,24 @@ class Pulsar(object):
             self.Gmat = np.zeros(self.Mmat.shape)
             n_m = len(self.toas) - self.Gmat.shape[1]
             self.Gcmat = np.zeros((n_m, n_m))
+        
+        # ppdm re-ordering
+        if likfunc == 'mark11':
+
+            # find DMX values
+            idx = np.array([ct for ct, p in enumerate(self.newdes) 
+                            if 'DMX' in p])
+            nidx = np.array([ct for ct, p in enumerate(self.newdes) 
+                            if 'DMX' not in p])
+
+            self.Kmat = Mmat[:,idx]
+            self.Dmat = ((self.freqs/1e6)**2 * self.Kmat.T).T / PAL_DMk
+            Mm = Mm[:,nidx]
+            self.Mmat_reduced = Mm
+            
 
         # T matrix
-        if likfunc in ['mark6', 'mark7', 'mark8', 'mark9']:
+        if likfunc in ['mark6', 'mark7', 'mark8', 'mark9', 'mark11']:
             self.Tmat = np.concatenate((Mm, self.Ftot), axis=1)
             if incJitter:
                 self.avetoas, self.aveflags, U = \

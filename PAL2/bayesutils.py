@@ -487,7 +487,7 @@ def greedy_bin_sky(skypos, skycarts):
 
 def plotSkyMap(raSample, decSample, nside=16, contours=None, colorbar=True, \
               inj=None, psrs=None, smooth=True, smoothsigma=0.1, cmap='YlOrBr', 
-               outfile='skymap.pdf'):
+               outfile='skymap.pdf', color='k'):
     """
 
     Plot Skymap of chain samples on Mollwiede projection.
@@ -507,7 +507,7 @@ def plotSkyMap(raSample, decSample, nside=16, contours=None, colorbar=True, \
     """
 
     # clear figures
-    plt.clf()
+    #plt.clf()
 
     # create stacked array of ra and dec
     skypos = np.column_stack([raSample, decSample])
@@ -539,13 +539,14 @@ def plotSkyMap(raSample, decSample, nside=16, contours=None, colorbar=True, \
             ind = np.min(ml.find(np.cumsum(sky) >= 0.01*percent))
             region[indices[0:ind]] = 1.0
             cs = plot.contour(lambda lon, lat: region[hp.ang2pix(nside, 0.5*np.pi - lat, lon)], \
-                          colors='k', linewidths=1.0, levels=[0.5])
+                          colors=color, linewidths=1.0, levels=[0.5])
             #plt.clabel(cs, [0.5], fmt={0.5: '$\mathbf{%d\%%}$' % percent}, fontsize=8, inline=True)
 
     # plot map
     ax.grid()
     plot.outline_text(ax)
-    plot.healpix_heatmap(skymap, cmap=cmap)
+    if cmap is not None:
+        plot.healpix_heatmap(skymap, cmap=cmap)
 
     # add injection
     if inj:

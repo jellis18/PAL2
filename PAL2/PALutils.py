@@ -53,6 +53,63 @@ def compute_snr_mark9(x, Nvec, Tmat, Qamp, Uinds, Sigma):
 
     return np.sqrt(ret)
 
+def get_snr_prior(model, snr0):
+
+    snr = 0
+    nfref = 0
+    for ct, p in enumerate(model.psr):
+
+        s = p.residuals - p.detresiduals
+        if np.any(np.isnan(s)) or np.any(np.isinf(s)):
+            return -np.inf
+
+        nf = p.Ttmat.shape[1]
+
+        if model.likfunc == 'mark9':
+            snr += innerProduct_rr9(s, s, p.Nvec, p.Ttmat,
+                                            model.Sigma[nfref:(nfref+nf),
+                                                        nfref:(nfref+nf)], 
+                                             p.Qamp, p.Uinds)
+        else:
+            snr += innerProduct_rr(s, s, p.Nvec, p.Ttmat,
+                                            model.Sigma[nfref:(nfref+nf),
+                                                        nfref:(nfref+nf)])
+
+        nfref += nf
+
+    snr = np.sqrt(snr)
+    if np.isinf(snr) or np.isnan(snr):
+        return -np.inf
+
+    return np.log(3*snr/(4*snr0**2*(1+snr/(4*snr0))**5))
+
+
+def innerProduct_rr9(x, y, Nvec, Tmat, Sigma, Qamp, Uinds):
+    """
+    Compute inner product using rank-reduced
+    approximations for red noise/jitter 
+
+    Compute: x^T N^{-1} y - x^T N^{-1} T \Sigma^{-1} T^T N^{-1} y
+
+    :param x: vector timeseries 1
+    :param y: vector timeseries 2
+    :param Nvec: vector of white noise values
+    :param Tmat: Modified design matrix including red noise/jitter
+    :param Sigma: Sigma matrix (\varphi^{-1} + T^T N^{-1} T)
+
+    :return: inner product (x|y)
+
+    """
+    Nx = python_block_shermor_0D(x, Nvec, Qamp, Uinds)
+    Ny = python_block_shermor_0D(y, Nvec, Qamp, Uinds)
+    xNy = np.dot(x, Ny)
+    TNx = np.dot(Tmat.T, Nx)
+    TNy = np.dot(Tmat.T, Ny)
+    cf = sl.cho_factor(Sigma)
+    SigmaTNy = sl.cho_solve(cf, TNy)
+    ret = xNy - np.dot(TNx, SigmaTNy)
+
+    return ret
 
 def innerProduct_rr(x, y, Nvec, Tmat, Sigma, TNx=None, TNy=None):
     """
@@ -2043,6 +2100,40 @@ def python_block_shermor_2D(Z, Nvec, Jvec, Uinds):
                 zNz -= beta * np.outer(zn.T, zn)
 
     return zNz
+
+def python_block_shermor_2D2(Z, X, Nvec, Jvec, Uinds):
+    """
+    Sherman-Morrison block-inversion for Jitter, ZNiX
+
+    :param Z:       The design matrix, array (n x m)
+    :param X:       The second design matrix, array (n x l)
+    :param Nvec:    The white noise amplitude, array (n)
+    :param Jvec:    The jitter amplitude, array (k)
+    :param Uinds:   The start/finish indices for the jitter blocks (k x 2)
+
+    For this version, the residuals need to be sorted properly so that all the
+    blocks are continuous in memory. Here, there are n residuals, and k jitter
+    parameters.
+    
+    N = D + U*J*U.T
+    calculate: Z.T * N^-1 * X
+    """
+    ni = 1.0 / Nvec
+    zNx = np.dot(Z.T*ni, X)
+
+    if len(np.atleast_1d(Jvec)) > 1:
+        for cc, jv in enumerate(Jvec):
+            if jv > 0.0:
+                Zblock = Z[Uinds[cc,0]:Uinds[cc,1], :]
+                Xblock = X[Uinds[cc,0]:Uinds[cc,1], :]
+                niblock = ni[Uinds[cc,0]:Uinds[cc,1]]
+
+                beta = 1.0 / (np.einsum('i->', niblock)+1.0/jv)
+                zn = np.dot(niblock, Zblock)
+                xn = np.dot(niblock, Xblock)
+                zNx -= beta * np.outer(zn.T, xn)
+
+    return zNx
 
 def python_block_shermor_0D(r, Nvec, Jvec, Uinds): 
     """
