@@ -743,7 +743,11 @@ class Pulsar(object):
                                 tmpars=None, memsave=True, incJitter=False, incDMX=False,
                                 incRedBand=False, incDMBand=False, incRedGroup=False,
                                 redGroups=None, incRedExt=False, nfredExt=20,
-                                redExtFx=None, incGP=False):
+                                redExtFx=None, incGP=False, haveScat=False, 
+                                numScatFreqs=0):
+
+
+
 
         # For creating the auxiliaries it does not really matter: we are now
         # creating all quantities per default
@@ -768,6 +772,7 @@ class Pulsar(object):
             self.residuals = self.residuals[self.isort]
             self.freqs = self.freqs[self.isort]
             self.flags = self.flags[self.isort]
+            self.bwflags = self.bwflags[self.isort]
             self.fflags = self.fflags[self.isort]
             self.Mmat = self.Mmat[self.isort, :]
 
@@ -1066,6 +1071,23 @@ class Pulsar(object):
                         dt=1)
                 self.Umat = U
                 self.Tmat = np.concatenate((self.Tmat, U), axis=1)
+
+            if haveScat:
+                Fscat, self.Fscatfreqs =  PALutils.createfourierdesignmatrix(
+                    self.toas, numScatFreqs, freq=True, Tspan=self.Tmax)
+                Svec = (self.freqs/1400)**(-4) * (4/self.bwflags)**(-4)
+                Tref = self.toas.min()
+                Fscatmat = (Svec * Fscat.T).T
+                Mscatmat = np.zeros((len(self.toas), 3))
+                Mscatmat[:, 0] = Svec
+                Mscatmat[:, 1] = Svec * (self.toas - Tref)
+                Mscatmat[:, 2] = Svec * (self.toas - Tref)**2
+                norm = np.sqrt(np.sum(Mscatmat**2, axis=0))
+                Mscatmat /= norm
+
+                self.Tmat = np.concatenate((self.Tmat, Mscatmat), axis=1)
+                self.Tmat = np.concatenate((self.Tmat, Fscatmat), axis=1)
+                
 
             if incDMX:
                 (self.DMXtimes, tmpMat) = PALutils.exploderMatrix(

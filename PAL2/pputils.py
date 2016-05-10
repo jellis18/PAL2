@@ -238,7 +238,7 @@ def get_quad_posteriors(model, chain, selection=None,
                 tmp = np.zeros(len(mnx))
 
         if idd is None:
-            nf = model.npf[0] // 2
+            nf = len(p.Ffreqs) // 2
             ntmpars = len(p.ptmdescription)
             idd = np.arange(ntmpars, ntmpars+2*nf)
 
@@ -352,7 +352,8 @@ def make_waveform_realization_plot(ax, psr, real, sigma=0.68, *args, **kwargs):
     for ii in range(nt):
         rlind = np.flatnonzero(real[:,ii])
         tmp, xmed[ii] = bu.confinterval(real[rlind,ii], onesided=True, sigma=0.5)
-        xlow[ii], xhigh[ii] = bu.confinterval(real[rlind,ii], sigma=sigma)
+        xlow[ii], xhigh[ii] = bu.confinterval(real[rlind,ii], sigma=sigma, 
+                                              type='minArea')
     
     idx = np.argsort(psr.toas)
     ax.fill_between(convert_mjd_to_greg(psr.toas[idx]/86400), xlow[idx]*1e6, 
@@ -373,7 +374,7 @@ def make_dm_waveform_realization_plot(ax, psr, qreal, incDM=True, *args, **kwarg
     """
     dmconst = 2.41e-4
     ntmpars = len(psr.ptmdescription)
-    nf = len(psr.Ffreqs)
+    nf = psr.Fmat.shape[1]
     nfdm = len(psr.Fdmfreqs)
     idd = np.arange(ntmpars+nf,ntmpars+nf+nfdm)
     idx = np.argsort(psr.toas)
@@ -395,7 +396,8 @@ def make_dm_waveform_realization_plot(ax, psr, qreal, incDM=True, *args, **kwarg
     for ii in range(nt):
         rlind = np.flatnonzero(dmsig[:,ii])
         tmp, xmed[ii] = bu.confinterval(dmsig[rlind,ii], onesided=True, sigma=0.5)
-        xlow[ii], xhigh[ii] = bu.confinterval(dmsig[rlind,ii], sigma=0.68)
+        xlow[ii], xhigh[ii] = bu.confinterval(dmsig[rlind,ii], sigma=0.68, 
+                                              type='minArea')
 
     ax.fill_between(convert_mjd_to_greg(psr.toas[idx]/86400), xlow[idx]*1e3, 
                      xhigh[idx]*1e3, **kwargs)
@@ -419,7 +421,7 @@ def make_spectrum_realization_plot(ax, f, psd, sigma=0.68, *args, **kwargs):
     for ii in range(nt):
         tmp, xmed[ii] = bu.confinterval(psd[:,ii], onesided=True, sigma=0.5)
         xlow[ii], xhigh[ii] = bu.confinterval(psd[:,ii], sigma=sigma, 
-                                              type='equalProb')
+                                              type='minArea')
     
     #print xlow, xhigh
     ax.fill_between(f, 10**xlow, 10**xhigh, **kwargs)
@@ -463,7 +465,7 @@ class ChainPP(object):
             # load model
             pulsars = map(str, pmodel['pulsarnames'])
             self.model = PALmodels.PTAmodels(self.h5file, pulsars=pulsars)
-            self.model.initModel(pmodel, memsave=True)
+            self.model.initModel(pmodel, memsave=True, verbose=True)
             p0 = self.model.initParameters()
             self.model.mark6LogLikelihood(
                 p0, incCorrelations=False, 
@@ -589,6 +591,9 @@ class ChainPP(object):
                                        color='gray', alpha=0.5)
         ax.set_xlabel(r'Frequency [Hz]')
         ax.set_ylabel(r'Power Spectral Density [s$^2$]')
+        if self.save:
+            plt.savefig(self.outdir + '/spectrum_{0}.png'.format(self.model.psr[0].name),
+                        dpi=300, bbox_inches='tight')
 
 
     def plot_residuals(self, mtype='full', nreal=1000):

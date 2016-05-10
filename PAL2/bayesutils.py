@@ -70,8 +70,9 @@ def getsigmalevels(hist2d, sig_levels=[0.68, 0.95, 0.997]):
 
   return level1, level2, level3
 
-def confinterval(samples, sigma=0.68, onesided=False, weights=None, bins=40,
-                type='equalArea', kde=False):
+
+def confinterval(samples, sigma=0.68, onesided=False, weights=None, 
+                 bins=40, type='equalArea'):
     """
 
     Given a list of samples, return the desired cofidence intervals.
@@ -84,56 +85,51 @@ def confinterval(samples, sigma=0.68, onesided=False, weights=None, bins=40,
 
     @param onesided: Boolean to use onesided or twosided confidence
                      limits.
+    
+    @param weights: Histogram Weights.
+
+    @param bins: Number of histogram bins
+
+    @param type: equalArea: Integrates from sides of posterior
+                 minArea: Brute force search for confidence interval with smallest
+                          paramter range
+                 equalProb: Integrates from MAP downwards
+
 
     """
-
-    ## Create the histogram
-    #hist, xedges = np.histogram(samples, bins=bins, weights=weights)
-    #xedges = np.delete(xedges, -1) + 0.5*(xedges[1] - xedges[0])
-
-    ## CDF
-    #cdf = np.cumsum(hist/hist.sum())
-
-    ## interpolate
-    #x = np.linspace(xedges.min(), xedges.max(), 10000)
-    #ifunc = interp.interp1d(xedges, cdf, kind='cubic')
-    #y = ifunc(x)
 
     ecdf = ECDF(samples)
 
     # Create the binning
     x = np.linspace(min(samples), max(samples), 1000)
-
-    if kde:
-        kd = gaussian_kde(samples)
-        y = np.cumsum(kd.pdf(x) / np.sum(kd.pdf(x)))
-    else:
-        ecdf = ECDF(samples)
-        y = ecdf(x)
+    ecdf = ECDF(samples)
+    y = ecdf(x)
 
     # Find the intervals
     if type == 'equalArea' or onesided:
-        x2min = y[0]
         if onesided:
-            bound = 1 - sigma
+            x2max = x[np.flatnonzero(y<=sigma)[-1]]
+            x2min = x2max
         else:
-            bound = 0.5*(1-sigma)
-
-        for i in range(len(y)):
-            if y[i] >= bound:
-                x2min = x[i]
-                break
-
-        x2max = y[-1]
-        if onesided:
-            bound = sigma
-        else:
-            bound = 1 - 0.5 * (1 - sigma)
-
-        for i in reversed(range(len(y))):
-            if y[i] <= bound:
-                x2max = x[i]
-                break
+            x2min = x[np.flatnonzero(y<=0.5*(1-sigma))[-1]]
+            x2max = x[np.flatnonzero(y>=1-0.5*(1-sigma))[0]]
+            
+    if type == 'minArea':
+        delta, xmin, xmax = np.zeros(len(y)), np.zeros(len(y)), np.zeros(len(y))
+        start = 0
+        for ii in range(len(y)):
+            ind = np.flatnonzero((y-y[ii])>=sigma)
+            if len(ind) == 0:
+                delta[ii] = np.inf   
+            else:
+                delta[ii] = x[ind[0]] - x[ii]
+                xmin[ii] = x[ii]
+                xmax[ii] = x[ind[0]]
+        
+        minind = np.argmin(delta)
+        x2min = xmin[minind]
+        x2max = xmax[minind]
+                        
 
     if type == 'equalProb' and not(onesided):
         hist, xedges = np.histogram(samples, bins=bins, weights=weights)
@@ -148,8 +144,6 @@ def confinterval(samples, sigma=0.68, onesided=False, weights=None, bins=40,
         x2max = x[ind][idx].max()
 
     return x2min, x2max
-
-
 
 def makesubplot2d(ax, samples1, samples2, cmap=None, color='k', weights=None,
                   smooth=True, bins=[40, 40], contours=True, x_range=None,

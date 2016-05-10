@@ -83,6 +83,13 @@ parser.add_argument('--ndmf', dest='ndmfreqs', action='store', type=int, default
 parser.add_argument('--DMAmpPrior', dest='DMAmpPrior', action='store', type=str, \
                     default='log', help='prior on DM Amplitude [uniform, log]')
 
+parser.add_argument('--incScat', dest='incScat', action='store_true',default=False,
+                   help='Include Scattering variations [default=False]')
+parser.add_argument('--scatModel', dest='scatModel', action='store', type=str, default='powerlaw',
+                   help='Red Scattering noise model [powerlaw, spectrum]')
+parser.add_argument('--nscatf', dest='nscatf', action='store', type=int, default=30,
+                   help='number of Scattering noise frequencies to use (default=30)')
+
 parser.add_argument('--incSingleDM', dest='incSingleDM', action='store_true',default=False,
                    help='include single frequency DM [default=False]')
 
@@ -396,6 +403,7 @@ if args.jsonfile is None:
         separateJitterEquad=separateJitterEquad, 
         separateJitterEquadByFreq=separateJitterEquadByFreq, 
         incRedFourierMode=incRedFourierMode, incDMFourierMode=incDMFourierMode, 
+        incScattering=args.incScat, scatteringModel=args.scatModel, nscatfreqs=args.nscatf,
         incGWFourierMode=incGWFourierMode, 
         incEquad=args.incEquad,
         incTimingModel=args.incTimingModel, nonLinear=args.tmmodel=='nonlinear', 
@@ -726,6 +734,15 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
                 [ind.append(id) for id in ids]
             if args.dmModel == 'spectrum':
                 ids = model.get_parameter_indices('dmspectrum', corr='single', split=False)
+                [ind.append(id) for id in ids]
+
+        ##### Scattering noise #####
+        if args.incScat:
+            if args.scatModel == 'powerlaw':
+                ids = model.get_parameter_indices('scatpowerlaw', corr='single', split=True)
+                [ind.append(id) for id in ids]
+            if args.scatModel == 'spectrum':
+                ids = model.get_parameter_indices('scatspectrum', corr='single', split=False)
                 [ind.append(id) for id in ids]
 
         ##### wavelets #####

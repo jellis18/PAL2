@@ -319,7 +319,7 @@ class DataFile(object):
         self.writeData(psrGroup, 'pdist', pdist, overwrite=overwrite)
         self.writeData(psrGroup, 'pdistErr', pdistErr, overwrite=overwrite)
 
-        # Now obtain and write the timing model parameters
+        # Now obtain and write the fitted timing model parameters
         tmpname = ['Offset'] + list(map(str,t2pulsar.pars()))
         tmpvalpost = np.zeros(len(tmpname))
         tmperrpost = np.zeros(len(tmpname))
@@ -332,6 +332,21 @@ class DataFile(object):
         self.writeData(psrGroup, 'tmp_valpost', tmpvalpost,
                        overwrite=overwrite) # TMP post-fit value
         self.writeData(psrGroup, 'tmp_errpost', tmperrpost,
+                       overwrite=overwrite) # TMP post-fit error
+
+        # Now obtain and write the set timing model parameters
+        tmpname = ['Offset'] + list(map(str,t2pulsar.pars(which='set')))
+        tmpvalpost = np.zeros(len(tmpname))
+        tmperrpost = np.zeros(len(tmpname))
+        for i in range(len(t2pulsar.pars())):
+            tmpvalpost[i+1] = t2pulsar[tmpname[i+1]].val
+            tmperrpost[i+1] = t2pulsar[tmpname[i+1]].err
+
+        self.writeData(psrGroup, 'set_name', tmpname, 
+                       overwrite=overwrite) # TMP name
+        self.writeData(psrGroup, 'set_valpost', tmpvalpost,
+                       overwrite=overwrite) # TMP post-fit value
+        self.writeData(psrGroup, 'set_errpost', tmperrpost,
                        overwrite=overwrite) # TMP post-fit error
 
         # Get the flag group for this pulsar. Create if not there
@@ -382,7 +397,7 @@ class DataFile(object):
                 bw = flagGroup['bw']
             else:
                 #print 'No bandwidth flags for PSR {0}'.format(t2pulsar.name)
-                bw = np.ones(nobs) * 16
+                bw = np.ones(nobs) * 4
 
             self.writeData(flagGroup, "bw", bw, overwrite=overwrite)
         
@@ -528,24 +543,27 @@ class DataFile(object):
         psr.ptmparerrs = np.array(self.getData(psrname, 'tmp_errpost'))
         psr.flags = np.array(map(str, self.getData(psrname, 'efacequad_freq', 'Flags')))
         psr.tobsflags = map(float, self.getData(psrname, 'tobs_all', 'Flags'))
-        #psr.bwflags = map(float, self.getData(psrname, 'bw', 'Flags'))
+        psr.bwflags = np.array(map(float, self.getData(psrname, 'bw', 'Flags')))
+
+        psr.setptmdescription = map(str, self.getData(psrname, 'set_name'))
+        psr.setptmpars = np.array(self.getData(psrname, 'set_valpost'))
 
         # add this for frequency dependent terms
         #TODO: should eventually change psr.flags to a dictionary
         psr.fflags = np.array(map(str, self.getData(psrname, 'efacequad_freq', 'Flags')))
 
         # Read the position of the pulsar
-        rajind = np.flatnonzero(np.array(psr.ptmdescription) == 'RAJ')
-        decjind = np.flatnonzero(np.array(psr.ptmdescription) == 'DECJ')
+        rajind = np.flatnonzero(np.array(psr.setptmdescription) == 'RAJ')
+        decjind = np.flatnonzero(np.array(psr.setptmdescription) == 'DECJ')
 
 
         # look for ecliptic coordinates
         if len(rajind) == 0 and len(decjind) == 0:
             #print 'Could not fine RAJ or DECJ. Looking for ecliptic coords...'
-            elongind = np.flatnonzero(np.array(psr.ptmdescription) == 'ELONG')
-            elatind = np.flatnonzero(np.array(psr.ptmdescription) == 'ELAT')
-            elong = np.array(self.getData(psrname, 'tmp_valpost'))[elongind]
-            elat = np.array(self.getData(psrname, 'tmp_valpost'))[elatind]
+            elongind = np.flatnonzero(np.array(psr.setptmdescription) == 'ELONG')
+            elatind = np.flatnonzero(np.array(psr.setptmdescription) == 'ELAT')
+            elong = np.array(self.getData(psrname, 'set_valpost'))[elongind]
+            elat = np.array(self.getData(psrname, 'set_valpost'))[elatind]
 
             # convert via pyephem
             #print elong, elat
@@ -567,8 +585,8 @@ class DataFile(object):
                 psr.decj = np.array([0.0])
 
         else:
-            psr.raj = np.array(self.getData(psrname, 'tmp_valpost'))[rajind]
-            psr.decj = np.array(self.getData(psrname, 'tmp_valpost'))[decjind]
+            psr.raj = np.array(self.getData(psrname, 'set_valpost'))[rajind]
+            psr.decj = np.array(self.getData(psrname, 'set_valpost'))[decjind]
 
         psr.theta = np.pi/2 - psr.decj
         psr.phi = psr.raj

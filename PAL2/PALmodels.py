@@ -744,30 +744,22 @@ class PTAmodels(object):
 
             if incScattering:
                 if scatteringModel == 'spectrum':
-                    bvary = [True]
-                    bvary += [True] * nscatfreqs
-                    pmin = [0.1]
-                    pmin += [-20.0] * nscatfreqs
-                    pmax = [7.0]
-                    pmax += [-8.0] * nscatfreqs
-                    pstart = [4.0]
-                    pstart += [-15.0] * nscatfreqs
-                    pwidth = [0.1]
-                    pwidth += [0.1] * nscatfreqs
-                    prior = ['uniform']
-                    prior += [DMSpectrumPrior] * nscatfreqs
-                    parids = ['scat-beta']
-                    parids += ['rho_scat_' + str(f) for f in range(nscatfreqs)]
+                    bvary = [True] * nscatfreqs
+                    pmin = [-20.0] * nscatfreqs
+                    pmax = [-8.0] * nscatfreqs
+                    pstart = [-15.0] * nscatfreqs
+                    pwidth = [0.1] * nscatfreqs
+                    prior = [DMSpectrumPrior] * nscatfreqs
+                    parids = ['rho_scat_' + str(f) for f in range(nscatfreqs)]
                     ScatteringModel = 'scatspectrum'
                 elif scatteringModel == 'powerlaw':
-                    bvary = [True, True, True, False]
-                    pmin = [0.01, -20.0, 0.02, 1.0e-11]
-                    pmax = [7.0, -11, 6.98, 3.0e-9]
-                    pstart = [4.0, -16.0, 2.01, 1.0e-10]
-                    pwidth = [0.1, 0.1, 0.1, 5.0e-11]
-                    prior = ['uniform', DMAmpPrior, DMSiPrior, 'log']
-                    parids = ['scat-beta', 'scat-Amplitude',
-                              'scat-spectral-index', 'scat_fL']
+                    bvary = [True, True]
+                    pmin = [-20.0, 0.02]
+                    pmax = [-11, 6.98]
+                    pstart = [-16.0, 2.01]
+                    pwidth = [0.1, 0.1]
+                    prior = [DMAmpPrior, DMSiPrior,]
+                    parids = ['scat-Amplitude','scat-spectral-index']
                     ScatteringModel = 'scatpowerlaw'
 
                 newsignal = OrderedDict({
@@ -784,7 +776,6 @@ class PTAmodels(object):
                     "prior": prior,
                     "parids": parids,
                     "nscatfreqs": nscatfreqs * 2,
-                    "bwflags": p.bwflags
                 })
                 signals.append(newsignal)
 
@@ -3062,20 +3053,22 @@ class PTAmodels(object):
                 if verbose:
                     print str(err)
                     print "Creating Auxiliaries for {0}".format(p.name)
-                p.createPulsarAuxiliaries(self.h5df, p.Tmax, numNoiseFreqs[pindex],
-                                          numDMFreqs[pindex], ~separateEfacs[
-                                              pindex],
-                                          nSingleFreqs=numSingleFreqs[pindex],
-                                          nSingleDMFreqs=numSingleDMFreqs[
-                                              pindex],
-                                          likfunc=likfunc, compression=compression,
-                                          write=write, tmpars=tmpars, memsave=memsave,
-                                          incJitter=incJitter[
-                                              pindex], incDMX=incDMX,
-                                          incRedBand=incRedBand[pindex],
-                                          incDMBand=incDMBand[pindex],
-                                         incRedExt=incRedExt,
-                                         nfredExt=nfredExt)
+                    p.createPulsarAuxiliaries(self.h5df, p.Tmax, numNoiseFreqs[pindex],
+                                              numDMFreqs[pindex], ~separateEfacs[
+                                                  pindex],
+                                              nSingleFreqs=numSingleFreqs[pindex],
+                                              nSingleDMFreqs=numSingleDMFreqs[
+                                                  pindex],
+                                              likfunc=likfunc, compression=compression,
+                                              write=write, tmpars=tmpars, memsave=memsave,
+                                              incJitter=incJitter[
+                                                  pindex], incDMX=incDMX,
+                                              incRedBand=incRedBand[pindex],
+                                              incDMBand=incDMBand[pindex],
+                                              incRedExt=incRedExt,
+                                              nfredExt=nfredExt, 
+                                              haveScat=numScatFreqs!=None,
+                                             numScatFreqs=numScatFreqs)
 
         # Initialise the ptasignal objects
         self.ptasignals = []
@@ -3443,10 +3436,10 @@ class PTAmodels(object):
                                         axis=1)
                     nphiTmat += self.npf[ii]
 
-                if self.haveScat:
-                    p.Ttmat = np.append(p.Ttmat, np.zeros((
-                        p.Tmat.shape[0], len(p.kappa_scat))), axis=1)
-                    nphiTmat += len(p.kappa_scat) 
+                #if self.haveScat:
+                #    p.Ttmat = np.append(p.Ttmat, np.zeros((
+                #        p.Tmat.shape[0], len(p.kappa_scat))), axis=1)
+                #    nphiTmat += len(p.kappa_scat) 
                 
                 if self.likfunc == 'mark11':
                     nphiTmat += p.Dmat.shape[1]
@@ -4188,27 +4181,27 @@ class PTAmodels(object):
                 window = np.exp(-(psr.toas - t0)**2 / 2 / width**2)
                 psr.Ttmat[:,-nf:] = (psr.Fmat.T * window).T
 
-            if sig['stype'] in ['scatpowerlaw', 'scatspectrum']:
-                nfscat = sig['nscatfreqs']
-                nf = psr.Tmat.shape[1]
-                Fmat, psr.Fscatfreqs = \
-                        PALutils.createfourierdesignmatrix(
-                            psr.toas, int(nfscat/2), freq=True,
-                            Tspan=psr.Tmax)
-                bw = np.array(sig['bwflags']) / 16
-                Svec =  (psr.freqs  / bw / 1400.0 / 4.0) ** -sparameters[0]
-                Fscatmat = (Svec * Fmat.T).T
+            #if sig['stype'] in ['scatpowerlaw', 'scatspectrum']:
+            #    nfscat = sig['nscatfreqs']
+            #    nf = psr.Tmat.shape[1]
+            #    Fmat, psr.Fscatfreqs = \
+            #            PALutils.createfourierdesignmatrix(
+            #                psr.toas, int(nfscat/2), freq=True,
+            #                Tspan=psr.Tmax)
+            #    bw = np.array(sig['bwflags']) / 16
+            #    Svec =  (psr.freqs  / bw / 1400.0 / 4.0) ** -sparameters[0]
+            #    Fscatmat = (Svec * Fmat.T).T
 
-                # add Quadratic
-                psr.Ttmat[:, nf] = Svec
-                psr.Ttmat[:, nf+1] = Svec * (psr.toas - self.Tref)
-                psr.Ttmat[:, nf+2] = Svec * (psr.toas - self.Tref)**2
+            #    # add Quadratic
+            #    psr.Ttmat[:, nf] = Svec
+            #    psr.Ttmat[:, nf+1] = Svec * (psr.toas - self.Tref)
+            #    psr.Ttmat[:, nf+2] = Svec * (psr.toas - self.Tref)**2
 
-                norm = np.sqrt(np.sum(psr.Ttmat[:,nf:nf+3] ** 2, axis=0))
-                psr.Ttmat[:,nf:nf+3] /= norm
+            #    norm = np.sqrt(np.sum(psr.Ttmat[:,nf:nf+3] ** 2, axis=0))
+            #    psr.Ttmat[:,nf:nf+3] /= norm
 
-                # add fourier basis
-                psr.Ttmat[:, nf+3:nf+nfscat+3] = Fscatmat
+            #    # add fourier basis
+            #    psr.Ttmat[:, nf+3:nf+nfscat+3] = Fscatmat
 
 
     """
@@ -4732,8 +4725,8 @@ class PTAmodels(object):
 
             if sig['stype'] == 'scatpowerlaw':
                 # get Amplitude and spectral index
-                Amp = 10 ** sparameters[1]
-                gamma = sparameters[2]
+                Amp = 10 ** sparameters[0]
+                gamma = sparameters[1]
 
                 freqpy = self.psr[psrind].Fscatfreqs
                 f1yr = 1 / 3.16e7
@@ -4748,7 +4741,7 @@ class PTAmodels(object):
             if sig['stype'] == 'scatspectrum':
                 # doubled amplitudes
                 pcdoubled = np.array(
-                    [sparameters[1:], sparameters[1:]]).T.flatten()
+                    [sparameters[:], sparameters[:]]).T.flatten()
 
                 # fill in kappa
                 self.psr[psrind].kappa_scat[:3] = 80
@@ -7446,12 +7439,12 @@ class PTAmodels(object):
         return loglike
 
     # compute F_p statistic
-    def fpStat(self, f0):
+    def fpStat(self, residuals, f0):
         """
         Computes the Fp-statistic as defined in Ellis, Siemens, Creighton (2012)
         Assumes that noise values have already been set
 
-        @param psr: List of pulsar object instances
+        @param residuals: List of residual arrays
         @param f0: Gravitational wave frequency
 
         @return: Value of the Fp statistic evaluated at f0
@@ -7475,9 +7468,9 @@ class PTAmodels(object):
             A[1, :] = 1 / f0 ** (1 / 3) * np.cos(2 * np.pi * f0 * p.toas)
 
             Sigma = self.Sigma[nfref:(nfref + nf), nfref:(nfref + nf)]
-            ip1 = PALutils.innerProduct_rr(A[0, :], p.residuals,
+            ip1 = PALutils.innerProduct_rr(A[0, :], residuals[ii],
                                            p.Nvec, p.Ttmat, Sigma)
-            ip2 = PALutils.innerProduct_rr(A[1, :], p.residuals,
+            ip2 = PALutils.innerProduct_rr(A[1, :], residuals[ii],
                                            p.Nvec, p.Ttmat, Sigma)
             N = np.array([ip1, ip2])
 
@@ -10026,7 +10019,7 @@ class PTAmodels(object):
         mlreal, mlerr = [], []
         for ct, p in enumerate(self.psr):
 
-            nfred = len(p.Ffreqs)
+            nfred = p.Fmat.shape[1]
             nfdm = len(p.Fdmfreqs)
             ntmpars = len(p.ptmdescription)
             if incJitter:
