@@ -156,7 +156,7 @@ class PTAmodels(object):
                       gw_wave_model='elliptical',
                       incGWFourierMode=False,
                       incScattering=False, scatteringModel='powerlaw',
-                      nscatfreqs=None,
+                      nscatfreqs=0,
                       incGWB=False, gwbModel='powerlaw',
                       incGWBSingle=False, gwbSingleModel='powerlaw',
                       incGWBAni=False, lmax=2, clmPrior='uniform',
@@ -166,7 +166,7 @@ class PTAmodels(object):
                       incGlitch=False, incGlitchBand=False,
                       incDMXKernel=False, DMXKernelModel='linear',
                       incCW=False, incPulsarDistance=False, CWupperLimit=False,
-                      cwsnrprior=False,
+                      cwsnrprior=False, cwrandomphase=False,
                       mass_ratio=False, CWModel='standard', nCW=1,
                       varyEfac=True, separateEfacs=False, separateEfacsByFreq=True,
                       incEquad=False, separateEquads=False, separateEquadsByFreq=True,
@@ -222,7 +222,7 @@ class PTAmodels(object):
                 ndmfreqs = 0
 
             if incScattering:
-                if nscatfreqs is None:
+                if nscatfreqs == 0:
                     nscatfreqs = nfreqs
             else:
                 nscatfreqs = 0
@@ -1907,6 +1907,7 @@ class PTAmodels(object):
                     "stype": "cw",
                     "model": CWModel,
                     "snrprior":cwsnrprior,
+                    "random_phase":cwrandomphase,
                     "nsig":cc,
                     "corr": "gr",
                     "pulsarind": -1,
@@ -3067,7 +3068,7 @@ class PTAmodels(object):
                                               incDMBand=incDMBand[pindex],
                                               incRedExt=incRedExt,
                                               nfredExt=nfredExt, 
-                                              haveScat=numScatFreqs!=None,
+                                              haveScat=numScatFreqs!=0,
                                              numScatFreqs=numScatFreqs)
 
         # Initialise the ptasignal objects
@@ -5622,7 +5623,8 @@ class PTAmodels(object):
                         mc, dist, 10 ** sparameters[4],
                         sparameters[5], sparameters[6], sparameters[7],
                         pdist=pdist, pphase=pphase, psrTerm=incPterm,
-                        phase_approx=True, tref=self.Tref)
+                        phase_approx=True, tref=self.Tref,
+                        add_random_phase=sig['random_phase'])
                 elif sig['model'] in ['ecc', 'eccgam']:
                     cwsig = PALutils.compute_eccentric_residuals(
                         self.psr, sparameters[0], sparameters[1], mc,

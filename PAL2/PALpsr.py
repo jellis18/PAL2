@@ -747,8 +747,6 @@ class Pulsar(object):
                                 numScatFreqs=0):
 
 
-
-
         # For creating the auxiliaries it does not really matter: we are now
         # creating all quantities per default
         
@@ -1075,7 +1073,7 @@ class Pulsar(object):
             if haveScat:
                 Fscat, self.Fscatfreqs =  PALutils.createfourierdesignmatrix(
                     self.toas, numScatFreqs, freq=True, Tspan=self.Tmax)
-                Svec = (self.freqs/1400)**(-4) * (4/self.bwflags)**(-4)
+                Svec = (self.freqs/1400)**(-4) #* (4/self.bwflags)**(-4)
                 Tref = self.toas.min()
                 Fscatmat = (Svec * Fscat.T).T
                 Mscatmat = np.zeros((len(self.toas), 3))

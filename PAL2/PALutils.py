@@ -543,8 +543,10 @@ def construct_gw_wavelet(psr, gwtheta, gwphi, gwpsi, gweps,
 
         
 
-def createResidualsFast(psr, gwtheta, gwphi, mc, dist, fgw, phase0, psi, inc, pdist=None, \
-                        pphase=None, psrTerm=True, evolve=False, phase_approx=True, tref=0):
+def createResidualsFast(psr, gwtheta, gwphi, mc, dist, fgw, phase0, 
+                        psi, inc, pdist=None, pphase=None, psrTerm=True, 
+                        evolve=False, phase_approx=True, tref=0, 
+                        add_random_phase=False):
     """
     Function to create GW incuced residuals from a SMBMB as 
     defined in Ellis et. al 2012,2013. Trys to be smart about it
@@ -562,6 +564,7 @@ def createResidualsFast(psr, gwtheta, gwphi, mc, dist, fgw, phase0, psi, inc, pd
     :param pphase: Use pulsar phase to determine distance [radian]
     :param psrTerm: Option to include pulsar term [boolean] 
     :param evolve: Option to exclude evolution [boolean]
+    :param add_random_phase: Option to include random phase in waveform to break coherence [boolean]
 
     :return: Vector of induced residuals
 
@@ -656,6 +659,10 @@ def createResidualsFast(psr, gwtheta, gwphi, mc, dist, fgw, phase0, psi, inc, pd
             phase = phase0 + omega * toas
             phase_p = phase0 + omega * tp
             
+        # add random phase?
+        if add_random_phase:
+            phase += np.random.uniform(0, 2*np.pi)
+            phase_p += np.random.uniform(0, 2*np.pi)
 
         # define time dependent coefficients
         At = np.sin(2*phase) * incfac1
