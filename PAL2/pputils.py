@@ -401,7 +401,7 @@ def make_dm_waveform_realization_plot(ax, psr, qreal, incDM=True, *args, **kwarg
 
     ax.fill_between(convert_mjd_to_greg(psr.toas[idx]/86400), xlow[idx]*1e3, 
                      xhigh[idx]*1e3, **kwargs)
-    ax.plot(convert_mjd_to_greg(psr.toas[idx]/86400), xmed[idx]*1e3, ls='--', 
+    ax.plot(convert_mjd_to_greg(psr.toas[idx]/86400), (xmed[idx]-xmed[idx].mean())*1e3, ls='--', 
              lw=1.5, color='k')
 
 

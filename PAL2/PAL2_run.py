@@ -521,6 +521,7 @@ if args.jsonfile is None:
                 print '{0} for {1} set to {2}'.format(sig['stype'],
                                                      sig['flagvalue'],
                                                      sig['pstart'])
+    
 
 
     if args.fixNoise:

@@ -3054,22 +3054,22 @@ class PTAmodels(object):
                 if verbose:
                     print str(err)
                     print "Creating Auxiliaries for {0}".format(p.name)
-                    p.createPulsarAuxiliaries(self.h5df, p.Tmax, numNoiseFreqs[pindex],
-                                              numDMFreqs[pindex], ~separateEfacs[
-                                                  pindex],
-                                              nSingleFreqs=numSingleFreqs[pindex],
-                                              nSingleDMFreqs=numSingleDMFreqs[
-                                                  pindex],
-                                              likfunc=likfunc, compression=compression,
-                                              write=write, tmpars=tmpars, memsave=memsave,
-                                              incJitter=incJitter[
-                                                  pindex], incDMX=incDMX,
-                                              incRedBand=incRedBand[pindex],
-                                              incDMBand=incDMBand[pindex],
-                                              incRedExt=incRedExt,
-                                              nfredExt=nfredExt, 
-                                              haveScat=numScatFreqs!=0,
-                                             numScatFreqs=numScatFreqs)
+                p.createPulsarAuxiliaries(self.h5df, p.Tmax, numNoiseFreqs[pindex],
+                                          numDMFreqs[pindex], ~separateEfacs[
+                                              pindex],
+                                          nSingleFreqs=numSingleFreqs[pindex],
+                                          nSingleDMFreqs=numSingleDMFreqs[
+                                              pindex],
+                                          likfunc=likfunc, compression=compression,
+                                          write=write, tmpars=tmpars, memsave=memsave,
+                                          incJitter=incJitter[
+                                              pindex], incDMX=incDMX,
+                                          incRedBand=incRedBand[pindex],
+                                          incDMBand=incDMBand[pindex],
+                                          incRedExt=incRedExt,
+                                          nfredExt=nfredExt, 
+                                          haveScat=numScatFreqs!=0,
+                                         numScatFreqs=numScatFreqs)
 
         # Initialise the ptasignal objects
         self.ptasignals = []
