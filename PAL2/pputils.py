@@ -239,7 +239,8 @@ def get_quad_posteriors(model, chain, selection=None,
 
         if idd is None:
             nf = len(p.Ffreqs) // 2
-            ntmpars = len(p.ptmdescription)
+            #ntmpars = len(p.ptmdescription)
+            ntmpars = p.Mmat_reduced.shape[1]
             idd = np.arange(ntmpars, ntmpars+2*nf)
 
 
@@ -293,7 +294,8 @@ def get_spectrum(model, chain, selection=None, N=1000):
         model.constructPhiMatrix(pars, incTM=True, incJitter=True, 
                                  incCorrelations=False, selection=sel)
         
-        ntmpars = len(p.ptmdescription)
+        #ntmpars = len(p.ptmdescription)
+        ntmpars = p.Mmat_reduced.shape[1]
         idd = np.arange(ntmpars, ntmpars+2*nf)
         Phi = 1 / np.diag(model.Phiinv)
         psd[ii,:] = Phi[ntmpars:ntmpars+nf][::2]
@@ -373,7 +375,8 @@ def make_dm_waveform_realization_plot(ax, psr, qreal, incDM=True, *args, **kwarg
     :param incDM: Boolean whether or not DM is in timing model or in noise model
     """
     dmconst = 2.41e-4
-    ntmpars = len(psr.ptmdescription)
+    #ntmpars = len(psr.ptmdescription)
+    ntmpars = psr.Mmat_reduced.shape[1]
     nf = psr.Fmat.shape[1]
     nfdm = len(psr.Fdmfreqs)
     idd = np.arange(ntmpars+nf,ntmpars+nf+nfdm)
@@ -382,9 +385,9 @@ def make_dm_waveform_realization_plot(ax, psr, qreal, incDM=True, *args, **kwarg
     dmsig = np.zeros((qreal.shape[0], nt))
     for ii in range(qreal.shape[0]):
         if incDM:
-            id1 = list(psr.ptmdescription).index('DM1')
+            id1 = list(psr.newdes).index('DM1')
             dmsig[ii,:] = psr.Ttmat[:,id1] * qreal[ii,id1] * dmconst * psr.freqs**2
-            id2 = list(psr.ptmdescription).index('DM2')
+            id2 = list(psr.newdes).index('DM2')
             dmsig[ii,:] += psr.Ttmat[:,id2] * qreal[ii,id2] * dmconst * psr.freqs**2
             dmsig[ii,:] += np.dot(psr.Fdmmat, qreal[ii,idd])
             dmsig[ii,:] -= dmsig[ii,:].mean()
@@ -605,7 +608,8 @@ class ChainPP(object):
         p0 = x.values()
 
         for ct, p in enumerate(self.model.psr):
-            ntmpars = len(p.ptmdescription)
+            #ntmpars = len(p.ptmdescription)
+            ntmpars = p.Mmat_reduced.shape[1]
             nf = self.model.npf[ct]
             nfdm = self.model.npfdm[ct]
             idd = np.arange(ntmpars,ntmpars+nf)

@@ -83,6 +83,10 @@ parser.add_argument('--ndmf', dest='ndmfreqs', action='store', type=int, default
 parser.add_argument('--DMAmpPrior', dest='DMAmpPrior', action='store', type=str, \
                     default='log', help='prior on DM Amplitude [uniform, log]')
 
+parser.add_argument('--incEphemError', dest='incEphemError', action='store_true',
+                    default=False, help='Include Ephemeris error variations [default=False]')
+
+
 parser.add_argument('--incScat', dest='incScat', action='store_true',default=False,
                    help='Include Scattering variations [default=False]')
 parser.add_argument('--scatModel', dest='scatModel', action='store', type=str, default='powerlaw',
@@ -212,9 +216,9 @@ parser.add_argument('--nSysWavelets', dest='nSysWavelets', action='store', type=
 parser.add_argument('--sysWaveletModel', dest='sysWaveletModel', action='store', type=str, \
                     default='standard', help='system Wavelet model [default=standard]')
 
-parser.add_argument('--incChromaticWavelet', dest='incChromaticWavelet', action='store_true', \
+parser.add_argument('--incDMWavelet', dest='incDMWavelet', action='store_true', \
                     default=False, help='Include chromatic noise wavelet signal in run [default=False]')
-parser.add_argument('--nChromaticWavelets', dest='nChromaticWavelets', action='store', 
+parser.add_argument('--nDMWavelets', dest='nDMWavelets', action='store', 
                     type=int, default=1, help='Number of chromatic noise wavelets(default=1)')
 parser.add_argument('--fixcBeta', dest='fixcBeta', action='store', type=float,
                     default=0, help='fix chromatic wavelet spectral index to user value')
@@ -383,6 +387,7 @@ if args.jsonfile is None:
         incDM=args.incDM, dmModel=args.dmModel, 
         incDMEvent=args.incDMshapelet, dmEventModel=dmEventModel, 
         ndmEventCoeffs=args.nshape, 
+        incEphemError=args.incEphemError,
         incDMX=args.incDMX, 
         incORF=args.incORF, 
         incBWM=args.incBWM, BWMmodel=args.BWMmodel,
@@ -393,8 +398,8 @@ if args.jsonfile is None:
         waveletModel=args.waveletModel,
         incSysWavelet=args.incSysWavelet, nSysWavelets=args.nSysWavelets,
         sysWaveletModel=args.sysWaveletModel,
-        incChromaticWavelet=args.incChromaticWavelet, 
-        nChromaticWavelets=args.nChromaticWavelets,
+        incDMWavelet=args.incDMWavelet, 
+        nDMWavelets=args.nDMWavelets,
         incGWBAni=args.incGWBAni, lmax=args.lmax,
         clmPrior=args.clmPrior,
         incDMXKernel=incDMXKernel, DMXKernelModel=DMXKernelModel, 
@@ -522,6 +527,10 @@ if args.jsonfile is None:
                                                      sig['flagvalue'],
                                                      sig['pstart'])
     
+    #for sig in fullmodel['signals']:
+    #    if sig['stype'] == 'jitter_equad':
+    #        if sig['flagvalue'] == 'J1741+1351-430_ASP':
+    #            sig['bvary'][0] = False
 
 
     if args.fixNoise:
@@ -750,8 +759,8 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
             ids = model.get_parameter_indices('wavelet', corr='single', split=True)
             [ind.append(id) for id in ids if id != []]
         
-        if args.incChromaticWavelet:
-            ids = model.get_parameter_indices('chrowavelet', corr='single', split=True)
+        if args.incDMWavelet:
+            ids = model.get_parameter_indices('dmwavelet', corr='single', split=True)
             [ind.append(id) for id in ids]
         
         if args.incSysWavelet:
@@ -773,6 +782,11 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
             if args.gwbModel == 'turnover':
                 ids = model.get_parameter_indices('turnover', corr='gr', split=False)
                 [ind.append(id) for id in ids]
+
+        ##### Ephemeris Error #####
+        if args.incEphemError:
+            ids = model.get_parameter_indices('ephemeris', corr='single', split=False)
+            [ind.append(id) for id in ids]
         
         ##### GWB Point Source #####
         if args.incGWBSingle:

@@ -744,7 +744,7 @@ class Pulsar(object):
                                 incRedBand=False, incDMBand=False, incRedGroup=False,
                                 redGroups=None, incRedExt=False, nfredExt=20,
                                 redExtFx=None, incGP=False, haveScat=False, 
-                                numScatFreqs=0):
+                                numScatFreqs=0, incEphemError=False):
 
 
         # For creating the auxiliaries it does not really matter: we are now
@@ -948,6 +948,35 @@ class Pulsar(object):
                     Ftemp[-1][~mask, :] = 0.0
 
             self.DF = np.hstack(Ftemp)
+
+        if incEphemError:
+
+            # pulsar unit vector
+            phat = np.array([np.cos(self.phi)*np.sin(self.theta), 
+                             np.sin(self.phi)*np.sin(self.theta),
+                             np.cos(self.theta)])
+            # saturn error
+            satfreq = np.array([1 / (29.45*3.16e7)])
+            Ftemp = PALutils.singlefourierdesignmatrix(self.toas, satfreq) 
+            Fx = Ftemp * phat[0]
+            Fy = Ftemp * phat[1]
+            Fz = Ftemp * phat[2]
+
+            # append
+            Fsat = np.hstack((Fx, Fy, Fz))
+
+            # jupiter
+            jupfreq = np.array([1/(11.86*3.16e7)])
+            Ftemp = PALutils.singlefourierdesignmatrix(self.toas, jupfreq) 
+            Fx = Ftemp * phat[0]
+            Fy = Ftemp * phat[1]
+            Fz = Ftemp * phat[2]
+
+            # append
+            Fjup = np.hstack((Fx, Fy, Fz))
+            
+            # append to F-matrix
+            self.Fmat = np.hstack((self.Fmat, Fsat, Fjup))
 
         # create total F matrix if both red and DM
         if ndmf > 0 and nf > 0:
