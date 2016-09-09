@@ -3012,7 +3012,10 @@ class PTAmodels(object):
         dTmax = fullmodel['Tmax']
         nfredExt = fullmodel['redExtNf']
         incRedExt = fullmodel['incRedExt']
-        incEphemError = fullmodel['incEphemError']
+        try:
+            incEphemError = fullmodel['incEphemError']
+        except KeyError:
+            incEphemError = False
         numScatFreqs = fullmodel['numScatFreqs']
 
         if len(self.psr) < 1:
@@ -10272,7 +10275,7 @@ class PTAmodels(object):
         return eps, cov, chisq
 
     def create_realization(self, pars, incJitter=True, signal='red',
-                          selection=None):
+                          selection=None, return_coeffs=False):
         """
         Very simple function to return ML realization
         of linear signal.
@@ -10311,7 +10314,10 @@ class PTAmodels(object):
             mlreal.append(np.dot(Tmat, mlpars))
             tmp = np.dot(Tmat, np.dot(mlcov, Tmat.T))
             mlerr.append(np.sqrt(np.diag(tmp)))
-
-        return mlreal, mlerr
+        
+        if return_coeffs:
+            return (mlreal, mlerr, mlpars, mlcov)
+        else:
+            return (mlreal, mlerr)
 
 

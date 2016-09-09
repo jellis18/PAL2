@@ -984,8 +984,16 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
 
             def myprior(cube, ndim, nparams):
 
-                for ii in range(ndim):
-                    cube[ii] = model.pmin[ii] + cube[ii] * (model.pmax[ii]-model.pmin[ii])
+                for ss, sig in enumerate(model.ptasignals):
+
+                    # short hand
+                    ii = sig['parindex']
+
+                    if sig['prior'] == 'gaussian':
+                        m, sigma = sig['mu'], sig['sigma']
+                        cube[ii] = m + s*np.sqrt(2) * ss.erfcinv(2*(1-cube[ii]))
+                    else:
+                        cube[ii] = model.pmin[ii] + cube[ii] * (model.pmax[ii]-model.pmin[ii])
         
         
         # mark1 loglike
