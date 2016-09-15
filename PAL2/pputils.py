@@ -454,7 +454,7 @@ def make_dm_waveform_realization_plot(ax, psr, qreal, incDM=True, *args, **kwarg
 
 
 def make_spectrum_realization_plot(ax, f, psd, sigma=0.68, 
-                                   plot_median=True *args, 
+                                   plot_median=True, *args, 
                                    **kwargs):
     """
     Make a waveform realization plot of signal vs time with
