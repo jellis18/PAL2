@@ -558,6 +558,9 @@ class ChainPP(object):
                 x[self.pars[i]] = self.chain[np.argmax(self.logp[:,-1]), i]
             elif mtype == 'marg':
                 x[self.pars[i]] = bu.getMax(self.chain[:,i])
+            elif mtype == 'mean':
+                x[self.pars[i]] = self.chain[:,i].mean()
+
             
         return x
         
