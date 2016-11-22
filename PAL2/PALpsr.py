@@ -744,7 +744,7 @@ class Pulsar(object):
                                 incRedBand=False, incDMBand=False, incRedGroup=False,
                                 redGroups=None, incRedExt=False, nfredExt=20,
                                 redExtFx=None, incGP=False, haveScat=False, 
-                                numScatFreqs=0, incEphemError=False):
+                                numScatFreqs=0, incEphemError=False, ephemModel=None):
 
 
         # For creating the auxiliaries it does not really matter: we are now
@@ -950,33 +950,42 @@ class Pulsar(object):
             self.DF = np.hstack(Ftemp)
 
         if incEphemError:
-
             # pulsar unit vector
             phat = np.array([np.cos(self.phi)*np.sin(self.theta), 
                              np.sin(self.phi)*np.sin(self.theta),
                              np.cos(self.theta)])
-            # saturn error
-            satfreq = np.array([1 / (29.45*3.16e7)])
-            Ftemp = PALutils.singlefourierdesignmatrix(self.toas, satfreq) 
-            Fx = Ftemp * phat[0]
-            Fy = Ftemp * phat[1]
-            Fz = Ftemp * phat[2]
 
-            # append
-            Fsat = np.hstack((Fx, Fy, Fz))
+            if ephemModel in ['jupsat', 'objects']:
+                if ephemModel in ['jupsat']:
+                    ss_per = [29.45, 11.86]
+                elif ephemModel in ['objects']:
+                    ss_per = [11.86, 5.557, 4.6, 3.629, 1.881, 0.886]
 
-            # jupiter
-            jupfreq = np.array([1/(11.86*3.16e7)])
-            Ftemp = PALutils.singlefourierdesignmatrix(self.toas, jupfreq) 
-            Fx = Ftemp * phat[0]
-            Fy = Ftemp * phat[1]
-            Fz = Ftemp * phat[2]
+                Fs = []
+                for mm, per in enumerate(ss_per):
+                    freq = np.array([1 / per / 3.16e7])
 
-            # append
-            Fjup = np.hstack((Fx, Fy, Fz))
-            
+                    Ftemp = PALutils.singlefourierdesignmatrix(self.toas, freq) 
+                    Fx = Ftemp * phat[0]
+                    Fy = Ftemp * phat[1]
+                    Fz = Ftemp * phat[2]
+
+                    Fs.append(np.hstack((Fx, Fy, Fz)))
+
+            elif ephemModel in ['matern']:
+                self.ephemFreqs, F = rr.get_rr_rep(self.toas, Tmax, 
+                                                   1./5./Tmax, 11, 11, 
+                                                   simpson=True)
+                F *= np.sqrt(Tmax)
+                Fx = F * phat[0]
+                Fy = F * phat[1]
+                Fz = F * phat[2]
+                Fs = [Fx, Fy, Fz]
+
             # append to F-matrix
-            self.Fmat = np.hstack((self.Fmat, Fsat, Fjup))
+            Fs.insert(0, self.Fmat)
+            self.Fmat = np.hstack(tuple(Fs))
+
 
         # create total F matrix if both red and DM
         if ndmf > 0 and nf > 0:
@@ -1102,7 +1111,7 @@ class Pulsar(object):
             if haveScat:
                 Fscat, self.Fscatfreqs =  PALutils.createfourierdesignmatrix(
                     self.toas, numScatFreqs, freq=True, Tspan=self.Tmax)
-                Svec = (self.freqs/1400)**(-4) #* (4/self.bwflags)**(-4)
+                Svec = (self.freqs/1400)**(-5) * (self.bwflags/4.0)
                 Tref = self.toas.min()
                 Fscatmat = (Svec * Fscat.T).T
                 Mscatmat = np.zeros((len(self.toas), 3))

@@ -454,8 +454,8 @@ def make_dm_waveform_realization_plot(ax, psr, qreal, incDM=True, *args, **kwarg
 
 
 def make_spectrum_realization_plot(ax, f, psd, sigma=0.68, 
-                                   plot_median=True, *args, 
-                                   **kwargs):
+                                   plot_median=True, use_bars=False, 
+                                   *args, **kwargs):
     """
     Make a waveform realization plot of signal vs time with
     uncertantiy region.
@@ -465,6 +465,7 @@ def make_spectrum_realization_plot(ax, f, psd, sigma=0.68,
     :param real: Nreal x nf array containing individual spectrum realizations.
     :param sigma: Uncertainty level on waveform
     :param plot_median: Plot the median spectrum
+    :param use_bars: Use error bars instead of fill_between
     """
     
     nt = len(f) 
@@ -475,13 +476,21 @@ def make_spectrum_realization_plot(ax, f, psd, sigma=0.68,
                                               type='minArea')
     
     #print xlow, xhigh
-    ax.fill_between(f, 10**xlow, 10**xhigh, **kwargs)
+    if use_bars:
+        ymean = psd.mean(axis=0)
+        ylow = np.log10(10**ymean - 10**xlow)
+        yhigh = np.log10(10**xhigh - 10**ymean)
+        yerr = np.vstack((ylow, yhigh))
+        ax.errorbar(f, 10**ymean, yerr=10**yerr, fmt='o', **kwargs)
+    else:
+        ax.fill_between(f, 10**xlow, 10**xhigh, **kwargs)
     if plot_median:
         ax.plot(f, 10**xmed, ls='--', lw=1.5, color='k')
     ax.set_xscale('log')
     ax.set_yscale('log')
     ax.set_ylim(10**xlow.min()/2, 10**xhigh.max()*2)
-    ax.set_xlim(f.min(), f.max())
+    df = f[1] - f[0]
+    ax.set_xlim(f.min()-df, f.max()+df)
     ax.grid(which='both')
 
 class ChainPP(object):
@@ -645,13 +654,14 @@ class ChainPP(object):
                 plt.savefig(self.outdir + '/tri_{0}.png'.format(ii),
                             dpi=300, bbox_inches='tight')
             
-    def plot_spectrum(self, nreal=1000):
+    def plot_spectrum(self, nreal=1000, use_bars=False, plot_median=True, 
+                      color='gray', ax=None):
         
-        plt.figure()
         f, psd = get_spectrum(self.model, self.chain, selection=self.indicator, N=nreal)
-        ax = plt.subplot(111)
-        make_spectrum_realization_plot(ax, f, psd, sigma=0.68, 
-                                       color='gray', alpha=0.5)
+        if ax is None:
+            ax = plt.subplot(111)
+        make_spectrum_realization_plot(ax, f, psd, sigma=0.68, use_bars=use_bars, 
+                                       plot_median=plot_median, color=color, alpha=0.5)
         ax.set_xlabel(r'Frequency [Hz]')
         ax.set_ylabel(r'Power Spectral Density [s$^2$]')
         if self.save:

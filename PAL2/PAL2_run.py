@@ -85,6 +85,8 @@ parser.add_argument('--DMAmpPrior', dest='DMAmpPrior', action='store', type=str,
 
 parser.add_argument('--incEphemError', dest='incEphemError', action='store_true',
                     default=False, help='Include Ephemeris error variations [default=False]')
+parser.add_argument('--ephemModel', dest='ephemModel', action='store', type=str,
+                    default=False, help='Model for ephemeris error [default=jupsat]')
 
 
 parser.add_argument('--incScat', dest='incScat', action='store_true',default=False,
@@ -114,6 +116,8 @@ parser.add_argument('--incDMBand', dest='incDMBand', action='store_true',default
 
 parser.add_argument('--incGWB', dest='incGWB', action='store_true',default=False,
                    help='include GWB? [default=False]')
+parser.add_argument('--ngwf', dest='ngwf', action='store',default=None,
+                   help='Number of gwfreqs')
 parser.add_argument('--gwbModel', dest='gwbModel', action='store', type=str, default='powerlaw',
                    help='GWB model [powerlaw, spectrum, turnover]')
 parser.add_argument('--fixKappa', dest='fixKappa', action='store', type=float,
@@ -388,6 +392,7 @@ if args.jsonfile is None:
         incDMEvent=args.incDMshapelet, dmEventModel=dmEventModel, 
         ndmEventCoeffs=args.nshape, 
         incEphemError=args.incEphemError,
+        ephemErrorModel = args.ephemModel,
         incDMX=args.incDMX, 
         incORF=args.incORF, 
         incBWM=args.incBWM, BWMmodel=args.BWMmodel,
@@ -430,12 +435,12 @@ if args.jsonfile is None:
         incSingleFreqDMNoise=args.incSingleDM, numSingleFreqDMLines=1, 
         DMAmpPrior=args.DMAmpPrior, 
         incGWB=incGWB, nfreqs=args.nfreqs, ndmfreqs=args.ndmfreqs, 
+        ngwfreqs=args.ngwf,
         incGWBSingle=args.incGWBSingle, gwbSingleModel=args.gwbSingleModel,
         gwbModel=args.gwbModel, 
         Tmax = args.Tspan,
         compression=args.compression, 
         likfunc=likfunc)
-
 
     # fix spectral index
     if args.fixSi:
@@ -880,6 +885,8 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
                 sampler.addProposalToCycle(model.drawFromsGWBPrior, 10)
         if args.incRed and args.redModel=='powerlaw':
             sampler.addProposalToCycle(model.drawFromRedNoisePrior, 5)
+        if args.incRed and args.redModel=='broken':
+            sampler.addProposalToCycle(model.drawFromRedNoiseBrokenPrior, 5)
         if args.incRedBand and args.redModel=='powerlaw':
             sampler.addProposalToCycle(model.drawFromRedNoiseBandPrior, 5)
         if args.incDMBand and args.dmModel=='powerlaw':
@@ -899,6 +906,8 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         if args.incTimingModel:
             sampler.addProposalToCycle(model.drawFromTMfisherMatrix, 40)
             #sampler.addProposalToCycle(model.drawFromTMPrior, 5)
+        if args.incEphemError:
+            sampler.addProposalToCycle(model.drawFromEphemErrorPrior, 5)
         #if args.incBWM:
         #    sampler.addProposalToCycle(model.drawFromBWMPrior, 10)
 
@@ -1019,19 +1028,23 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
 
             def myprior(cube, ndim, nparams):
 
-                for ii in range(ndim):
-                    if args.GWBAmpPrior == 'sesana' and par_out[ii] == 'GWB-Amplitude':
-                        m = -15
-                        s = 0.22
-                        cube[ii] = m + s*np.sqrt(2) * ss.erfcinv(2*(1-cube[ii]))
-                    if args.GWBAmpPrior == 'mcwilliams' and par_out[ii] == 'GWB-Amplitude':
-                        m = np.log10(4.1e-15)
-                        s = 0.26
-                        cube[ii] = m + s*np.sqrt(2) * ss.erfcinv(2*(1-cube[ii]))
-                    else:
-                        cube[ii] = model.pmin[ii] + cube[ii] * (model.pmax[ii]-model.pmin[ii])
+                for sct, sig in enumerate(model.ptasignals):
 
-                    # number of live points
+                    # short hand
+                    parind = sig['parindex']
+                    npars = sig['npars']
+
+                    if npars:
+                        for ct, ii in enumerate(range(parind, parind+npars)):
+                            if sig['prior'][ct] == 'gaussian':
+                                m, s = sig['mu'][ct], sig['sigma'][ct]
+                                cube[ii] = m + s*np.sqrt(2) * ss.erfcinv(2*(1-cube[ii]))
+                            else:
+                                cube[ii] = model.pmin[ii] + cube[ii] * \
+                                        (model.pmax[ii]-model.pmin[ii])
+
+
+        # number of live points
         nlive = 2000
         n_params = ndim
 

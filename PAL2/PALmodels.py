@@ -139,11 +139,11 @@ class PTAmodels(object):
     TODO: make more functionality for single puslars later
     """
 
-    def makeModelDict(self, nfreqs=20, ndmfreqs=None,
+    def makeModelDict(self, nfreqs=20, ndmfreqs=None, ngwfreqs=None,
                       incRedNoise=False, noiseModel='powerlaw', fc=None, logf=False,
                       incRedBand=False, incRedGroups=False, redGroups=None,
                       incRedExt=False, redExtModel='powerlaw', redExtFtrans=3e-8,
-                      incEphemError=False,
+                      incEphemError=False, ephemErrorModel='jupsat',
                       redExtNf=30,
                       incDMBand=False,
                       incORF=False,
@@ -222,6 +222,9 @@ class PTAmodels(object):
                     ndmfreqs = nfreqs
             else:
                 ndmfreqs = 0
+
+            if incGWB and ngwfreqs is None:
+                ngwfreqs = nfreqs
 
             if incScattering:
                 if nscatfreqs == 0:
@@ -899,6 +902,27 @@ class PTAmodels(object):
                     # libstempo object
                     p.initLibsTempoObject()
 
+                    if add_all_timing_pars:
+                        if p.t2psr.binarymodel in ['DD', 'T2']:
+                            pars = ['M2', 'SINI', 'PBDOT', 'OMDOT', 
+                                    'XDOT', 'EDOT']
+
+                        elif p.t2psr.binarymodel in ['ELL1']:
+                            pars = ['M2', 'SINI', 'PBDOT', 'XDOT', 
+                                    'EPS1DOT', 'EPS2DOT']
+                        else:
+                            pars = None
+
+                        # turn on fits for parameters
+                        if pars is not None:
+                            for key in pars:
+                                print 'Turning on fit for {0}\n'.format(key)
+                                p.t2psr[key].fit = True
+                                if key == 'SINI' and p.t2psr['SINI'].val == 0:
+                                    p.t2psr[key].val = 0.99
+                                elif key == 'M2' and p.t2psr['M2'].val == 0:
+                                    p.t2psr[key].val = 0.3
+
                     # add or subtract pars
                     if addPars is not None:
                         for key in addPars:
@@ -948,26 +972,6 @@ class PTAmodels(object):
                                 if key == 'M2' and p.t2psr['M2'].val == 0:
                                     p.t2psr[key].val = 0.3
                     
-                    if add_all_timing_pars:
-                        if p.t2psr.binarymodel in ['DD', 'T2']:
-                            pars = ['M2', 'SINI', 'PBDOT', 'OMDOT', 
-                                    'XDOT', 'EDOT']
-
-                        elif p.t2psr.binarymodel in ['ELL1']:
-                            pars = ['M2', 'SINI', 'PBDOT', 'XDOT', 
-                                    'EPS1DOT', 'EPS2DOT']
-                        else:
-                            pars = None
-
-                        # turn on fits for parameters
-                        if pars is not None:
-                            for key in pars:
-                                print 'Turning on fit for {0}\n'.format(key)
-                                p.t2psr[key].fit = True
-                                if key == 'SINI' and p.t2psr['SINI'].val == 0:
-                                    p.t2psr[key].val = 0.99
-                                elif key == 'M2' and p.t2psr['M2'].val == 0:
-                                    p.t2psr[key].val = 0.3
 
                     if subPars is not None:
                         for key in subPars:
@@ -1953,7 +1957,7 @@ class PTAmodels(object):
                         parids = [pid + '_' + str(cc) for pid in parids]
                     mu = [None] * 11
                     sigma = [None] * 11
-
+                
                 newsignal = OrderedDict({
                     "stype": "cw",
                     "model": CWModel,
@@ -2128,41 +2132,72 @@ class PTAmodels(object):
             signals.append(newsignal)
 
         if incEphemError:
-            bvary = [True] * 6
-            pmin = [-18.] * 6
-            pmax = [-7.] * 6
-            pstart = [-10.] * 6
-            pwidth = [0.1] * 6
-            prior = ['log'] * 6
-            parids = ['sat_eph_amp_x', 'sat_eph_amp_y', 'sat_eph_amp_z', 
-                      'jup_eph_amp_x', 'jup_eph_amp_y', 'jup_eph_amp_z']
-            mu = [None] * 6
-            sigma = [None] * 6
+            if ephemErrorModel in ['jupsat']:
+                bvary = [True] * 6
+                pmin = [-18.] * 6
+                pmax = [-7.] * 6
+                pstart = [-10.] * 6
+                pwidth = [0.1] * 6
+                prior = ['log'] * 6
+                parids = ['sat_eph_amp_x', 'sat_eph_amp_y', 'sat_eph_amp_z', 
+                          'jup_eph_amp_x', 'jup_eph_amp_y', 'jup_eph_amp_z']
+                mu = [None] * 6
+                sigma = [None] * 6
 
+            elif ephemErrorModel in ['objects']:
+                ss_label = ['jupiter', 'hygiea', 'ceres', 
+                            'vesta', 'mars', 'apophis']
+
+                nobj = len(ss_label)
+                bvary = [True] * nobj*3
+                pmin = [-18.] * nobj*3
+                pmax = [-7.] * nobj*3
+                pstart = [-10.] * nobj*3
+                pwidth = [0.1] * nobj*3
+                prior = ['log'] * nobj*3
+                parids = [l+'_eph_amp_'+pos for l in ss_label for pos in ['x', 'y', 'z']]
+                mu = [None] * nobj*3
+                sigma = [None] * nobj*3
+            elif ephemErrorModel in ['matern']:
+                ss_label = ['lAmp', 'lf0', 'gamma']
+
+                nobj = len(ss_label)
+                bvary = [True] * nobj*3
+                pmin = [-18.0, -9.0, 1.0] * 3
+                pmax = [-10, -7.5, 3.0] * 3
+                pstart = [-15, -8.0, 2.0] * 3
+                pwidth = [0.1] * nobj*3
+                prior = ['log', 'log', 'linear'] * 3
+                parids = [l+'_eph_'+pos for pos in ['x', 'y', 'z'] for l in ss_label] 
+                mu = [None] * nobj*3
+                sigma = [None] * nobj*3
+
+            
             newsignal = OrderedDict({
-                "stype": "ephemeris",
-                "corr": "single",
-                "pulsarind": -1,
-                "mu": mu,
-                "sigma": sigma,
-                "bvary": bvary,
-                "pmin": pmin,
-                "pmax": pmax,
-                "pwidth": pwidth,
-                "pstart": pstart,
-                "parid": parids,
-                "prior": prior,
+            "stype": "ephemeris",
+            "model": ephemErrorModel,
+            "corr": "single",
+            "pulsarind": -1,
+            "mu": mu,
+            "sigma": sigma,
+            "bvary": bvary,
+            "pmin": pmin,
+            "pmax": pmax,
+            "pwidth": pwidth,
+            "pstart": pstart,
+            "parid": parids,
+            "prior": prior,
             })
             signals.append(newsignal)
 
         if incGWB:
             if gwbModel == 'spectrum':
-                bvary = [True] * nfreqs
-                pmin = [-18.0] * nfreqs
-                pmax = [-8.0] * nfreqs
-                pstart = [-10.0] * nfreqs
-                pwidth = [0.1] * nfreqs
-                prior = [GWspectrumPrior] * nfreqs
+                bvary = [True] * ngwfreqs
+                pmin = [-18.0] * ngwfreqs
+                pmax = [-8.0] * ngwfreqs
+                pstart = [-10.0] * ngwfreqs
+                pwidth = [0.1] * ngwfreqs
+                prior = [GWspectrumPrior] * ngwfreqs
             elif gwbModel == 'powerlaw':
                 bvary = [True, True, False]
                 pmin = [-18.0, 1.02, 1.0e-11]
@@ -2181,6 +2216,7 @@ class PTAmodels(object):
 
             newsignal = OrderedDict({
                 "stype": gwbModel,
+                "ngwfreqs": ngwfreqs,
                 "corr": "gr",
                 "pulsarind": -1,
                 "bvary": bvary,
@@ -2329,6 +2365,7 @@ class PTAmodels(object):
             "redExtNf":redExtNf,
             "incRedExt":incRedExt,
             "incEphemError":incEphemError,
+            "ephemModel":ephemErrorModel,
             "signals": signals
         })
 
@@ -3014,8 +3051,10 @@ class PTAmodels(object):
         incRedExt = fullmodel['incRedExt']
         try:
             incEphemError = fullmodel['incEphemError']
+            ephemModel = fullmodel['ephemModel']
         except KeyError:
             incEphemError = False
+            ephemModel = None
         numScatFreqs = fullmodel['numScatFreqs']
 
         if len(self.psr) < 1:
@@ -3153,6 +3192,7 @@ class PTAmodels(object):
                                           incDMBand=incDMBand[pindex],
                                           incRedExt=incRedExt,
                                           incEphemError=incEphemError,
+                                          ephemModel=ephemModel,
                                           nfredExt=nfredExt, 
                                           haveScat=numScatFreqs!=0,
                                          numScatFreqs=numScatFreqs)
@@ -4462,7 +4502,10 @@ class PTAmodels(object):
                     self.corrmat = sig['corrmat']
 
                     # define rho
-                    rho = np.array([sparameters, sparameters]).T.flatten()
+                    nf = len(self.psr[psrind].Ffreqs)
+                    ngwf = int(sig['ngwfreqs'])
+                    rho = np.ones(nf) * -80
+                    rho[:ngwf] = np.repeat(sparameters, 2)
 
                 if sig['corr'] in ['gr_sph']:
 
@@ -4584,14 +4627,17 @@ class PTAmodels(object):
                     self.corrmat = sig['corrmat']
 
                     # number of GW frequencies is the max from all pulsars
-                    fgw = self.gwfreqs
+                    nf = len(self.psr[psrind].Ffreqs)
+                    ngwf = int(sig['ngwfreqs'])
+                    rho = np.ones(nf) * -80
+                    fgw = self.gwfreqs[:ngwf]
 
                     # get Amplitude and spectral index
                     Amp = 10 ** sparameters[0]
                     gamma = sparameters[1]
 
                     f1yr = 1 / 3.16e7
-                    rho = np.log10(Amp ** 2 / 12 / np.pi ** 2 * f1yr ** (gamma - 3) *
+                    rho[:ngwf] = np.log10(Amp ** 2 / 12 / np.pi ** 2 * f1yr ** (gamma - 3) *
                                    fgw ** (-gamma) / self.psr[psrind].Tmax)
                     # rho = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
                     #                     fgw**(-gamma))
@@ -4750,8 +4796,25 @@ class PTAmodels(object):
                 self.psr[psrind].kappasingle = pcdoubled
 
             # ephemeris
-            if sig['stype'] == 'ephemeris':
-                pcdoubled = np.repeat(np.hstack((sparameters[:3], sparameters[3:])), 2)
+            if sig['stype'] == 'ephemeris' and sig['model'] in ['jupsat', 'objects']:
+                pcdoubled = np.repeat(sparameters, 2)
+
+                # fill in kappa
+                for pp in self.psr:
+                    pp.ephem = pcdoubled
+
+            if sig['stype'] == 'ephemeris' and sig['model'] in ['matern']:
+                lAmps = sparameters[::3]
+                lf0s = sparameters[1::3]
+                gammas = sparameters[2::3]
+
+                psds = []
+                # all frequencies are the same
+                freqs = self.psr[0].ephemFreqs
+                for lAmp, lf0, gamma in zip(lAmps, lf0s, gammas):
+                    psds.append(np.log10(10**lAmp * (1+(freqs/10**lf0)**2)**(-gamma)))
+
+                pcdoubled = np.hstack(tuple(psds))
 
                 # fill in kappa
                 for pp in self.psr:
@@ -7224,7 +7287,6 @@ class PTAmodels(object):
 
     def mark9LogLikelihood(self, parameters, incCorrelations=False, varyNoise=True,
                            fixWhite=False, selection=None):
-
         loglike = 0
         if varyNoise:
 
@@ -7241,6 +7303,7 @@ class PTAmodels(object):
                                            selection=selection)
 
             if not check:
+                print 'Phi inversion failed'
                 return -np.inf
 
         # set deterministic sources
@@ -7308,8 +7371,8 @@ class PTAmodels(object):
                     if varyNoise:
                         self.logdet_Sigma += np.sum(2 * np.log(np.diag(cf[0])))
                 except np.linalg.LinAlgError:
+                    print "ERROR: Sigma singular according to SVD"
                     return -np.inf
-                    #raise ValueError("ERROR: Sigma singular according to SVD")
 
                 loglike += 0.5 * (np.dot(dd, expval2))
 
@@ -7345,7 +7408,7 @@ class PTAmodels(object):
             loglike += -0.5 * \
                 (self.logdetPhi + self.logdet_Sigma) + \
                 0.5 * (np.dot(d, expval2))
-        return loglike
+        return loglike 
     
     """
     mark 10 log likelihood. Note that this is not the same as mark6 in piccard
@@ -8511,6 +8574,70 @@ class PTAmodels(object):
                     q[parind + 1] = parameters[parind + 1]
 
         return q, qxy
+
+    def drawFromRedNoiseBrokenPrior(self, parameters, iter, beta):
+
+        # post-jump parameters
+        q = parameters.copy()
+
+        # transition probability
+        qxy = 0
+
+        # find number of signals
+        nsigs = np.sum(self.getNumberOfSignalsFromDict(self.ptasignals, stype='broken',
+                                                       corr='single'))
+        signum = self.getSignalNumbersFromDict(self.ptasignals, stype='broken',
+                                               corr='single')
+
+        # which parameters to jump
+        ind = np.unique(np.random.randint(0, nsigs, 1))
+
+        # draw params from prior
+        for ii in ind:
+
+            # get signal
+            sig = self.ptasignals[signum[ii]]
+            parind = sig['parindex']
+            npars = sig['npars']
+
+            # jump in amplitude if varying
+            #for jj in range(npars):
+            jj = np.random.randint(0, np.sum(sig['bvary']))
+            if sig['bvary'][jj]:
+
+                q[parind + jj] = np.random.uniform(self.pmin[parind + jj],
+                                                   self.pmax[parind + jj])
+                qxy += 0
+
+        return q, qxy
+
+    def drawFromEphemErrorPrior(self, parameters, iter, beta):
+
+        # post-jump parameters
+        q = parameters.copy()
+
+        # transition probability
+        qxy = 0
+
+        # find number of signals
+        signum = self.getSignalNumbersFromDict(self.ptasignals, stype='ephemeris',
+                                               corr='single')
+
+
+        # get signal
+        sig = self.ptasignals[signum[0]]
+        parind = sig['parindex']
+        npars = sig['npars']
+
+        jj = np.random.randint(0, np.sum(sig['bvary']))
+        if sig['bvary'][jj]:
+
+            q[parind + jj] = np.random.uniform(self.pmin[parind + jj],
+                                               self.pmax[parind + jj])
+            qxy += 0
+
+        return q, qxy
+
 
     # DM noise draws
     def drawFromDMPrior(self, parameters, iter, beta):

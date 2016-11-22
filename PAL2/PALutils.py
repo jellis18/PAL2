@@ -71,9 +71,12 @@ def get_snr_prior(model, snr0):
                                                         nfref:(nfref+nf)], 
                                              p.Qamp, p.Uinds)
         else:
-            snr += innerProduct_rr(s, s, p.Nvec, p.Ttmat,
-                                            model.Sigma[nfref:(nfref+nf),
-                                                        nfref:(nfref+nf)])
+            try:
+                snr += innerProduct_rr(s, s, p.Nvec, p.Ttmat,
+                                       model.Sigma[nfref:(nfref+nf),
+                                                   nfref:(nfref+nf)])
+            except np.linalg.LinAlgError:
+                return -np.inf
 
         nfref += nf
 
@@ -867,7 +870,7 @@ def createGmatrix(designmatrix):
 
     return u[:,-(npts-nfit):]
 
-def createQSDdesignmatrix(toas):
+def createQSDdesignmatrix(toas, norm=True):
     """
     Return designmatrix for QSD model
 
@@ -880,7 +883,7 @@ def createQSDdesignmatrix(toas):
     designmatrix = np.zeros((len(toas), 3))
 
     for ii in range(3):
-        designmatrix[:,ii] = toas**(ii)
+        designmatrix[:,ii] = (toas/toas.mean())**(ii)
 
     return designmatrix
 
