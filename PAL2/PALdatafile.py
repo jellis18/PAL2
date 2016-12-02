@@ -390,7 +390,7 @@ class DataFile(object):
 
             self.writeData(flagGroup, "efacequad", efacequad, overwrite=overwrite)
 
-        if not 'bw' in flagGroup:
+        if not 'bwflags' in flagGroup:
             nobs = len(t2pulsar.toas())
             if 'bw' in flagGroup:
                 #print 'Including band width flags for PSR {0}'.format(t2pulsar.name)
@@ -399,7 +399,7 @@ class DataFile(object):
                 #print 'No bandwidth flags for PSR {0}'.format(t2pulsar.name)
                 bw = np.ones(nobs) * 4
 
-            self.writeData(flagGroup, "bw", bw, overwrite=overwrite)
+            self.writeData(flagGroup, "bwflags", bw, overwrite=overwrite)
         
         if not "efacequad_freq" in flagGroup:
             efacequad_freq = []
@@ -543,7 +543,7 @@ class DataFile(object):
         psr.ptmparerrs = np.array(self.getData(psrname, 'tmp_errpost'))
         psr.flags = np.array(map(str, self.getData(psrname, 'efacequad_freq', 'Flags')))
         psr.tobsflags = map(float, self.getData(psrname, 'tobs_all', 'Flags'))
-        psr.bwflags = np.array(map(float, self.getData(psrname, 'bw', 'Flags')))
+        psr.bwflags = np.array(map(float, self.getData(psrname, 'bwflags', 'Flags')))
 
         psr.setptmdescription = map(str, self.getData(psrname, 'set_name'))
         psr.setptmpars = np.array(self.getData(psrname, 'set_valpost'))
