@@ -1102,9 +1102,12 @@ class Pulsar(object):
             self.Tmat = np.concatenate((Mm, self.Ftot), axis=1)
             if incJitter:
                 self.avetoas, self.aveflags, U = \
-                    PALutils.exploderMatrixNoSingles(
+                    PALutils.exploderMatrixIntegration(
                         self.toas, np.array(self.flags),
-                        dt=1)
+                        np.array(self.tobsflags), dt=1)
+                    #PALutils.exploderMatrixNoSingles(
+                    #    self.toas, np.array(self.flags),
+                    #    dt=1)
                 self.Umat = U
                 self.Tmat = np.concatenate((self.Tmat, U), axis=1)
 

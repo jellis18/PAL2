@@ -544,7 +544,10 @@ class DataFile(object):
         psr.ptmparerrs = np.array(self.getData(psrname, 'tmp_errpost'))
         psr.flags = np.array(map(str, self.getData(psrname, 'efacequad_freq', 'Flags')))
         psr.tobsflags = map(float, self.getData(psrname, 'tobs_all', 'Flags'))
-        psr.bwflags = np.array(map(float, self.getData(psrname, 'bwflags', 'Flags')))
+        try:
+            psr.bwflags = np.array(map(float, self.getData(psrname, 'bwflags', 'Flags')))
+        except IOError:
+            psr.bwflags = np.ones(len(psr.flags)) * 4.0
 
         psr.setptmdescription = map(str, self.getData(psrname, 'set_name'))
         psr.setptmpars = np.array(self.getData(psrname, 'set_valpost'))
