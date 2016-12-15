@@ -623,7 +623,7 @@ class DataFile(object):
             (avetoas, aveflags, Umat) = PALutils.exploderMatrixNoSingles(
                 psr.toas, np.array(psr.flags), dt=1)
             psr.nepoch = len(avetoas)
-        except IOError:
+        except IndexError:
             pass
 
 
