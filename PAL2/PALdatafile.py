@@ -619,9 +619,12 @@ class DataFile(object):
         psr.Mmat = np.array(self.getData(psrname, 'designmatrix'))
         
         # get number of epochs (i.e 1 s window)
-        (avetoas, aveflags, Umat) = PALutils.exploderMatrixNoSingles(
-            psr.toas, np.array(psr.flags), dt=1)
-        psr.nepoch = len(avetoas)
+        try:
+            (avetoas, aveflags, Umat) = PALutils.exploderMatrixNoSingles(
+                psr.toas, np.array(psr.flags), dt=1)
+            psr.nepoch = len(avetoas)
+        except IOError:
+            pass
 
 
         
