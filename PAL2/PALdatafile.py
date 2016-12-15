@@ -395,7 +395,7 @@ class DataFile(object):
             if 'bw' in flagGroup:
                 #print 'Including band width flags for PSR {0}'.format(t2pulsar.name)
                 bw = flagGroup['bw']
-                bw[bw==''] = 4.0
+                #bw[bw==''] = 4.0
             else:
                 #print 'No bandwidth flags for PSR {0}'.format(t2pulsar.name)
                 bw = np.ones(nobs) * 4
