@@ -277,6 +277,8 @@ parser.add_argument('--zerologlike', dest='zerologlike', action='store_true', de
                     help='Zero log likelihood to test prior and jump proposals')
 parser.add_argument('--neff', dest='neff', type=int, action='store', \
                     default=1000, help='Number of effective samples [default=1000]')
+parser.add_argument('--isave', dest='isave', type=int, action='store', \
+                    default=1000, help='Number of samples between saves [default=1000]')
 parser.add_argument('--resume', dest='resume', action='store_true', \
                     default=False, help='resume from previous run?')
 parser.add_argument('--writeHotChains', dest='writeHotChains', action='store_true', \
@@ -942,7 +944,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         sampler.sample(p0, args.niter, covUpdate=1000, AMweight=15, SCAMweight=30, \
                        DEweight=50, neff=args.neff, KDEweight=0, Tmin=args.Tmin,
                        Tmax=args.Tmax, writeHotChains=args.writeHotChains,
-                      hotChain=args.hotChain, thin=args.thin)
+                      hotChain=args.hotChain, thin=args.thin, isave=args.isave)
 
     if args.sampler == 'polychord':
         print 'Using PolyChord Sampler'
