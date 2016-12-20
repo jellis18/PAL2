@@ -290,7 +290,7 @@ def get_spectrum(model, chain, selection=None, N=1000):
     T = (p.toas.max() - p.toas.min())
     nf = len(p.Ffreqs)
     if model.haveExt:
-        nf += len(p.Fextfreqs))
+        nf += len(p.Fextfreqs)
     psd = np.zeros((N, nf/2))
 
     freqs = p.Ffreqs[::2]
