@@ -4503,7 +4503,7 @@ class PTAmodels(object):
 
                     # define rho
                     nf = len(self.psr[psrind].Ffreqs)
-                    ngwf = int(sig['ngwfreqs'])
+                    ngwf = int(sig['ngwfreqs']) * 2
                     rho = np.ones(nf) * -80
                     rho[:ngwf] = np.repeat(sparameters, 2)
 
@@ -4628,7 +4628,7 @@ class PTAmodels(object):
 
                     # number of GW frequencies is the max from all pulsars
                     nf = len(self.psr[psrind].Ffreqs)
-                    ngwf = int(sig['ngwfreqs'])
+                    ngwf = int(sig['ngwfreqs']) * 2
                     rho = np.ones(nf) * -80
                     fgw = self.gwfreqs[:ngwf]
 
