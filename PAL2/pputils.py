@@ -289,7 +289,13 @@ def get_spectrum(model, chain, selection=None, N=1000):
     p = model.psr[0]
     T = (p.toas.max() - p.toas.min())
     nf = len(p.Ffreqs)
+    if model.haveExt:
+        nf += len(p.Fextfreqs))
     psd = np.zeros((N, nf/2))
+
+    freqs = p.Ffreqs[::2]
+    if model.haveExt:
+        freqs = np.concatenate((p.Ffreqs, p.Fextfreqs))[::2]
 
     if selection is None:
         sel = np.array([1]*model.dimensions, dtype=np.bool)
@@ -317,7 +323,7 @@ def get_spectrum(model, chain, selection=None, N=1000):
         sys.stdout.flush()
         
     
-    return p.Ffreqs[::2], np.log10(psd) 
+    return freqs, np.log10(psd) 
 
 def get_fourier_spectrum(model, qreal, N=1000):
     """
@@ -481,7 +487,7 @@ def make_spectrum_realization_plot(ax, f, psd, sigma=0.68,
         ylow = np.log10(10**ymean - 10**xlow)
         yhigh = np.log10(10**xhigh - 10**ymean)
         yerr = np.vstack((ylow, yhigh))
-        ax.errorbar(f, 10**ymean, yerr=10**yerr, fmt='o', **kwargs)
+        ax.errorbar(f, 10**ymean, yerr=10**yerr, fmt='o', capsize=0, **kwargs)
     else:
         ax.fill_between(f, 10**xlow, 10**xhigh, **kwargs)
     if plot_median:
@@ -671,16 +677,18 @@ class ChainPP(object):
             plt.savefig(self.outdir + '/spectrum_{0}.png'.format(self.model.psr[0].name),
                         dpi=300, bbox_inches='tight')
 
-    def plot_fourier_spectrum(self, nreal=1000, maxpars=None, quad=None):
+    def plot_fourier_spectrum(self, nreal=1000, maxpars=None, quad=None, 
+                              ax=None, use_bars=False, color='gray'):
 
         plt.figure()
         if quad is None:
             quad, real, white = self.get_quadratic_parameters(
                 nreal=nreal, maxpars=maxpars)
         f, psd = get_fourier_spectrum(self.model, quad, N=nreal)
-        ax = plt.subplot(111)
-        make_spectrum_realization_plot(ax, f, psd, sigma=0.68, 
-                                       color='gray', alpha=0.5)
+        if ax is None:
+            ax = plt.subplot(111)
+        make_spectrum_realization_plot(ax, f, psd, sigma=0.68, color=color, 
+                                       alpha=0.5, use_bars=use_bars)
         ax.set_xlabel(r'Frequency [Hz]')
         ax.set_ylabel(r'Power Spectral Density [s$^2$]')
         if self.save:
