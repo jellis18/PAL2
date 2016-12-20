@@ -116,7 +116,7 @@ parser.add_argument('--incDMBand', dest='incDMBand', action='store_true',default
 
 parser.add_argument('--incGWB', dest='incGWB', action='store_true',default=False,
                    help='include GWB? [default=False]')
-parser.add_argument('--ngwf', dest='ngwf', action='store',default=None,
+parser.add_argument('--ngwf', dest='ngwf', action='store',default=None, type=int
                    help='Number of gwfreqs')
 parser.add_argument('--gwbModel', dest='gwbModel', action='store', type=str, default='powerlaw',
                    help='GWB model [powerlaw, spectrum, turnover]')
