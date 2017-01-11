@@ -3063,29 +3063,20 @@ class PTAmodels(object):
         if fullmodel['numpulsars'] != len(self.psr):
             raise IOError("Model does not have the right number of pulsars")
 
-        # if not self.checkSignalDictionary(signals):
-        #    raise IOError, "Signal dictionary not properly defined"
-
         # Details about the likelihood function
         self.likfunc = likfunc
         self.orderFrequencyLines = orderFrequencyLines
 
         # Determine the time baseline of the array of pulsars
-        Tstart = np.min(self.psr[0].toas)
-        Tfinish = np.max(self.psr[0].toas)
-        for p in self.psr:
-            Tstart = np.min([np.min(p.toas), Tstart])
-            Tfinish = np.max([np.max(p.toas), Tfinish])
-        Tmax = Tfinish - Tstart
-        #Tmax = 1/1.33950638e-09
-        self.Tref = Tstart
+        tmax = np.max([p.toas.max() for p in psr])
+        tmin = np.min([p.toas.min() for p in psr])
+        self.Tref = tmin
 
         # print 'WARNING: Using seperate Tmax for each pulsar'
         if dTmax is None:
             print 'WARNING: Using seperate Tmax for each pulsar'
             for p in self.psr:
                 p.Tmax = p.toas.max() - p.toas.min()
-                #p.Tmax = self.Tmax
         elif dTmax == 0:
             print 'Using longest timespan of {0} yr for Tmax'.format(Tmax/3.16e7)
             for p in self.psr:
@@ -3595,9 +3586,11 @@ class PTAmodels(object):
         if self.likfunc in ['mark6', 'mark7', 'mark9', 'mark10', 'mark11']:
             self.Phiinv = np.zeros((nphiTmat, nphiTmat))
             self.TNT = np.zeros((nphiTmat, nphiTmat))
+            self.d = np.zeros(nphiTmat)
             self.Phi = np.zeros((nphiTmat, nphiTmat))
             self.Sigma = np.zeros((nphiTmat, nphiTmat))
             self.cf = [[] for ii in range(len(self.psr))]
+            self.rNr, self.logdet_N = np.zeros(self.npsr), np.zeros(self.npsr)
         else:
             self.Phiinv = np.zeros((nftot * self.npsr, nftot * self.npsr))
             self.Phi = np.zeros((nftot * self.npsr, nftot * self.npsr))
@@ -7325,12 +7318,18 @@ class PTAmodels(object):
                 return -np.inf
 
             # equivalent to T^T N^{-1} \delta t
-            if ct == 0:
-                d = np.dot(p.Ttmat.T, PALutils.python_block_shermor_0D(
-                    p.detresiduals, p.Nvec, p.Qamp, p.Uinds))
-            else:
-                d = np.append(d, np.dot(p.Ttmat.T, PALutils.python_block_shermor_0D(
-                    p.detresiduals, p.Nvec, p.Qamp, p.Uinds)))
+            if not fixWhite and not self.haveDetSources:
+                if ct == 0:
+                    self.d = np.dot(p.Ttmat.T, PALutils.python_block_shermor_0D(
+                        p.detresiduals, p.Nvec, p.Qamp, p.Uinds))
+                else:
+                    self.d = np.append(self.d, np.dot(
+                        p.Ttmat.T, PALutils.python_block_shermor_0D(
+                        p.detresiduals, p.Nvec, p.Qamp, p.Uinds)))
+
+                # triple product in likelihood function
+                self.logdet_N[ct], self.rNr[ct] = PALutils.python_block_shermor_1D(
+                    p.detresiduals, p.Nvec, p.Qamp, p.Uinds)
 
             if varyNoise:
                 # compute T^T N^{-1} T
@@ -7339,12 +7338,9 @@ class PTAmodels(object):
                         PALutils.python_block_shermor_2D(
                             p.Ttmat, p.Nvec, p.Qamp, p.Uinds)
 
-            # triple product in likelihood function
-            logdet_N, rNr = PALutils.python_block_shermor_1D(p.detresiduals,
-                                                             p.Nvec, p.Qamp, p.Uinds)
 
             # first component of likelihood function
-            loglike += -0.5 * (logdet_N + rNr) - 0.5 * \
+            loglike += -0.5 * (self.logdet_N[ct] + self.rNr[ct]) - 0.5 * \
                 len(p.toas) * np.log(2 * np.pi)
 
 
@@ -7352,7 +7348,7 @@ class PTAmodels(object):
             if not incCorrelations:
 
                 # compute sigma
-                dd = d[nfref:(nfref + nf)]
+                dd = self.d[nfref:(nfref + nf)]
 
                 if varyNoise:
                     self.Sigma[nfref:(nfref + nf), nfref:(nfref + nf)] = \
@@ -7392,7 +7388,7 @@ class PTAmodels(object):
             # cholesky decomp for second term in exponential
             try:
                 cf = sl.cho_factor(self.Sigma)
-                expval2 = sl.cho_solve(cf, d)
+                expval2 = sl.cho_solve(cf, self.d)
                 if varyNoise:
                     self.logdet_Sigma = np.sum(2 * np.log(np.diag(cf[0])))
             except np.linalg.LinAlgError:
@@ -7407,7 +7403,7 @@ class PTAmodels(object):
 
             loglike += -0.5 * \
                 (self.logdetPhi + self.logdet_Sigma) + \
-                0.5 * (np.dot(d, expval2))
+                0.5 * (np.dot(self.d, expval2))
         return loglike 
     
     """
