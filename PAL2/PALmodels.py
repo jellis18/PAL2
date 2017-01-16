@@ -55,11 +55,12 @@ class PTAmodels(object):
     """
 
     def __init__(self, h5filename=None, jsonfilename=None,
-                 pulsars='all'):
+                 pulsars='all', start_time=None, end_time=None):
         self.clear()
 
         if h5filename is not None:
-            self.initFromFile(h5filename, pulsars=pulsars)
+            self.initFromFile(h5filename, pulsars=pulsars, 
+                              start_time=start_time, end_time=end_time)
 
             if jsonfilename is not None:
                 self.initModelFromFile(jsonfilename)
@@ -101,7 +102,8 @@ class PTAmodels(object):
     @param append:      If set to True, do not delete earlier read-in pulsars
     """
 
-    def initFromFile(self, filename, pulsars='all', append=False):
+    def initFromFile(self, filename, pulsars='all', append=False, 
+                     start_time=None, end_time=None):
         # Retrieve the pulsar list
         self.h5df = PALdatafile.DataFile(filename)
         psrnames = self.h5df.getPulsarList()
@@ -130,7 +132,7 @@ class PTAmodels(object):
         # Initialise all pulsars
         for psrname in readpsrs:
             newpsr = PALpsr.Pulsar()
-            newpsr.readFromH5(self.h5df, psrname)
+            newpsr.readFromH5(self.h5df, psrname, start_time, end_time)
             self.psr.append(newpsr)
 
     """
@@ -3068,8 +3070,9 @@ class PTAmodels(object):
         self.orderFrequencyLines = orderFrequencyLines
 
         # Determine the time baseline of the array of pulsars
-        tmax = np.max([p.toas.max() for p in psr])
-        tmin = np.min([p.toas.min() for p in psr])
+        tmax = np.max([p.toas.max() for p in self.psr])
+        tmin = np.min([p.toas.min() for p in self.psr])
+        Tmax = tmax - tmin
         self.Tref = tmin
 
         # print 'WARNING: Using seperate Tmax for each pulsar'

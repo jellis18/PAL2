@@ -302,6 +302,11 @@ parser.add_argument('--Tmin', dest='Tmin', type=float, action='store', \
 parser.add_argument('--Tmax', dest='Tmax', type=float, action='store', \
                      default=1, help='Max temperature for parallel tempering.')
 
+parser.add_argument('--start_time', dest='start_time', type=float, action='store', \
+                     default=None, help='Start time for TOAs [MJD]')
+parser.add_argument('--end_time', dest='end_time', type=float, action='store', \
+                     default=None, help='End time for TOAs [MJD]')
+
 # parse arguments
 args = parser.parse_args()
 
@@ -324,11 +329,15 @@ if not os.path.exists(args.outDir):
 # open file
 incGWB = args.incGWB
 if args.pname[0] != 'all':
-    model = PALmodels.PTAmodels(args.h5file, pulsars=args.pname)
+    model = PALmodels.PTAmodels(args.h5file, pulsars=args.pname, 
+                                start_time=args.start_time, 
+                                end_time=args.end_time)
 elif args.pname[0] == 'all':
     print 'Using all pulsars'
     pulsars = 'all'
-    model = PALmodels.PTAmodels(args.h5file, pulsars=pulsars)
+    model = PALmodels.PTAmodels(args.h5file, pulsars=pulsars,
+                                start_time=args.start_time, 
+                                end_time=args.end_time)
 
 
 # model options

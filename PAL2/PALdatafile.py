@@ -531,7 +531,7 @@ class DataFile(object):
           kind of inefficient
     """
     
-    def readPulsar(self, psr, psrname):
+    def readPulsar(self, psr, psrname, start_time=None, end_time=None):
         psr.name = str(psrname)
 
         # Read the content of the par/tim files in a string
@@ -543,7 +543,7 @@ class DataFile(object):
         psr.ptmpars = np.array(self.getData(psrname, 'tmp_valpost'))
         psr.ptmparerrs = np.array(self.getData(psrname, 'tmp_errpost'))
         psr.flags = np.array(map(str, self.getData(psrname, 'efacequad_freq', 'Flags')))
-        psr.tobsflags = map(float, self.getData(psrname, 'tobs_all', 'Flags'))
+        psr.tobsflags = np.array(map(float, self.getData(psrname, 'tobs_all', 'Flags')))
         try:
             psr.bwflags = np.array(map(float, self.getData(psrname, 'bwflags', 'Flags')))
         except IOError:
@@ -617,6 +617,38 @@ class DataFile(object):
         psr.detresiduals = np.array(self.getData(psrname, 'postfitRes'))
         psr.freqs = np.array(self.getData(psrname, 'freq'))
         psr.Mmat = np.array(self.getData(psrname, 'designmatrix'))
+
+        # filter data based on start and end times
+        if start_time is not None or end_time is not None:
+            if start_time is None:
+                start_time = psr.toas.min()/86400
+            if end_time is None:
+                end_time = psr.toas.max()/86400
+            print 'Filtering TOAs between {0} and {1} for PSR {2}'.format(
+                start_time, end_time, psr.name)
+            ind = np.logical_and(psr.toas/86400>=start_time, psr.toas/86400<=end_time)
+            psr.toas = psr.toas[ind]
+            psr.toaerrs = psr.toaerrs[ind]
+            psr.residuals = psr.residuals[ind]
+            psr.detresiduals = psr.detresiduals[ind]
+            psr.freqs = psr.freqs[ind]
+            psr.flags = psr.flags[ind]
+            psr.fflags = psr.fflags[ind]
+            psr.tobsflags = psr.tobsflags[ind]
+            psr.bwflags = psr.bwflags[ind]
+
+            # design matrix
+            print 'Design Matrix Shape pre-filter:', psr.Mmat.shape
+            psr.Mmat = psr.Mmat[ind,:]
+            dind = psr.Mmat.sum(axis=0) == 0
+            psr.Mmat = psr.Mmat[:,~dind]
+            print 'Design Matrix Shape post-filter:', psr.Mmat.shape
+
+            # fitted parameters
+            psr.ptmdescription = list(np.array(psr.ptmdescription)[~dind])
+            psr.ptmpars = psr.ptmpars[~dind]
+            psr.ptmparerrs = psr.ptmparerrs[~dind]
+
         
         # get number of epochs (i.e 1 s window)
         try:

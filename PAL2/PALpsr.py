@@ -135,10 +135,13 @@ class Pulsar(object):
 
     @param h5df:        The DataFile object we are reading from
     @param psrname:     Name of the Pulsar to be read from the HDF5 file
+    @param start_time:  Start time for TOAs
+    @param end_time:    End time for TOAs
     """
 
-    def readFromH5(self, h5df, psrname):
-        h5df.readPulsar(self, psrname)
+    def readFromH5(self, h5df, psrname, start_time=None, end_time=None):
+        h5df.readPulsar(self, psrname, start_time=start_time, 
+                        end_time=end_time)
 
     """
     Initialise the libstempo object for use in nonlinear timing model modelling.
