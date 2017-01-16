@@ -5928,6 +5928,142 @@ class PTAmodels(object):
 
         return res
 
+    
+    def opt_stat_mark9(self, parameters, fixWhite=False):
+        """
+        Optimal statistic for T-matrix mark9 formalism.
+        """
+    
+        # set pulsar white noise parameters
+        if not fixWhite:
+            self.setPsrNoise(parameters, incJitter=False)
+            
+            # initialize arrays
+            for ct, p in enumerate(self.psr):
+                nt = p.Ttmat.shape[1]
+                nf = p.Fmat.shape[1]
+
+                p.d = np.zeros(nt)
+                p.FNidt = np.zeros(nf)
+                p.TNT = np.zeros((nt, nt))
+                p.FNF = np.zeros((nf, nf))
+                p.FNT = np.zeros((nf, nt))
+
+        self.updateTmatrix(parameters)
+
+        # set red noise, DM and GW parameters
+        check = self.constructPhiMatrix(parameters, 
+                                       incCorrelations=False,
+                                       incTM=True, incJitter=False,
+                                       selection=None)
+
+        if not check:
+            print 'Phi inversion failed'
+            return -np.inf
+
+        # set deterministic sources
+        if self.haveDetSources:
+            self.updateDetSources(parameters, selection=None)
+            
+        # get correlation matrix
+        ORF = PALutils.computeORF(self.psr)
+
+        # compute the single pulsar terms in opt-stat
+        nfref = 0
+        X = []
+        Z = []
+        for ct, p in enumerate(self.psr):
+
+            nf = p.Ttmat.shape[1]
+
+            # check for nans or infs
+            if np.any(np.isnan(p.detresiduals)) or np.any(
+                    np.isinf(p.detresiduals)):
+                return -np.inf
+            
+            if not fixWhite:
+
+                # compute T^T N^{-1} \delta t
+                p.d = np.dot(p.Ttmat.T, PALutils.python_block_shermor_0D(
+                        p.detresiduals, p.Nvec, p.Qamp, p.Uinds))
+
+                # compute F^T N^{-1} \delta t
+                p.FNidt = np.dot(p.Fmat.T, PALutils.python_block_shermor_0D(
+                        p.detresiduals, p.Nvec, p.Qamp, p.Uinds))
+
+                # compute T^T N^{-1} T
+                p.TNT = PALutils.python_block_shermor_2D(p.Ttmat, p.Nvec, 
+                                                         p.Qamp, p.Uinds)
+
+                # compute F^T N^{-1} F
+                p.FNF = PALutils.python_block_shermor_2D(p.Fmat, p.Nvec, 
+                                                         p.Qamp, p.Uinds)
+
+                # compute F^T N^{-1} T
+                p.FNT = PALutils.python_block_shermor_2D2(p.Fmat, p.Tmat, 
+                                                          p.Nvec, p.Qamp, 
+                                                          p.Uinds)
+
+            #### calculate red noise piece
+            
+            # compute sigma
+            Sigma = p.TNT + self.Phiinv[nfref:(nfref + nf), nfref:(nfref + nf)]
+
+            # Sigma inverse terms
+            try:
+                cf = sl.cho_factor(Sigma)
+                SigmaInvd = sl.cho_solve(cf, p.d)
+                SigmaInvTNF = sl.cho_solve(cf, p.FNT.T)
+            except np.linalg.LinAlgError:
+                print "ERROR: Sigma singular according to SVD"
+                return -np.inf
+            
+            # compute F^T N^{-1} T \Sigma^{-1} d
+            FNTSigmad = np.dot(p.FNT, SigmaInvd)
+            
+            # X = F^T[N^{-1} - N^{-1} T \Sigma^{-1} T^T N^{-1}]\delta t
+            X.append(p.FNidt - FNTSigmad)
+            
+            # Z = F^T [N^{-1} - N^{-1} T \Sigma^{-1} T^T N^{-1}] F
+            Z.append(p.FNF - np.dot(p.FNT, SigmaInvTNF))
+
+            # increment frequency counter
+            nfref += nf
+            
+        # cross correlations
+        top = 0
+        bot = 0
+        rho, sig, xi = [], [], []
+        for ii in range(self.npsr):
+            fgw = self.psr[ii].Ffreqs
+            for jj in range(ii + 1, self.npsr):
+
+                # get Amplitude and spectral index
+                Amp = 1
+                gamma = 13 / 3
+
+                f1yr = 1 / 3.16e7
+                pcdoubled = Amp ** 2 / 12 / np.pi ** 2 * f1yr ** (gamma - 3) * \
+                    fgw ** (-gamma) / np.sqrt(self.psr[ii].Tmax * self.psr[jj].Tmax)
+
+                phiIJ = 0.5 * pcdoubled
+
+                top = np.dot(X[ii], phiIJ * X[jj])
+                bot = np.trace(
+                    np.dot(Z[ii]*phiIJ[None,:], Z[jj]*phiIJ[None,:]))
+
+                # cross correlation and uncertainty
+                rho.append(top / bot)
+                sig.append(1 / np.sqrt(bot))
+                xi.append(PALutils.angularSeparation(self.psr[ii].theta[0],
+                                                     self.psr[ii].phi[0],
+                                                     self.psr[jj].theta[0],
+                                                     self.psr[jj].phi[0]))
+
+        return (np.array(xi), np.array(rho), np.array(sig), 
+            np.sum(np.array(rho) * ORF / np.array(sig) ** 2) / np.sum(ORF ** 2 / np.array(sig) ** 2),
+        1 / np.sqrt(np.sum(ORF ** 2 / np.array(sig) ** 2)))
+
     """
     Optimal Statistic
 

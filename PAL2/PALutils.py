@@ -1485,7 +1485,7 @@ def computeORF(psr):
     # begin loop over all pulsar pairs and calculate ORF
     k = 0
     npsr = len(psr)
-    ORF = np.zeros(npsr*(npsr-1)/2.)
+    ORF = np.zeros(int(npsr*(npsr-1)/2.))
     phati = np.zeros(3)
     phatj = np.zeros(3)
     for ll in xrange(0, npsr):
