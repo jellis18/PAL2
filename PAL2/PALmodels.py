@@ -114,16 +114,12 @@ class PTAmodels(object):
             readpsrs = psrnames
         else:
             # Check if all provided pulsars are indeed in the HDF5 file
-            if np.all(
-                    np.array([pulsars[ii] in psrnames for ii in \
-                              range(len(pulsars))]) == True):
-                readpsrs = pulsars
-            elif pulsars in destpsrnames:
-                pulsars = [pulsars]
+            check = np.array([pulsars[ii] in psrnames for ii in range(len(pulsars))])
+            if np.all(check):
                 readpsrs = pulsars
             else:
                 raise ValueError(
-                    "ERROR: Not all provided pulsars in HDF5 file")
+                    "ERROR: Pulsars {0} not in file".format(np.array(pulsars)[~check]))
 
         # Free earlier pulsars if we are not appending
         if not append:
