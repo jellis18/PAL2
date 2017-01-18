@@ -1,5 +1,7 @@
 # PAL2 (PTA Algorithm Library) #
 
+[![DOI](https://zenodo.org/badge/16349842.svg)](https://zenodo.org/badge/latestdoi/16349842)
+
 PAL2 is a Bayesian inference package for pulsar timing data. PAL2 is a re-write of 
 the original PAL in which we use a very similar signal dictionary
 formalism introduced in [piccard] (https://github.com/vhaasteren/piccard). This code is 
