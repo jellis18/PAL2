@@ -32,9 +32,16 @@ try:
     from sksparse.cholmod import cholesky
     SK_SPARSE = True
 except ImportError:
-    print 'WARNING: scikit-sparse note installed, will not use sparse matrices'
-    SK_SPARSE=False
+    print 'WARNING: scikit-sparse note installed, will try scikits.sparse...'
+    SK_SPARSE = False
 
+if not SK_SPARSE:
+    try:
+        from scikits.sparse.cholmod import cholesky
+        SK_SPARSE = True
+    except ImportError:
+        print 'WARNING: scikits.sparse note installed, will not use sparse matrices'
+        SK_SPARSE = False
 
 import matplotlib.pyplot as plt
 
