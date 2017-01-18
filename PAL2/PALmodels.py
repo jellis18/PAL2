@@ -12,6 +12,7 @@ import tempfile
 import scipy.linalg as sl
 import scipy.special as ss
 from scipy.interpolate import interp1d
+import scipy.sparse as sps
 from numpy.polynomial.hermite import hermval
 import AnisCoefficientsV2 as ani
 
@@ -26,6 +27,14 @@ try:
     from collections import OrderedDict
 except ImportError:
     from ordereddict import OrderedDict
+
+try:
+    from sksparse.cholmod import cholesky
+    SK_SPARSE = True
+except ImportError:
+    print 'WARNING: scikit-sparse note installed, will not use sparse matrices'
+    SK_SPARSE=False
+
 
 import matplotlib.pyplot as plt
 
@@ -7414,7 +7423,7 @@ class PTAmodels(object):
     """
 
     def mark9LogLikelihood(self, parameters, incCorrelations=False, varyNoise=True,
-                           fixWhite=False, selection=None):
+                           fixWhite=False, selection=None, sparse=False):
         loglike = 0
         if varyNoise:
 
@@ -7522,19 +7531,18 @@ class PTAmodels(object):
 
             # cholesky decomp for second term in exponential
             try:
-                cf = sl.cho_factor(self.Sigma)
-                expval2 = sl.cho_solve(cf, self.d)
-                if varyNoise:
-                    self.logdet_Sigma = np.sum(2 * np.log(np.diag(cf[0])))
+                if sparse and SK_SPARSE:
+                    cf = cholesky(sps.csc_matrix(self.Sigma))
+                    expval2 = cf(self.d)
+                    if varyNoise:
+                        self.logdet_Sigma = cf.logdet()
+                else:
+                    cf = sl.cho_factor(self.Sigma)
+                    expval2 = sl.cho_solve(cf, self.d)
+                    if varyNoise:
+                        self.logdet_Sigma = np.sum(2 * np.log(np.diag(cf[0])))
             except np.linalg.LinAlgError:
                 return -np.inf
-                #U, s, Vh = sl.svd(self.Sigma)
-                #if not np.all(s > 0):
-                #    raise ValueError("ERROR: Sigma singular according to SVD")
-                #expval2 = np.dot(
-                #    Vh.T, np.dot(np.diag(1.0 / s), np.dot(U.T, d)))
-                #if varyNoise:
-                #    self.logdet_Sigma = np.sum(np.log(s))
 
             loglike += -0.5 * \
                 (self.logdetPhi + self.logdet_Sigma) + \

@@ -120,12 +120,15 @@ parser.add_argument('--ngwf', dest='ngwf', action='store',default=None, type=int
                    help='Number of gwfreqs')
 parser.add_argument('--gwbModel', dest='gwbModel', action='store', type=str, default='powerlaw',
                    help='GWB model [powerlaw, spectrum, turnover]')
+
 parser.add_argument('--fixKappa', dest='fixKappa', action='store', type=float,
                     default=0, help='fix turnover kappa to user value [default=False]')
 parser.add_argument('--fixSi', dest='fixSi', action='store', type=float, default=0, \
                     help='Fix GWB spectral index to user defined value [default=False]')
 parser.add_argument('--noCorrelations', dest='noCorrelations', action='store_true', \
                     default=False, help='Do not in include GWB correlations [default=False]')
+parser.add_argument('--sparse', dest='sparse', action='store_true', \
+                    default=False, help='Use spare matrices for cholesky [default=False]')
 parser.add_argument('--GWBAmpPrior', dest='GWBAmpPrior', action='store', type=str, \
                     default='log', 
                     help='prior on GWB Amplitude [uniform, log, sesana, mcwilliams] [default=log]')
@@ -661,7 +664,9 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         print 'Running model with GWB correlations'
     if args.incJitterEquad and np.any([args.mark6, args.Tmatrix, args.mark10]):
         loglkwargs['incJitter'] = True
-
+    if args.sparse and args.mark9:
+        print 'Using sparse matrix representation of Sigma'
+        loglkwargs['sparse'] = True
    
     # get initial parameters for MCMC
     inRange = False

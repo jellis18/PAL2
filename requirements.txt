@@ -33,3 +33,4 @@ statsmodels>=0.6.1
 terminado>=0.5
 tornado>=4.2.1
 wheel>=0.24.0
+scikit-sparse>=0.4
