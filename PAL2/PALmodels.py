@@ -5211,26 +5211,15 @@ class PTAmodels(object):
 
             # if mark 9 fill in covariance matrix
             if self.likfunc in ['mark9']:
-                ind2 = []
-                start, stop = 0, 0
-                for jj, p in enumerate(self.psr):
-                    ntmpars = len(p.ptmdescription)
-                    nother = p.Ttmat.shape[1] - ntmpars - nftot
-                    start += ntmpars 
-                    stop += ntmpars + nftot 
-                    ind2.append(np.arange(start, stop))
-                    start += nftot + nother
-
-                start, stop = 0, 0
-                for ii, p in enumerate(self.psr):
-                    ntmpars = len(p.ptmdescription)
-                    nother = p.Ttmat.shape[1] - ntmpars - nftot
-                    start += ntmpars 
-                    stop += ntmpars + nftot 
-                    ind1 = np.arange(start, stop)
-                    start += nftot + nother
-                    for jj in range(0, self.npsr):
-                        self.Phiinv[ind1, ind2[jj]] = smallMatrix[:, ii, jj]
+                ntmpars = [len(p.ptmdescription) for p in self.psr]
+                nother = [p.Ttmat.shape[1] - ntmpars[kk] - nftot for kk, p in \
+                          enumerate(self.psr)]
+                stop = np.cumsum([p.Ttmat.shape[1] for kk,p in enumerate(self.psr)]) - nother
+                start = stop - nftot 
+                ind = [np.arange(sta, sto) for sta, sto in zip(start, stop)]
+                for ii in range(self.npsr):
+                    for jj in range(self.npsr):
+                        self.Phiinv[ind[ii], ind[jj]] = smallMatrix[:, ii, jj]
 
             else:
                 ind2 = [np.arange(jj * nftot, jj * nftot + nftot)
