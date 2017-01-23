@@ -7458,7 +7458,7 @@ class PTAmodels(object):
                 return -np.inf
 
             # equivalent to T^T N^{-1} \delta t
-            if not fixWhite and not self.haveDetSources:
+            if not fixWhite or self.haveDetSources:
                 if ct == 0:
                     self.d = np.dot(p.Ttmat.T, PALutils.python_block_shermor_0D(
                         p.detresiduals, p.Nvec, p.Qamp, p.Uinds))

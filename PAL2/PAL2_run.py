@@ -329,6 +329,7 @@ if not os.path.exists(args.outDir):
     except OSError:
         pass
 
+
 # open file
 incGWB = args.incGWB
 if args.pname[0] != 'all':
