@@ -19,6 +19,8 @@ parser.add_argument('--iter', dest='iter', action='store', type=int, default=0,
                    help='Number of iterations in fit [default=0]')
 parser.add_argument('--maxobs', dest='maxobs', action='store', type=int, default=30000,
                    help='Maximum number of TOAs [default=30000]')
+parser.add_argument('--ephem', dest='ephem', action='store', type=str, default=None,
+                   help='Ephemeris [default=None, goes with value in par file]')
 
 
 # parse arguments
@@ -41,5 +43,6 @@ timFiles.sort()
 df = PALdatafile.DataFile(args.h5file)
 for t,p in zip(timFiles, parFiles):
     print '\n', t, p, '\n'
-    df.addTempoPulsar(p, t, iterations=args.iter, maxobs=args.maxobs)
+    df.addTempoPulsar(p, t, iterations=args.iter, maxobs=args.maxobs, 
+                      ephem=args.ephem)
 

@@ -737,7 +737,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
             [ind.append(id) for id in ids if len(id) > 0]
         
         if args.incJitterEquad:
-            ids = model.get_parameter_indices('jitter_equad', corr='single', split=False)
+            ids = model.get_parameter_indices('jitter_equad', corr='single', split=True)
             [ind.append(id) for id in ids if len(id) > 0]
         
         

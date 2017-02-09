@@ -215,7 +215,7 @@ class DataFile(object):
                         pulsar not to exist, and throws an exception otherwise.
     """
     def addTempoPulsar(self, parfile, timfile, iterations=1, 
-                       mode='overwrite', maxobs=30000):
+                       mode='overwrite', maxobs=30000, ephem=None):
         # Check whether the two files exist
         if not os.path.isfile(parfile) or not os.path.isfile(timfile):
             raise IOError, "Cannot find parfile (%s) or timfile (%s)!" % (parfile, timfile)
@@ -247,9 +247,10 @@ class DataFile(object):
 
         # Load pulsar data from the libstempo library
         try:
-            t2pulsar = t2.tempopulsar(relparfile, reltimfile, maxobs=maxobs)
+            t2pulsar = t2.tempopulsar(relparfile, reltimfile, 
+                                      maxobs=maxobs, ephem=ephem)
         except TypeError:
-            t2pulsar = t2.tempopulsar(relparfile, reltimfile)
+            t2pulsar = t2.tempopulsar(relparfile, reltimfile, ephem=ephem)
         except:
             print("Dir: ", dirname, savedir, parfile, timfile)
             os.chdir(savedir)
