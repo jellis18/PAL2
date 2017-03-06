@@ -335,7 +335,7 @@ def triplot(chain, color='k', weights=None, interpolate=False, smooth=True, \
 
     # get number of parameters
     ndim = chain.shape[1]
-    parameters = np.linspace(0,ndim-1,ndim)
+    parameters = np.arange(ndim, dtype=np.int)
     
     if axarr is not None:
         f = plt.gcf()
