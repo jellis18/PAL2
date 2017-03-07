@@ -10178,7 +10178,7 @@ class PTAmodels(object):
                                                    stype='lineartimingmodel', corr='single')
 
         # current timing model parameters
-        sig = self.ptasignals[signum]
+        sig = self.ptasignals[signum[0]]
         x = parameters[sig['parindex']:(sig['parindex'] + sig['ntotpars'])]
 
         # get parmeters in new diagonalized basis

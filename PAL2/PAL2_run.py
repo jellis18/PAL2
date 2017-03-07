@@ -1013,14 +1013,18 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
                 for ss, sig in enumerate(model.ptasignals):
 
                     # short hand
-                    ii = sig['parindex']
+                    parind = sig['parindex']
+                    npars = sig['npars']
 
-                    if sig['prior'] == 'gaussian':
-                        m, sigma = sig['mu'], sig['sigma']
-                        cube[ii] = m + s*np.sqrt(2) * ss.erfcinv(2*(1-cube[ii]))
-                    else:
-                        cube[ii] = model.pmin[ii] + cube[ii] * (model.pmax[ii]-model.pmin[ii])
-        
+                    if npars:
+                        for ct, ii in enumerate(range(parind, parind+npars)):
+                            if sig['prior'][ct] == 'gaussian':
+                                m, s = sig['mu'][ct], sig['sigma'][ct]
+                                cube[ii] = m + s*np.sqrt(2) * ss.erfcinv(2*(1-cube[ii]))
+                            else:
+                                cube[ii] = model.pmin[ii] + cube[ii] * \
+                                        (model.pmax[ii]-model.pmin[ii])
+
         
         # mark1 loglike
         else:
