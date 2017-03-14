@@ -364,7 +364,7 @@ class DataFile(object):
         # check for pp dm flags
         if 'pp_dm' in uflags and 'pp_dme' in uflags:
             ppdm = map(float, flagGroup['pp_dm'])
-            ppdm -= np.mean(ppdm)
+            ppdm -= t2pulsar['DM'].val
             ppdme = map(float, flagGroup['pp_dme'])
         else:
             ppdm = np.zeros(len(t2pulsar.toas()))

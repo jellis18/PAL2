@@ -1916,7 +1916,7 @@ class PTAmodels(object):
                         hprior = 'uniform'
                     else:
                         hprior = 'log'
-                    prior = ['cos', 'cyclic', 'log', 'log',
+                    prior = ['cos', 'cyclic', 'log', '{0}'.format(hprior),
                              'log', 'cyclic', 'uniform', 'cos']
                     parids = ['theta', 'phi', 'logmc', 'logh',
                               'logf', 'phase', 'pol', 'inc']
@@ -7695,21 +7695,36 @@ class PTAmodels(object):
             if varyNoise:
                 # compute T^T N^{-1} T
                 if not fixWhite:
-                    #print nfref, (nfref + nf), nfref, (nfref + nf)
-                    self.TNT[nfref:(nfref + nf), nfref:(nfref + nf)] = \
+                    start1 = nfref + nkref
+                    stop1 = nfref + nkref + nf
+                    start2 = nfref + nkref
+                    stop2 = nfref + nkref + nf
+                    #print start1, stop1, start2, stop2
+                    self.TNT[start1:stop1, start2:stop2] = \
                         np.dot(p.Ttmat.T/p.Nvec, p.Tmat)
 
-                    #print nfref,(nfref+nf), nfref+nkref+nf,nfref+nkref+nk+nf
-                    self.TNT[nfref:(nfref+nf), nfref+nkref+nf:nfref+nkref+nk+nf] = \
+                    start1 = nfref + nkref
+                    stop1 = nfref + nkref + nf
+                    start2 = nfref + nkref + nf
+                    stop2 = nfref + nkref + nk + nf
+                    #print start1, stop1, start2, stop2
+                    self.TNT[start1:stop1, start2:stop2] = \
                         np.dot(p.Ttmat.T/p.Nvec, p.Kmat)
 
-                    #print nfref+nkref+nf, nfref+nkref+nf+nk, nfref, nfref+nf
-                    self.TNT[nfref+nkref+nf:nfref+nkref+nf+nk, nfref:nfref+nf] = \
-                        self.TNT[nfref:(nfref+nf), nfref+nkref+nf:nfref+nkref+nk+nf].T
+                    start1 = nfref + nkref + nf
+                    stop1 = nfref + nkref + nf + nk
+                    start2 = nfref + nkref
+                    stop2 = nfref + nf + nkref
+                    #print start1, stop1, start2, stop2
+                    self.TNT[start1:stop1, start2:stop2] = \
+                             self.TNT[start2:stop2, start1:stop1].T
 
-                    #print nfref+nkref+nf, nfref+nkref+nf+nk, nfref+nkref+nf, nfref+nkref+nf+nk
-                    self.TNT[nfref+nkref+nf:nfref+nkref+nf+nk, \
-                             nfref+nkref+nf:nfref+nkref+nf+nk] = \
+                    start1 = nfref+nkref+nf
+                    stop1 = nfref+nkref+nf+nk
+                    start2 = nfref+nkref+nf
+                    stop2 = nfref+nkref+nf+nk
+                    #print start1, stop1, start2, stop2
+                    self.TNT[start1:stop1, start2:stop2] = \
                         np.dot(p.Kmat.T/p.Nvec, p.Kmat) + \
                             np.dot(p.Dmat.T / p.ppdmerr**2, p.Dmat)
 
@@ -8976,7 +8991,7 @@ class PTAmodels(object):
             if sig['bvary'][jj]:
 
                 # log prior
-                if sig['prior'][jj] == 'log':
+                if sig['prior'][jj]  in ['log', 'sqrt']:
                     q[parind + jj] = np.random.uniform(self.pmin[parind + jj],
                                                        self.pmax[parind + jj])
                     qxy += 0

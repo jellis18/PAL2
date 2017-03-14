@@ -1095,7 +1095,7 @@ class Pulsar(object):
                             if 'DMX' not in p])
 
             self.Kmat = Mmat[:,idx]
-            self.Dmat = ((self.freqs/1e6)**2 * self.Kmat.T).T / PAL_DMk
+            self.Dmat = (self.freqs**2 * self.Kmat.T).T / PAL_DMk
             Mm = Mm[:,nidx]
             self.Mmat_reduced = Mm
             
