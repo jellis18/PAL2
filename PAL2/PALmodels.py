@@ -211,6 +211,7 @@ class PTAmodels(object):
                       compression='None',
                       Tmax=None,
                       evalCompressionComplement=False,
+                      use_svd_design=False,
                       likfunc='mark1'):
 
         signals = []
@@ -2374,6 +2375,7 @@ class PTAmodels(object):
             "incDMX": incDMX,
             "orderFrequencyLines": orderFrequencyLines,
             "evalCompressionComplement": evalCompressionComplement,
+            "use_svd_design": use_svd_design,
             "likfunc": likfunc,
             "Tmax":Tmax,
             "redExtNf":redExtNf,
@@ -3063,6 +3065,7 @@ class PTAmodels(object):
         dTmax = fullmodel['Tmax']
         nfredExt = fullmodel['redExtNf']
         incRedExt = fullmodel['incRedExt']
+        use_svd_design = fullmodel['use_svd_design']
         try:
             incEphemError = fullmodel['incEphemError']
             ephemModel = fullmodel['ephemModel']
@@ -3201,7 +3204,8 @@ class PTAmodels(object):
                                           ephemModel=ephemModel,
                                           nfredExt=nfredExt, 
                                           haveScat=numScatFreqs!=0,
-                                         numScatFreqs=numScatFreqs)
+                                         numScatFreqs=numScatFreqs,
+                                         use_svd_design=use_svd_design)
 
         # Initialise the ptasignal objects
         self.ptasignals = []

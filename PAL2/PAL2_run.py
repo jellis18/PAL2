@@ -309,6 +309,8 @@ parser.add_argument('--start_time', dest='start_time', type=float, action='store
                      default=None, help='Start time for TOAs [MJD]')
 parser.add_argument('--end_time', dest='end_time', type=float, action='store', \
                      default=None, help='End time for TOAs [MJD]')
+parser.add_argument('--use_svd_design', dest='use_svd_design', action='store_true', \
+                    default=False, help='Use SVD stabilization for design matrix')
 
 # parse arguments
 args = parser.parse_args()
@@ -455,6 +457,7 @@ if args.jsonfile is None:
         gwbModel=args.gwbModel, 
         Tmax = args.Tspan,
         compression=args.compression, 
+        use_svd_design=args.use_svd_design,
         likfunc=likfunc)
 
     # fix spectral index

@@ -747,7 +747,8 @@ class Pulsar(object):
                                 incRedBand=False, incDMBand=False, incRedGroup=False,
                                 redGroups=None, incRedExt=False, nfredExt=20,
                                 redExtFx=None, incGP=False, haveScat=False, 
-                                numScatFreqs=0, incEphemError=False, ephemModel=None):
+                                numScatFreqs=0, incEphemError=False, 
+                                ephemModel=None, use_svd_design=False):
 
 
         # For creating the auxiliaries it does not really matter: we are now
@@ -1072,8 +1073,11 @@ class Pulsar(object):
             self.norm = np.sqrt(np.sum(Mm ** 2, axis=0))
             Mm /= self.norm
             self.newdes = self.ptmdescription
-            #print '\n', 'HERE', '\n'
             #Mm, s, Vh = sl.svd(Mmat, full_matrices=False)
+
+            if use_svd_design:
+                print 'Using SVD design matrix normalization'
+                Mm, _, _ = np.linalg.svd(Mmat, full_matrices=False)
 
         self.Mmat_reduced = Mm
         if likfunc not in ['mark7', 'mark6', 'mark9', 'mark10']:
