@@ -363,8 +363,18 @@ class DataFile(object):
 
         # check for pp dm flags
         if 'pp_dm' in uflags and 'pp_dme' in uflags:
-            ppdm = map(float, flagGroup['pp_dm'])
-            ppdm -= t2pulsar['DM'].val
+            M = t2pulsar.designmatrix()
+            pars = ['Offset'] + list(t2pulsar.pars(which='fit'))
+            vals = np.concatenate((np.array([0]), np.array(t2pulsar.vals(which='fit'))))
+            idx = np.array([ct for ct, p in enumerate(pars) 
+                            if 'DMX' in p])
+            K = M[:,idx]
+            D = K.copy()
+            D[np.nonzero(D)] = 1
+            dmt = t2pulsar['DM'].val + np.dot(D, vals[idx])
+            ppdm = np.array(map(float, flagGroup['pp_dm']))
+            ppdm -= dmt
+            #ppdm -= ppdm.mean()
             ppdme = map(float, flagGroup['pp_dme'])
         else:
             ppdm = np.zeros(len(t2pulsar.toas()))
@@ -609,7 +619,7 @@ class DataFile(object):
         psr.ppdmerr = np.array(self.getData(psrname, 'ppdme', 'Flags'))
         if np.all(psr.ppdm!=0):
             dmin = psr.ppdmerr == 0
-            psr.ppdmerr[dmin] = np.min(psr.ppdmerr[~dmin])
+            psr.ppdmerr[dmin] = 1e10
 
         # Obtain residuals, TOAs, etc.
         psr.toas = np.array(self.getData(psrname, 'TOAs'))

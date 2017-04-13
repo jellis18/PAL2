@@ -1100,7 +1100,8 @@ class Pulsar(object):
 
             self.Kmat = Mmat[:,idx]
             self.Dmat = (self.freqs**2 * self.Kmat.T).T / PAL_DMk
-            Mm = Mm[:,nidx]
+            #Mm = Mm[:,nidx]
+            Mm = Mmat[:,nidx]
             self.Mmat_reduced = Mm
             
 
@@ -1117,6 +1118,14 @@ class Pulsar(object):
                     #    dt=1)
                 self.Umat = U
                 self.Tmat = np.concatenate((self.Tmat, U), axis=1)
+
+            # add extra rows
+            if likfunc == 'mark11':
+                top = np.concatenate((Mm, self.Ftot, self.Kmat), axis=1)
+                bottom = np.concatenate((np.zeros(Mm.shape),
+                                         np.zeros(self.Ftot.shape),
+                                         self.Dmat), axis=1)
+                self.Tmat = np.concatenate((top, bottom), axis=0)
 
             if haveScat:
                 Fscat, self.Fscatfreqs =  PALutils.createfourierdesignmatrix(

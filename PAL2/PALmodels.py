@@ -196,6 +196,7 @@ class PTAmodels(object):
                       incJitterEquad=False, separateJitterEquad=False,
                       separateJitterEquadByFreq=True,
                       efacPrior='uniform', equadPrior='log', jitterPrior='uniform',
+                      inc_dm_efac=False,
                       jitterEquadPrior='log',
                       redAmpPrior='log', redSiPrior='uniform', GWAmpPrior='log',
                       GWSiPrior='uniform',
@@ -289,6 +290,23 @@ class PTAmodels(object):
                     "pwidth": [0.1],
                     "pstart": [1.0],
                     "prior": [efacPrior]
+                })
+                signals.append(newsignal)
+
+            if inc_dm_efac:
+                newsignal = OrderedDict({
+                    "stype": "dmefac",
+                    "corr": "single",
+                    "pulsarind": ii,
+                    "flagname": "pulsarname",
+                    "flagvalue": p.name,
+                    "bvary": [True],
+                    "pmin": [0.001],
+                    "pmax": [10.0],
+                    "pwidth": [0.1],
+                    "pstart": [1.0],
+                    "prior": ['uniform'],
+                    "parids":['dmefac_'+p.name]
                 })
                 signals.append(newsignal)
 
@@ -997,6 +1015,10 @@ class PTAmodels(object):
                                     print 'Turning off fit for {0}'.format(dmx)
                                     p.t2psr[dmx].fit = False
                                     p.t2psr[dmx].val = 0.0
+                            elif key == 'DM':
+                                print 'Turning off fit for {0}'.format(key)
+                                p.t2psr[key].fit = False
+                                print 'Fixing value at  {0}'.format(p.t2psr[key].val)
                             else:
                                 print 'Turning off fit for {0}'.format(key)
                                 p.t2psr[key].fit = False
@@ -3065,13 +3087,14 @@ class PTAmodels(object):
         dTmax = fullmodel['Tmax']
         nfredExt = fullmodel['redExtNf']
         incRedExt = fullmodel['incRedExt']
-        use_svd_design = fullmodel['use_svd_design']
         try:
             incEphemError = fullmodel['incEphemError']
             ephemModel = fullmodel['ephemModel']
+            use_svd_design = fullmodel['use_svd_design']
         except KeyError:
             incEphemError = False
             ephemModel = None
+            use_svd_design = 'False'
         numScatFreqs = fullmodel['numScatFreqs']
 
         if len(self.psr) < 1:
@@ -3250,6 +3273,10 @@ class PTAmodels(object):
                 elif sig['stype'] == 'jitter':
                     flagname = sig['flagname']
                     flagvalue = 'jitter_' + sig['flagvalue']
+
+                elif sig['stype'] == 'dmefac':
+                    flagname = 'dmefac'
+                    flagvalue = sig['parids'][jj]
 
                 elif sig['stype'] == 'jitter_equad':
                     flagname = sig['flagname']
@@ -3586,17 +3613,15 @@ class PTAmodels(object):
                 #        p.Tmat.shape[0], len(p.kappa_scat))), axis=1)
                 #    nphiTmat += len(p.kappa_scat) 
                 
-                if self.likfunc == 'mark11':
-                    nphiTmat += p.Dmat.shape[1]
-
                 nphiTmat += p.Tmat.shape[1] + p.nSingleFreqs * 2 + p.nSingleDMFreqs * 2 + \
                     p.ndmEventCoeffs
 
-                
 
             # noise vectors
             p.Nvec = np.zeros(len(p.toas))
             p.Nwvec = np.zeros(p.nbasis)
+            if self.likfunc == 'mark11':
+                p.Ndmvec = p.ppdmerr**2
 
         # number of GW frequencies
         self.ngwf = np.max(self.npf)
@@ -4213,6 +4238,10 @@ class PTAmodels(object):
 
                 else:   # use Nvec stored in dictionary
                     self.psr[psrind].Nvec += sig['Nvec'] * pefac ** 2
+
+            elif sig['stype'] == 'dmefac':
+                dmefac = parameters[parind]
+                self.psr[psrind].Ndmvec = self.psr[psrind].ppdmerr**2 * dmefac**2
 
             # equad signal
             elif sig['stype'] == 'equad':
@@ -7670,110 +7699,73 @@ class PTAmodels(object):
 
 
         # compute the white noise terms in the log likelihood
-        nfref, nkref = 0, 0
+        nfref = 0
         if varyNoise:
             self.logdet_Sigma = 0
         for ct, p in enumerate(self.psr):
 
             nf = p.Ttmat.shape[1]
-            nk = p.Dmat.shape[1]
 
             # check for nans or infs
             if np.any(np.isnan(p.detresiduals)) or np.any(
                     np.isinf(p.detresiduals)):
                 return -np.inf
 
-            # equivalent to N^{-1} \delta t
-            Ctdt = p.detresiduals / p.Nvec
-            Cxdx = p.ppdm / p.ppdmerr**2
+            residuals = np.concatenate((p.detresiduals, p.ppdm))
+            Nvec = np.concatenate((p.Nvec, p.Ndmvec))
 
-            t1 = np.dot(p.Ttmat.T, Ctdt)
-            t2 = np.dot(p.Dmat.T, Cxdx)
-            t3 = np.dot(p.Kmat.T, Ctdt)
+            # equivalent to T^T N^{-1} \delta t
             if ct == 0:
-                d = np.hstack((t1, t2+t3))
-
+                d = np.dot(p.Ttmat.T, residuals / Nvec)
             else:
-                d = np.append(d, np.hstack((t1, t2+t3)))
+                d = np.append(d, np.dot(p.Ttmat.T, residuals / Nvec))
 
             if varyNoise:
                 # compute T^T N^{-1} T
                 if not fixWhite:
-                    start1 = nfref + nkref
-                    stop1 = nfref + nkref + nf
-                    start2 = nfref + nkref
-                    stop2 = nfref + nkref + nf
-                    #print start1, stop1, start2, stop2
-                    self.TNT[start1:stop1, start2:stop2] = \
-                        np.dot(p.Ttmat.T/p.Nvec, p.Tmat)
+                    right = ((1 / Nvec) * p.Ttmat.T).T
+                    self.TNT[nfref:(nfref+nf), nfref:(nfref+nf)] = \
+                            np.dot(p.Ttmat.T, right)
 
-                    start1 = nfref + nkref
-                    stop1 = nfref + nkref + nf
-                    start2 = nfref + nkref + nf
-                    stop2 = nfref + nkref + nk + nf
-                    #print start1, stop1, start2, stop2
-                    self.TNT[start1:stop1, start2:stop2] = \
-                        np.dot(p.Ttmat.T/p.Nvec, p.Kmat)
-
-                    start1 = nfref + nkref + nf
-                    stop1 = nfref + nkref + nf + nk
-                    start2 = nfref + nkref
-                    stop2 = nfref + nf + nkref
-                    #print start1, stop1, start2, stop2
-                    self.TNT[start1:stop1, start2:stop2] = \
-                             self.TNT[start2:stop2, start1:stop1].T
-
-                    start1 = nfref+nkref+nf
-                    stop1 = nfref+nkref+nf+nk
-                    start2 = nfref+nkref+nf
-                    stop2 = nfref+nkref+nf+nk
-                    #print start1, stop1, start2, stop2
-                    self.TNT[start1:stop1, start2:stop2] = \
-                        np.dot(p.Kmat.T/p.Nvec, p.Kmat) + \
-                            np.dot(p.Dmat.T / p.ppdmerr**2, p.Dmat)
-
+            # log determinant of G^TNG
+            logdet_N = np.sum(np.log(Nvec))
 
             # triple product in likelihood function
-            rNr = np.dot(p.detresiduals, Ctdt)
-            logdet_N = np.sum(np.log(p.Nvec))
-
-            rNr += np.dot(p.ppdm, Cxdx)
-            logdet_N += 2 * np.sum(np.log(p.ppdmerr))
+            rNr = np.sum(residuals ** 2 / Nvec)
 
             # first component of likelihood function
-            loglike += -0.5 * (logdet_N + rNr) - 0.5 * \
-                len(p.toas) * np.log(2 * np.pi)
+            loglike += -0.5 * (logdet_N + rNr)
 
 
             # calculate red noise piece
             if not incCorrelations:
-                start, stop = nfref+nkref, nfref+nkref+nf+nk
 
                 # compute sigma
-                dd = d[start:stop]
+                dd = d[nfref:(nfref + nf)]
 
                 if varyNoise:
-
-                    self.Sigma[start:stop, start:stop] = \
-                            self.TNT[start:stop, start:stop] +\
-                            self.Phiinv[start:stop, start:stop]
+                    self.Sigma[nfref:(nfref + nf), nfref:(nfref + nf)] = \
+                        self.TNT[nfref:(nfref + nf), nfref:(nfref + nf)] + \
+                        self.Phiinv[nfref:(nfref + nf), nfref:(nfref + nf)]
 
                 # cholesky decomp for maximum likelihood fourier components
                 try:
-                    cf = sl.cho_factor(self.Sigma[start:stop, start:stop])
+                    cf = sl.cho_factor(
+                        self.Sigma[nfref:(nfref + nf), nfref:(nfref + nf)])
                     self.cf[ct] = cf
+                    #print self.cf[ct]
+                    #print '\n\n\n'
                     expval2 = sl.cho_solve(cf, dd)
                     if varyNoise:
                         self.logdet_Sigma += np.sum(2 * np.log(np.diag(cf[0])))
                 except np.linalg.LinAlgError:
-                    return -np.inf
                     #raise ValueError("ERROR: Sigma singular according to SVD")
+                    return -np.inf
 
                 loglike += 0.5 * (np.dot(dd, expval2))
 
-            # increment frequency counter
-            nfref += nf
-            nkref += nk
+                # increment frequency counter
+                nfref += nf
 
         if not incCorrelations:
             loglike += -0.5 * (self.logdetPhi + self.logdet_Sigma)
@@ -7792,14 +7784,19 @@ class PTAmodels(object):
                 if varyNoise:
                     self.logdet_Sigma = np.sum(2 * np.log(np.diag(cf[0])))
             except np.linalg.LinAlgError:
-                return -np.inf
+                U, s, Vh = sl.svd(self.Sigma)
+                if not np.all(s > 0):
+                    raise ValueError("ERROR: Sigma singular according to SVD")
+                expval2 = np.dot(
+                    Vh.T, np.dot(np.diag(1.0 / s), np.dot(U.T, d)))
+                if varyNoise:
+                    self.logdet_Sigma = np.sum(np.log(s))
 
             loglike += -0.5 * \
                 (self.logdetPhi + self.logdet_Sigma) + \
                 0.5 * (np.dot(d, expval2))
 
         return loglike
-
 
 
     # compute F_p statistic

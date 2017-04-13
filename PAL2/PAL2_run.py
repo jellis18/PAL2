@@ -204,6 +204,9 @@ parser.add_argument('--incNonGaussian', dest='incNonGaussian', action='store_tru
 parser.add_argument('--nnongauss', dest='nnongauss', action='store', type=int, default=3,
                    help='number of non-guassian components (default=3)')
 
+parser.add_argument('--inc_dm_efac', dest='inc_dm_efac', action='store_true',
+                    default=False, help='Include DM efac for wideband [default=False]')
+
 parser.add_argument('--incGWwavelet', dest='incGWwavelet', action='store_true', \
                     default=False, help='Include GWwavelt signal in run [default=False]')
 parser.add_argument('--nGWwavelets', dest='nGWwavelets', action='store', type=int, default=1,
@@ -433,6 +436,7 @@ if args.jsonfile is None:
         incScattering=args.incScat, scatteringModel=args.scatModel, nscatfreqs=args.nscatf,
         incGWFourierMode=incGWFourierMode, 
         incEquad=args.incEquad,
+        inc_dm_efac=args.inc_dm_efac,
         incTimingModel=args.incTimingModel, nonLinear=args.tmmodel=='nonlinear', 
         addPars=args.addpars, subPars=args.delpars, 
         add_all_timing_pars=args.addAllPars,
@@ -742,6 +746,12 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         if args.incJitterEquad:
             ids = model.get_parameter_indices('jitter_equad', corr='single', split=True)
             [ind.append(id) for id in ids if len(id) > 0]
+
+
+        ##### Wide band parameters #####
+        if args.inc_dm_efac:
+            ids = model.get_parameter_indices('dmefac', corr='single', split=True)
+            [ind.append(id) for id in ids if len(id) > 0]
         
         
         ##### red noise #####
@@ -873,7 +883,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         if args.incTimingModel:
             if args.tmmodel == 'nonlinear':
                 ids = model.get_parameter_indices('nonlineartimingmodel',
-                                              corr='single', split=False)
+                                              corr='single', split=True)
             else:
                 ids = model.get_parameter_indices('lineartimingmodel',
                                               corr='single', split=False)
