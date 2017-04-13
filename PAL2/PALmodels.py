@@ -3094,7 +3094,7 @@ class PTAmodels(object):
         except KeyError:
             incEphemError = False
             ephemModel = None
-            use_svd_design = 'False'
+            use_svd_design = False
         numScatFreqs = fullmodel['numScatFreqs']
 
         if len(self.psr) < 1:
