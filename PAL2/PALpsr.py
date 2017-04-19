@@ -148,7 +148,7 @@ class Pulsar(object):
     No parameters are required, all content must already be in memory
     """
 
-    def initLibsTempoObject(self):
+    def initLibsTempoObject(self, ephem=None):
         # Check that the parfile_content and timfile_content are set
         if self.parfile_content is None or self.timfile_content is None:
             raise ValueError(
@@ -171,9 +171,9 @@ class Pulsar(object):
 
         # Create the libstempo object
         try:
-            self.t2psr = t2.tempopulsar(parfilename, timfilename, maxobs=30000)
+            self.t2psr = t2.tempopulsar(parfilename, timfilename, maxobs=30000, ephem=ephem)
         except TypeError:
-            self.t2psr = t2.tempopulsar(parfilename, timfilename)
+            self.t2psr = t2.tempopulsar(parfilename, timfilename, ephem=ephem)
 
         # Create the BATS?
         # tempresiduals = self.t2psr.residuals(updatebats=True, formresiduals=False)
@@ -1100,8 +1100,11 @@ class Pulsar(object):
 
             self.Kmat = Mmat[:,idx]
             self.Dmat = (self.freqs**2 * self.Kmat.T).T / PAL_DMk
-            #Mm = Mm[:,nidx]
-            Mm = Mmat[:,nidx]
+            norm = np.sqrt(np.sum(np.concatenate((self.Kmat, self.Dmat), axis=0)**2, axis=0))
+            self.Kmat /= norm
+            self.Dmat /= norm
+            Mm = Mm[:,nidx]
+            #Mm = Mmat[:,nidx]
             self.Mmat_reduced = Mm
             
 
