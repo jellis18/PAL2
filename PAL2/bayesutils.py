@@ -71,7 +71,7 @@ def getsigmalevels(hist2d, sig_levels=[0.68, 0.95, 0.997]):
   return level1, level2, level3
 
 
-def confinterval(samples, sigma=0.68, onesided=False, weights=None, 
+def confinterval(samples, sigma=0.68, onesided=False, weights=None,
                  bins=40, type='equalArea'):
     """
 
@@ -80,12 +80,12 @@ def confinterval(samples, sigma=0.68, onesided=False, weights=None,
 
     @param samples: Samples that we wish to get confidence intervals
 
-    @param sigmalevel: Sigma level 1, 2, or 3 sigma, will return 
+    @param sigmalevel: Sigma level 1, 2, or 3 sigma, will return
                        corresponding confidence limits
 
     @param onesided: Boolean to use onesided or twosided confidence
                      limits.
-    
+
     @param weights: Histogram Weights.
 
     @param bins: Number of histogram bins
@@ -113,23 +113,23 @@ def confinterval(samples, sigma=0.68, onesided=False, weights=None,
         else:
             x2min = x[np.flatnonzero(y<=0.5*(1-sigma))[-1]]
             x2max = x[np.flatnonzero(y>=1-0.5*(1-sigma))[0]]
-            
+
     if type == 'minArea':
         delta, xmin, xmax = np.zeros(len(y)), np.zeros(len(y)), np.zeros(len(y))
         start = 0
         for ii in range(len(y)):
             ind = np.flatnonzero((y-y[ii])>=sigma)
             if len(ind) == 0:
-                delta[ii] = np.inf   
+                delta[ii] = np.inf
             else:
                 delta[ii] = x[ind[0]] - x[ii]
                 xmin[ii] = x[ii]
                 xmax[ii] = x[ind[0]]
-        
+
         minind = np.argmin(delta)
         x2min = xmin[minind]
         x2max = xmax[minind]
-                        
+
 
     if type == 'equalProb' and not(onesided):
         hist, xedges = np.histogram(samples, bins=bins, weights=weights)
@@ -149,7 +149,7 @@ def makesubplot2d(ax, samples1, samples2, cmap=None, color='k', weights=None,
                   smooth=True, bins=[40, 40], contours=True, x_range=None,
                   y_range=None, logx=False, logy=False, logz=False, lw=1.5,
                   conf_levels=[0.68, 0.95, 0.99]):
-    
+
     if x_range is None:
         xmin = np.min(samples1)
         xmax = np.max(samples1)
@@ -166,7 +166,7 @@ def makesubplot2d(ax, samples1, samples2, cmap=None, color='k', weights=None,
 
     if logx:
         bins[0] = np.logspace(np.log10(xmin), np.log10(xmax), bins[0])
-    
+
     if logy:
         bins[1] = np.logspace(np.log10(ymin), np.log10(ymax), bins[1])
 
@@ -180,20 +180,20 @@ def makesubplot2d(ax, samples1, samples2, cmap=None, color='k', weights=None,
                 if hist2d[ii,jj] <= 0:
                     hist2d[ii,jj] = 1
 
-    
+
     xedges = np.delete(xedges, -1) + 0.5*(xedges[1] - xedges[0])
     yedges = np.delete(yedges, -1) + 0.5*(yedges[1] - yedges[0])
-    
+
     # gaussian smoothing
     if smooth:
         hist2d = filter.gaussian_filter(hist2d, sigma=0.75)
 
     if contours:
-        
+
         level1, level2, level3 = getsigmalevels(hist2d, conf_levels)
-        
+
         contourlevels = (level1, level2)
-        
+
         contourcolors = (color, color)
         contourlinestyles = ('-', '--')
         contourlinewidths = (lw, lw)
@@ -204,7 +204,7 @@ def makesubplot2d(ax, samples1, samples2, cmap=None, color='k', weights=None,
             contourcolors = contourcolors[::-1]
             contourlinestyles = contourlinestyles[::-1]
             contourlinewidths = contourlinewidths[::-1]
-        
+
 
         c1 = ax.contour(xedges,yedges,hist2d.T,contourlevels[:2], \
                         colors=contourcolors[:2], linestyles=contourlinestyles[:2], \
@@ -229,7 +229,7 @@ def getMeanAndStd(samples, weights=None, bins=50):
 
     hist, xedges = np.histogram(samples, bins, normed=True, weights=weights)
     xedges = np.delete(xedges, -1) + 0.5*(xedges[1] - xedges[0])
-    
+
     # pdf
     p = hist/np.sum(hist)
 
@@ -242,12 +242,12 @@ def getMeanAndStd(samples, weights=None, bins=50):
 
     return m, std
 
-    
-    
+
+
 def makesubplot1d(ax, samples, weights=None, interpolate=False, smooth=True,\
-                  label=None, bins=30, range=None, color='k', 
+                  label=None, bins=30, range=None, color='k',
                   orientation='vertical', logbin=False, **kwargs):
-    """ 
+    """
     Make histogram of samples
 
     """
@@ -265,8 +265,8 @@ def makesubplot1d(ax, samples, weights=None, interpolate=False, smooth=True,\
         if interpolate:
             f = interp.interp1d(xedges, hist, kind='cubic')
             if logbin:
-                xedges = np.logspace(np.log10(xedges.min()), 
-                                     np.log10(xedges.max()), 
+                xedges = np.logspace(np.log10(xedges.min()),
+                                     np.log10(xedges.max()),
                                      10000)
             else:
                 xedges = np.linspace(xedges.min(), xedges.max(), 10000)
@@ -285,7 +285,7 @@ def makesubplot1d(ax, samples, weights=None, interpolate=False, smooth=True,\
             ax.plot(xedges, hist, color=color, **kwargs)
 
 def getMax(samples, weights=None, range=None, bins=50):
-    """ 
+    """
     Make histogram of samples
 
     """
@@ -307,7 +307,7 @@ def getMax(samples, weights=None, range=None, bins=50):
     hist = f(xedges)
 
     return xedges[np.argmax(hist)]
-        
+
 
 # make triangle plot of marginalized posterior distribution
 def triplot(chain, color='k', weights=None, interpolate=False, smooth=True, \
@@ -336,7 +336,7 @@ def triplot(chain, color='k', weights=None, interpolate=False, smooth=True, \
     # get number of parameters
     ndim = chain.shape[1]
     parameters = np.arange(ndim, dtype=np.int)
-    
+
     if axarr is not None:
         f = plt.gcf()
         #fig, axarr = plt.subplots(nrows=len(parameters), ncols=len(parameters),figsize=figsize)
@@ -351,10 +351,10 @@ def triplot(chain, color='k', weights=None, interpolate=False, smooth=True, \
 
             # get ranges
             if ranges:
-                xmin, xmax = confinterval(chain[:, parameters[ii]], sigma=0.95, 
+                xmin, xmax = confinterval(chain[:, parameters[ii]], sigma=0.95,
                                           type='equalProb')
                 x_range = [xmin, xmax]
-                xmin, xmax = confinterval(chain[:, parameters[jj]], sigma=0.95, 
+                xmin, xmax = confinterval(chain[:, parameters[jj]], sigma=0.95,
                                           type='equalProb')
                 y_range = [xmin, xmax]
 
@@ -396,7 +396,7 @@ def triplot(chain, color='k', weights=None, interpolate=False, smooth=True, \
                 else:
                     # Make a 2D plot
                     makesubplot2d(axarr[jj][ii], chain[:,parameters[ii]],
-                                  chain[:,parameters[jj]], cmap=cmap, 
+                                  chain[:,parameters[jj]], cmap=cmap,
                                   color=color, weights=weights,
                                   smooth=smooth, lw=lw, x_range=x_range,
                                   y_range=y_range)
@@ -428,24 +428,24 @@ def triplot(chain, color='k', weights=None, interpolate=False, smooth=True, \
     # overall plot title
     if title:
         f.suptitle(title, fontsize=14, y=0.90)
-     
-    # make plots closer together 
+
+    # make plots closer together
     f.subplots_adjust(hspace=0.1)
     f.subplots_adjust(wspace=0.1)
 
     return axarr
 
 
-def pol2cart(lon, lat): 
-    """ 
-    Utility function to convert longitude,latitude on a unit sphere to 
+def pol2cart(lon, lat):
+    """
+    Utility function to convert longitude,latitude on a unit sphere to
     cartesian co-ordinates.
 
-    """ 
+    """
 
-    x = np.cos(lat)*np.cos(lon) 
-    y = np.cos(lat)*np.sin(lon) 
-    z = np.sin(lat) 
+    x = np.cos(lat)*np.cos(lon)
+    y = np.cos(lat)*np.sin(lon)
+    z = np.sin(lat)
 
     return np.array([x,y,z])
 
@@ -457,14 +457,14 @@ def greedy_bin_sky(skypos, skycarts):
 
     """
 
-    N = len(skycarts) 
+    N = len(skycarts)
     skycarts = np.array(skycarts)
-    bins = np.zeros(N) 
-    for raSample, decSample in skypos: 
-        sampcart = pol2cart(raSample, decSample) 
+    bins = np.zeros(N)
+    for raSample, decSample in skypos:
+        sampcart = pol2cart(raSample, decSample)
         dx = np.dot(skycarts, sampcart)
         maxdx = np.argmax(dx)
-        bins[maxdx] += 1 
+        bins[maxdx] += 1
 
     # fill in skymap
     histIndices = np.argsort(bins)[::-1]    # in decreasing order
@@ -473,14 +473,14 @@ def greedy_bin_sky(skypos, skycarts):
     frac = 0.0
     skymap = np.zeros(N)
     for i in histIndices:
-        frac = float(bins[i])/float(NSamples) 
+        frac = float(bins[i])/float(NSamples)
         skymap[i] = frac
 
     return skymap
 
 
 def plotSkyMap(raSample, decSample, nside=16, contours=None, colorbar=True, \
-              inj=None, psrs=None, smooth=True, smoothsigma=0.1, cmap='YlOrBr', 
+              inj=None, psrs=None, smooth=True, smoothsigma=0.1, cmap='YlOrBr',
                outfile='skymap.pdf', color='k'):
     """
 
@@ -653,12 +653,12 @@ def makespectrumplot(ax, chain, parstart=1, numfreqs=10, freqs=None, \
         fmin, fmax = confinterval(chain[:, parstart+ii], sigma=0.68)
         yval[ii] = (fmax + fmin) * 0.5
         yerr[ii] = (fmax - fmin) * 0.5
-    
+
     retvals = []
     if values:
         retvals.append(yval)
         retvals.append(yerr)
-    
+
 
     # For plotting reference spectra
     pfreqs = 10 ** ufreqs
@@ -749,7 +749,7 @@ def makePostPlots(chain, labels, outDir='./postplots'):
         plt.xlabel(labels[ii])
         ax.xaxis.set_major_locator(xmajorLocator)
         ax.yaxis.set_major_locator(ymajorLocator)
-        
+
         plt.savefig(outDir + '/' + labels[ii] + '_post.png', bbox_inches='tight', \
                    dpi=200)
 
@@ -757,13 +757,13 @@ def makePostPlots(chain, labels, outDir='./postplots'):
 def makeSkyMap(samples, lmax, nside=16, psrs=None, cmap='YlOrBr'):
 
     # number of pixels total
-    npix = hp.nside2npix(nside)   
+    npix = hp.nside2npix(nside)
 
     # initialize theta and phi map coordinantes
     skypos=[]
     for ii in range(npix):
         skypos.append(np.array(hp.pix2ang(nside,ii)))
-    
+
     skypos = np.array(skypos)
     harmvals = PALutils.SetupSkymapPlottingGrid(lmax,skypos)
 
@@ -775,7 +775,7 @@ def makeSkyMap(samples, lmax, nside=16, psrs=None, cmap='YlOrBr'):
 
     pwr = np.array(pwr)
     pwr = np.mean(pwr, axis=0)
-    
+
     ax = plt.subplot(111, projection='astro mollweide')
     ax.grid()
     plot.outline_text(ax)

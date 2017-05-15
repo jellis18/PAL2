@@ -75,7 +75,7 @@ class PTAmodels(object):
         self.clear()
 
         if h5filename is not None:
-            self.initFromFile(h5filename, pulsars=pulsars, 
+            self.initFromFile(h5filename, pulsars=pulsars,
                               start_time=start_time, end_time=end_time)
 
             if jsonfilename is not None:
@@ -118,7 +118,7 @@ class PTAmodels(object):
     @param append:      If set to True, do not delete earlier read-in pulsars
     """
 
-    def initFromFile(self, filename, pulsars='all', append=False, 
+    def initFromFile(self, filename, pulsars='all', append=False,
                      start_time=None, end_time=None):
         # Retrieve the pulsar list
         self.h5df = PALdatafile.DataFile(filename)
@@ -461,7 +461,7 @@ class PTAmodels(object):
                         "prior": [equadPrior]
                     })
                     signals.append(newsignal)
-            
+
             if incGlitch:
                 toamin = p.toas.min() / 86400
                 toamax = p.toas.max() / 86400
@@ -504,7 +504,7 @@ class PTAmodels(object):
                         pstart = [0.5*(toamin+toamax), -15, 1]
                         pwidth = [30, 0.1, 0.1]
                         prior = ['uniform', 'log', 'uniform']
-                        parids = ['glitch_time-{0}-{1}-{2}'.format(str(p.name), lb, hb), 
+                        parids = ['glitch_time-{0}-{1}-{2}'.format(str(p.name), lb, hb),
                                   'glitch_amp-{0}-{1}-{2}'.format(str(p.name), lb, hb),
                                   'glitch_sign-{0}-{1}-{2}'.format(str(p.name), lb, hb)]
 
@@ -578,7 +578,7 @@ class PTAmodels(object):
                     "prior": prior
                 })
                 signals.append(newsignal)
-            
+
             if incDM:
                 if dmModel == 'spectrum':
                     #nfreqs = ndmfreqs
@@ -620,7 +620,7 @@ class PTAmodels(object):
                     "prior": prior
                 })
                 signals.append(newsignal)
-            
+
             if incRedExt:
                 if redExtModel == 'spectrum':
                     nf = redExtNf
@@ -657,8 +657,8 @@ class PTAmodels(object):
                     "parids":parids
                 })
                 signals.append(newsignal)
-        
-            
+
+
             if incEnvelope:
                 if envelopeModel == 'spectrum':
                     model = 'env_spectrum'
@@ -937,11 +937,11 @@ class PTAmodels(object):
 
                     if add_all_timing_pars:
                         if p.t2psr.binarymodel in ['DD', 'T2']:
-                            pars = ['M2', 'SINI', 'PBDOT', 'OMDOT', 
+                            pars = ['M2', 'SINI', 'PBDOT', 'OMDOT',
                                     'XDOT', 'EDOT']
 
                         elif p.t2psr.binarymodel in ['ELL1']:
-                            pars = ['M2', 'SINI', 'PBDOT', 'XDOT', 
+                            pars = ['M2', 'SINI', 'PBDOT', 'XDOT',
                                     'EPS1DOT', 'EPS2DOT']
                         else:
                             pars = None
@@ -1004,7 +1004,7 @@ class PTAmodels(object):
                                     p.t2psr[key].val = 0.99
                                 if key == 'M2' and p.t2psr['M2'].val == 0:
                                     p.t2psr[key].val = 0.3
-                    
+
 
                     if subPars is not None:
                         for key in subPars:
@@ -1023,7 +1023,7 @@ class PTAmodels(object):
                                 print 'Turning off fit for {0}'.format(key)
                                 p.t2psr[key].fit = False
                                 p.t2psr[key].val = 0.0
-                    
+
                     # Get updated model
                     p.ptmdescription = ['Offset'] + map(str, p.t2psr.pars())
                     p.ptmpars = np.array([0] + list(p.t2psr.vals()))
@@ -1195,7 +1195,7 @@ class PTAmodels(object):
 
                             if tmperrs[jj] == 0:
                                 tmperrs[jj] = tmpest[jj] * norm[jj]
-                        
+
                             pmin += [-100.0 * tmperrs[jj] * norm[jj]]
                             pmax += [100.0 * tmperrs[jj] * norm[jj]]
                             pwidth += [tmperrs[jj] * norm[jj] / 5]
@@ -1298,7 +1298,7 @@ class PTAmodels(object):
                     "prior": priors
                 })
                 signals.append(newsignal)
-            
+
             if incJitterFourierMode:
                 bvary = [True] * p.nepoch
                 pmin = [-1e-5] * p.nepoch
@@ -1441,7 +1441,7 @@ class PTAmodels(object):
                 signals.append(newsignal)
 
             # separate pulsar phase and frequency
-            if incCW and CWModel in ['free', 'freephase', 'eccgam', 
+            if incCW and CWModel in ['free', 'freephase', 'eccgam',
                                      'upperLimit_phase', 'mass_ratio',
                                      'strain']:
                 for cc in range(nCW):
@@ -1452,9 +1452,9 @@ class PTAmodels(object):
                         pstart = [np.pi, -8]
                         pwidth = [0.1, 0.1]
                         prior = ['cyclic', 'log']
-                        parids = ['pphase_' + str(cc) + '_' + str(p.name), 
+                        parids = ['pphase_' + str(cc) + '_' + str(p.name),
                                   'lpfgw_' + str(cc) + '_' + str(p.name)]
-                    
+
                     if CWModel == 'eccgam':
                         bvary = [True] * 2
                         pmin = [0, 0]
@@ -1462,12 +1462,12 @@ class PTAmodels(object):
                         pstart = [np.pi, np.pi]
                         pwidth = [0.1, 0.1]
                         prior = ['cyclic', 'cyclic']
-                        parids = ['pphase_' + str(cc) + '_' + str(p.name), 
+                        parids = ['pphase_' + str(cc) + '_' + str(p.name),
                                   'pgamma_' + str(cc) + '_' + str(p.name)]
 
-                    if CWModel in ['freephase', 'upperLimit_phase', 'mass_ratio', 
+                    if CWModel in ['freephase', 'upperLimit_phase', 'mass_ratio',
                                    'strain']:
-                        bvary = [True] 
+                        bvary = [True]
                         pmin = [0]
                         pmax = [2*np.pi]
                         pstart = [np.pi]
@@ -1492,7 +1492,7 @@ class PTAmodels(object):
                     })
                     signals.append(newsignal)
 
-            
+
             if incWavelet:
                 Tspan = (p.toas.max() - p.toas.min())
                 ntoa = int(24 * Tspan / 3.16e7)
@@ -1590,7 +1590,7 @@ class PTAmodels(object):
                         "prior": prior,
                     })
                     signals.append(newsignal)
-            
+
             if incSysWavelet:
                 uflagvals = np.unique(p.flags)
                 for flagval in uflagvals:
@@ -1602,15 +1602,15 @@ class PTAmodels(object):
                         if sysWaveletModel == 'snr':
                             bvary = [True] * 5
                             pmin = [0, np.log10(2/Tspan), toas.min()/86400, 0.02, 0]
-                            pmax = [50, np.log10(ntoa/4/Tspan), toas.max()/86400, 
+                            pmax = [50, np.log10(ntoa/4/Tspan), toas.max()/86400,
                                     40, 2*np.pi]
                             pstart = [6, -7, (toas.max() + toas.min())/2/86400,
                                      30, np.pi]
                             pwidth = [0.1, 0.1, 10, 2, 0.1]
                             prior = ['uniform', 'log', 'uniform', 'uniform', 'cyclic']
-                            parids = ['swaveSNR_' + str(flagval) + '_' + str(ww), 
+                            parids = ['swaveSNR_' + str(flagval) + '_' + str(ww),
                                       'swaveFreq_' + str(flagval) + '_' + str(ww),
-                                      'swaveT0_' + str(flagval) + '_' + str(ww), 
+                                      'swaveT0_' + str(flagval) + '_' + str(ww),
                                       'swaveQ_' + str(flagval) + '_' + str(ww),
                                       'swavePhase_' + str(flagval) + '_' + str(ww)]
                             mu = [None] * 5
@@ -1618,15 +1618,15 @@ class PTAmodels(object):
                         else:
                             bvary = [True] * 5
                             pmin = [-8, np.log10(2/Tspan), toas.min()/86400, 0.02, 0]
-                            pmax = [-5, np.log10(ntoa/4/Tspan), toas.max()/86400, 
+                            pmax = [-5, np.log10(ntoa/4/Tspan), toas.max()/86400,
                                     40, 2*np.pi]
                             pstart = [-7, -7.6, (toas.max() + toas.min())/2/86400,
                                      30, np.pi]
                             pwidth = [0.1, 0.1, 10, 2, 0.1]
                             prior = ['log', 'log', 'uniform', 'uniform', 'cyclic']
-                            parids = ['swaveAmp_' + str(flagval) + '_' + str(ww), 
+                            parids = ['swaveAmp_' + str(flagval) + '_' + str(ww),
                                       'swaveFreq_' + str(flagval) + '_' + str(ww),
-                                      'swaveT0_' + str(flagval) + '_' + str(ww), 
+                                      'swaveT0_' + str(flagval) + '_' + str(ww),
                                       'swaveQ_' + str(flagval) + '_' + str(ww),
                                       'swavePhase_' + str(flagval) + '_' + str(ww)]
                             mu = [None] * 5
@@ -1712,7 +1712,7 @@ class PTAmodels(object):
                     "prior": prior,
                 })
                 signals.append(newsignal)
-                
+
                 Tspan = np.max([(pp.toas.max()-pp.toas.min()) for pp in self.psr])
                 ntoa = int(24 * Tspan / 3.16e7)
                 for ww in range(nGWWavelets):
@@ -1798,15 +1798,15 @@ class PTAmodels(object):
                         if waveletModel == 'snr':
                             bvary = [True] * 5
                             pmin = [0, np.log10(3/Tspan), p.toas.min()/86400, 0.5, 0]
-                            pmax = [100, np.log10(ntoa/Tspan), p.toas.max()/86400, 40, 
+                            pmax = [100, np.log10(ntoa/Tspan), p.toas.max()/86400, 40,
                                     2*np.pi]
                             pstart = [6, -7, (p.toas.max() + p.toas.min())/2/86400,
                                      30, np.pi]
                             pwidth = [0.1, 0.1, 10, 2, 0.1]
                             prior = ['uniform', 'log', 'uniform', 'uniform', 'cyclic']
-                            parids = ['gwwaveSNR_'+pol+'_'+str(ww), 
+                            parids = ['gwwaveSNR_'+pol+'_'+str(ww),
                                        'gwwaveFreq_'+pol+'_'+str(ww),
-                                       'gwwaveT0_'+pol+'_'+str(ww), 
+                                       'gwwaveT0_'+pol+'_'+str(ww),
                                        'gwwaveQ_'+pol+'_'+str(ww),
                                        'gwwavePhase_'+pol+'_'+str(ww)]
                             mu = [None] * 5
@@ -1814,20 +1814,20 @@ class PTAmodels(object):
                         else:
                             bvary = [True] * 5
                             pmin = [-8, np.log10(3/Tspan), p.toas.min()/86400, 0.5, 0]
-                            pmax = [-5, np.log10(ntoa/Tspan), p.toas.max()/86400, 40, 
+                            pmax = [-5, np.log10(ntoa/Tspan), p.toas.max()/86400, 40,
                                     2*np.pi]
                             pstart = [-7, -7, (p.toas.max() + p.toas.min())/2/86400,
                                      30, np.pi]
                             pwidth = [0.1, 0.1, 10, 2, 0.1]
                             prior = ['log', 'log', 'uniform', 'uniform', 'cyclic']
-                            parids = ['gwwaveAmp_'+pol+'_'+str(ww), 
+                            parids = ['gwwaveAmp_'+pol+'_'+str(ww),
                                        'gwwaveFreq_'+pol+'_'+str(ww),
-                                       'gwwaveT0_'+pol+'_'+str(ww), 
+                                       'gwwaveT0_'+pol+'_'+str(ww),
                                        'gwwaveQ_'+pol+'_'+str(ww),
                                        'gwwavePhase_'+pol+'_'+str(ww)]
                             mu = [None] * 5
                             sigma = [None] * 5
-                    
+
                         newsignal = OrderedDict({
                             "stype": "gwwavelet",
                             "gwwavemodel": gw_wave_model,
@@ -1863,7 +1863,7 @@ class PTAmodels(object):
                 pwidth = [30, 0.1, 0.1, 0.1, 0.1]
                 pstart = [0.5*(toamax+toamin)/86400, -15.0, 3.0, 1.0, 1.0]
                 prior = ['uniform', 'log', 'cyclic', 'cos', 'cyclic']
-                parids = ['bwm-epoch', 'bwm-lamp', 'bwm-phi', 
+                parids = ['bwm-epoch', 'bwm-lamp', 'bwm-phi',
                                'bwm-theta', 'bwm-psi']
 
             elif BWMmodel == 'mono':
@@ -1874,7 +1874,7 @@ class PTAmodels(object):
                 pstart = [0.5*(toamax+toamin)/86400, -15.0]
                 prior = ['uniform', 'log']
                 parids = ['bwm-mono-epoch', 'bwm-mono-lamp']
-            
+
             elif BWMmodel == 'dipole':
                 bvary = [True, True, True, True, True]
                 pmin = [toamin/86400, -18.0, 0.0, 0.0, 0.0]
@@ -1882,9 +1882,9 @@ class PTAmodels(object):
                 pwidth = [30, 0.1, 0.1, 0.1, 0.1]
                 pstart = [0.5*(toamax+toamin)/86400, -15.0, 3.0, 1.0, 1.0]
                 prior = ['uniform', 'log', 'cyclic', 'cos', 'cyclic']
-                parids = ['bwm-dip-epoch', 'bwm-dip-lamp', 'bwm-dip-phi', 
+                parids = ['bwm-dip-epoch', 'bwm-dip-lamp', 'bwm-dip-phi',
                                'bwm-dip-theta', 'bwm-dip-psi']
-            
+
             elif BWMmodel == 'abs':
                 bvary = [True, True, True, True, True]
                 pmin = [toamin/86400, -18.0, 0.0, 0.0, 0.0]
@@ -1892,7 +1892,7 @@ class PTAmodels(object):
                 pwidth = [30, 0.1, 0.1, 0.1, 0.1]
                 pstart = [0.5*(toamax+toamin)/86400, -15.0, 3.0, 1.0, 1.0]
                 prior = ['uniform', 'log', 'cyclic', 'cos', 'cyclic']
-                parids = ['bwm-abs-epoch', 'bwm-abs-lamp', 'bwm-abs-phi', 
+                parids = ['bwm-abs-epoch', 'bwm-abs-lamp', 'bwm-abs-phi',
                                'bwm-abs-theta', 'bwm-abs-psi']
 
             newsignal = OrderedDict({
@@ -1974,7 +1974,7 @@ class PTAmodels(object):
                               'pol', 'inc']
                     if nCW > 1:
                         parids = [pid + '_' + str(cc) for pid in parids]
-                
+
                 if CWModel in ['ecc', 'eccgam']:
                     bvary = [True] * 11
                     pmin = [0, 0, 7, 0.1, -9.5, 0, 0, 0, 0.00001, 0, -4]
@@ -1985,7 +1985,7 @@ class PTAmodels(object):
                     pwidth = [0.1, 0.1, 0.1, 0.1, 0.0001, 0.1, 0.1, 0.1,
                              0.1, 0.1, 0.1]
                     prior = ['cos', 'cyclic', 'log', 'log',
-                             'modified', 'cos', 'uniform', 'uniform', 
+                             'modified', 'cos', 'uniform', 'uniform',
                              'uniform', 'cyclic', 'log']
                     parids = ['theta', 'phi', 'logmc', 'logd',
                               'logF', 'inc', 'pol', 'gamma',
@@ -1994,7 +1994,7 @@ class PTAmodels(object):
                         parids = [pid + '_' + str(cc) for pid in parids]
                     mu = [None] * 11
                     sigma = [None] * 11
-                
+
                 newsignal = OrderedDict({
                     "stype": "cw",
                     "model": CWModel,
@@ -2104,7 +2104,7 @@ class PTAmodels(object):
         #        "mass_ratio": mass_ratio,
         #    })
         #    signals.append(newsignal)
-        
+
         if incSingleGWGP:
             if singleGWGPModel == 'spectrum':
                 bvary = [True] * nfreqs
@@ -2142,11 +2142,11 @@ class PTAmodels(object):
                 pmax = [1, 2*np.pi, np.pi, -11, 7, -7, 7, -11, 7, -7, 7]
                 pstart = [0, np.pi, np.pi/2, -15, 3, -8, 3, -15, 3, -8, 3]
                 pwidth = [0.1] * 11
-                prior = ['uniform', 'uniform', 'uniform', 'log', 'uniform', 
+                prior = ['uniform', 'uniform', 'uniform', 'log', 'uniform',
                          'log', 'uniform', 'log', 'uniform', 'log', 'uniform']
-                parids = ['gp-cos-theta', 'gp-phi', 'gp-psi', 'gp-lA-plus', 
+                parids = ['gp-cos-theta', 'gp-phi', 'gp-psi', 'gp-lA-plus',
                           'gp-gamma-plus', 'gp-lf0-plus', 'gp-kappa-plus',
-                          'gp-lA-cross', 'gp-gamma-cross', 'gp-lf0-cross', 
+                          'gp-lA-cross', 'gp-gamma-cross', 'gp-lf0-cross',
                           'gp-kappa-cross']
                 mu = [None] * 11
                 sigma = [None] * 11
@@ -2176,13 +2176,13 @@ class PTAmodels(object):
                 pstart = [-10.] * 6
                 pwidth = [0.1] * 6
                 prior = ['log'] * 6
-                parids = ['sat_eph_amp_x', 'sat_eph_amp_y', 'sat_eph_amp_z', 
+                parids = ['sat_eph_amp_x', 'sat_eph_amp_y', 'sat_eph_amp_z',
                           'jup_eph_amp_x', 'jup_eph_amp_y', 'jup_eph_amp_z']
                 mu = [None] * 6
                 sigma = [None] * 6
 
             elif ephemErrorModel in ['objects']:
-                ss_label = ['jupiter', 'hygiea', 'ceres', 
+                ss_label = ['jupiter', 'hygiea', 'ceres',
                             'vesta', 'mars', 'apophis']
 
                 nobj = len(ss_label)
@@ -2205,11 +2205,11 @@ class PTAmodels(object):
                 pstart = [-15, -8.0, 2.0] * 3
                 pwidth = [0.1] * nobj*3
                 prior = ['log', 'log', 'linear'] * 3
-                parids = [l+'_eph_'+pos for pos in ['x', 'y', 'z'] for l in ss_label] 
+                parids = [l+'_eph_'+pos for pos in ['x', 'y', 'z'] for l in ss_label]
                 mu = [None] * nobj*3
                 sigma = [None] * nobj*3
 
-            
+
             newsignal = OrderedDict({
             "stype": "ephemeris",
             "model": ephemErrorModel,
@@ -2235,6 +2235,8 @@ class PTAmodels(object):
                 pstart = [-10.0] * ngwfreqs
                 pwidth = [0.1] * ngwfreqs
                 prior = [GWspectrumPrior] * ngwfreqs
+                mu = [None] * ngwfreqs
+                sigma = [None] * ngwfreqs
             elif gwbModel == 'powerlaw':
                 bvary = [True, True, False]
                 pmin = [-18.0, 1.02, 1.0e-11]
@@ -2242,6 +2244,8 @@ class PTAmodels(object):
                 pstart = [-15.0, 2.01, 1.0e-10]
                 pwidth = [0.1, 0.1, 5.0e-11]
                 prior = [GWAmpPrior, GWSiPrior, 'log']
+                mu = [None] * 3
+                sigma = [None] * 3
             elif gwbModel == 'turnover':
                 Tmax = np.max([pp.toas.max()-pp.toas.min() for pp in self.psr])
                 bvary = [True, True, True, True, False]
@@ -2250,12 +2254,16 @@ class PTAmodels(object):
                 pstart = [-15.0, 2.01, -8, 2.01, 0.5]
                 pwidth = [0.1, 0.1, 0.1, 0.1, 0.1]
                 prior = [GWAmpPrior, GWSiPrior, 'kappa', 'uniform', 'uniform']
+                mu = [None] * 5
+                sigma = [None] * 5
 
             newsignal = OrderedDict({
                 "stype": gwbModel,
                 "ngwfreqs": ngwfreqs,
                 "corr": "gr",
                 "pulsarind": -1,
+                "mu": mu,
+                "sigma": sigma,
                 "bvary": bvary,
                 "pmin": pmin,
                 "pmax": pmax,
@@ -2264,7 +2272,7 @@ class PTAmodels(object):
                 "prior": prior
             })
             signals.append(newsignal)
-        
+
         if incGWBSingle:
             if gwbSingleModel == 'spectrum':
                 bvary = [True] * nfreqs
@@ -2284,11 +2292,11 @@ class PTAmodels(object):
                 parids = ['GWBSingle-Amp', 'GWBSingle-gamma']
 
             bvary += [True, True]
-            pmin += [-1, 0.0] 
-            pmax += [1, 2*np.pi] 
-            pstart += [0, np.pi] 
-            pwidth += [0.1, 0.1] 
-            prior += ['uniform', 'uniform'] 
+            pmin += [-1, 0.0]
+            pmax += [1, 2*np.pi]
+            pstart += [0, np.pi]
+            pwidth += [0.1, 0.1]
+            prior += ['uniform', 'uniform']
             parids += ['GWBSingle-costheta', 'GWBSingle-phi']
 
             newsignal = OrderedDict({
@@ -2315,7 +2323,7 @@ class PTAmodels(object):
             prior = ['uniform'] * ncoeff
             parids = ['Phi_' + str(l) + str(m) for l in range(npsr)
                        for m in range(l + 1, npsr)]
-            
+
             newsignal = OrderedDict({
                 "stype": "ORF",
                 "corr": "gr",
@@ -2499,7 +2507,7 @@ class PTAmodels(object):
 
         elif signal['stype'] in ['powerlaw', 'spectrum', 'spectralModel',
                                  'powerlaw_band', 'turnover', 'ext_powerlaw',
-                                 'ext_spectrum', 'broken', 'interpolate', 
+                                 'ext_spectrum', 'broken', 'interpolate',
                                  'ephemeris']:
             # Any time-correlated signal
             self.addSignalTimeCorrelated(signal)
@@ -2520,13 +2528,13 @@ class PTAmodels(object):
             self.addSignalDMV(signal)
             self.haveStochSources = True
 
-        elif signal['stype'] in ['redfouriermode', 'dmfouriermode', 
+        elif signal['stype'] in ['redfouriermode', 'dmfouriermode',
                                  'gwfouriermode', 'jitterfouriermode']:
             # fourier amplitudes
             self.ptasignals.append(signal)
             self.haveDetSources = True
 
-        
+
         elif signal['stype'] in ['bwm', 'glitch', 'glitch_band']:
             # a BWM  GW signal
             self.ptasignals.append(signal)
@@ -2536,13 +2544,13 @@ class PTAmodels(object):
             # a continuous  GW signal
             self.ptasignals.append(signal)
             self.haveDetSources = True
-        
+
             # if eccentric signal make interpolant for eccentricity vs nharm
             if signal['model'] in ['ecc', 'eccgam']:
                 fl = np.loadtxt(PAL2.__path__[0] + '/ecc_vs_nharm.txt')
                 self.nharm = interp1d(fl[:,0], fl[:,1])
 
-        elif signal['stype'] in ['gwwavelet', 'wavelet', 'chrowavelet', 
+        elif signal['stype'] in ['gwwavelet', 'wavelet', 'chrowavelet',
                                  'syswavelet', 'dmwavelet']:
             # a GW wavelet signal
             self.ptasignals.append(signal)
@@ -3027,7 +3035,7 @@ class PTAmodels(object):
         return np.array(signalNumbers, dtype=np.int)
 
     def get_parameter_indices(self, sigtype, corr='single', split=True):
-    
+
         pardes = self.getModelParameterList()
         signum = self.getSignalNumbersFromDict(self.ptasignals,
                                                 stype=sigtype,
@@ -3036,15 +3044,15 @@ class PTAmodels(object):
             ind = [[] for ii in range(len(signum))]
         else:
             ind = [[]]
-        
+
         for ct, sn in enumerate(signum):
             for p in pardes:
                 if p['index'] != -1 and p['sigtype'] == sigtype and p['sigindex'] == sn:
                     if split:
                         ind[ct].append(p['index'])
                     else:
-                        ind[0].append(p['index'])          
-        
+                        ind[0].append(p['index'])
+
         return ind
 
     def initModelFromFile(self, filename, fromFile=False, write='no',
@@ -3056,14 +3064,14 @@ class PTAmodels(object):
         with open(filename) as data_file:
             model = OrderedDict(json.load(data_file))
 
-        self.initModel(model, fromFile=fromFile, write=write, 
+        self.initModel(model, fromFile=fromFile, write=write,
                        verbose=verbose, memsave=memsave)
 
     def writeModelToFile(self, model, filename):
         #model = self.getModelDict()
 
         with open(filename, 'w') as outfile:
-            json.dump(model, outfile, sort_keys=False, indent=4, 
+            json.dump(model, outfile, sort_keys=False, indent=4,
                       separators=(',', ': '))
 
     """
@@ -3225,7 +3233,7 @@ class PTAmodels(object):
                                           incRedExt=incRedExt,
                                           incEphemError=incEphemError,
                                           ephemModel=ephemModel,
-                                          nfredExt=nfredExt, 
+                                          nfredExt=nfredExt,
                                           haveScat=numScatFreqs!=0,
                                          numScatFreqs=numScatFreqs,
                                          use_svd_design=use_svd_design)
@@ -3303,7 +3311,7 @@ class PTAmodels(object):
                     elif sig['corr'] == 'gr':
                         flagvalue = 'gwb_' + \
                             str(self.psr[psrindex].Ffreqs[2 * jj])
-                
+
                 elif sig['stype'] == 'interpolate':
                     flagname = 'frequency'
                     if sig['corr'] == 'single':
@@ -3324,15 +3332,15 @@ class PTAmodels(object):
                 elif sig['stype'] == 'cw':
                     flagname = 'cw'
                     flagvalue = sig['parid'][jj]
-                
+
                 elif sig['stype'] == 'bwm':
                     flagname = 'bwm'
                     flagvalue = sig['parids'][jj]
-                
+
                 elif sig['stype'] == 'glitch':
                     flagname = 'glitch'
                     flagvalue = sig['parids'][jj]
-                
+
                 elif sig['stype'] == 'glitch_band':
                     flagname = 'glitch_band'
                     flagvalue = sig['parids'][jj]
@@ -3340,11 +3348,11 @@ class PTAmodels(object):
                 elif sig['stype'] == 'gwwavelet':
                     flagname = 'gwwavelet'
                     flagvalue = sig['parid'][jj]
-                
+
                 elif sig['stype'] == 'gw-gp':
                     flagname = 'gw-gp'
                     flagvalue = sig['parid'][jj]
-                
+
                 elif sig['stype'] == 'syswavelet':
                     flagname = sig['flagname']
                     flagvalue = sig['parid'][jj]
@@ -3357,7 +3365,7 @@ class PTAmodels(object):
                     flagname = 'wavelet'
                     flagvalue = sig['parid'][jj] + \
                             '_' + sig['flagvalue']
-                
+
                 elif sig['stype'] == 'chrowavelet':
                     flagname = 'chrowavelet'
                     flagvalue = sig['parid'][jj]
@@ -3473,7 +3481,7 @@ class PTAmodels(object):
                     else:
                         flagvalue = 'ared_c_' + \
                             str(self.psr[psrindex].Ffreqs[jj])
-                
+
                 elif sig['stype'] == 'jitterfouriermode':
                     flagname = sig['stype']
                     flagvalue = 'jitter_mode_' + str(jj)
@@ -3596,11 +3604,11 @@ class PTAmodels(object):
             if self.haveDetSources:
                 p.splus = np.zeros_like(p.toas)
                 p.scross = np.zeros_like(p.toas)
-            
+
             if self.likfunc in ['mark6', 'mark7', 'mark8', 'mark9', 'mark10', 'mark11']:
                 p.Ttmat = p.Tmat.copy()
                 if p.nSingleFreqs != 0:
-                    p.Ttmat = np.append(p.Ttmat, np.zeros((p.Tmat.shape[0], 
+                    p.Ttmat = np.append(p.Ttmat, np.zeros((p.Tmat.shape[0],
                                                            p.nSingleFreqs * 2)),
                                        axis=1)
                 if self.haveEnvelope:
@@ -3611,8 +3619,8 @@ class PTAmodels(object):
                 #if self.haveScat:
                 #    p.Ttmat = np.append(p.Ttmat, np.zeros((
                 #        p.Tmat.shape[0], len(p.kappa_scat))), axis=1)
-                #    nphiTmat += len(p.kappa_scat) 
-                
+                #    nphiTmat += len(p.kappa_scat)
+
                 nphiTmat += p.Tmat.shape[1] + p.nSingleFreqs * 2 + p.nSingleDMFreqs * 2 + \
                     p.ndmEventCoeffs
 
@@ -3656,7 +3664,7 @@ class PTAmodels(object):
 
     def get_quadratic_transform(self, btrans, which='forward'):
         """
-        Perform sweet coordinate transformation of 
+        Perform sweet coordinate transformation of
         quadratic parameters
         """
 
@@ -3676,12 +3684,12 @@ class PTAmodels(object):
         return b, L
 
 
-    
+
     def get_quadratic_par_vector(self, parameters):
         """
         Forms vector of all quadratic parameters.
         """
-        
+
         ared, adm, tm, jit, mask = [], [], [], [], []
         for ss, sig in enumerate(self.ptasignals):
 
@@ -3699,15 +3707,15 @@ class PTAmodels(object):
             if sig['stype'] == 'redfouriermode':
                 ared.append(sparameters)
                 [mask.append(ii) for ii in range(parind, parind+npars)]
-            
+
             if sig['stype'] == 'dmfouriermode':
                 adm.append(sparameters)
                 [mask.append(ii) for ii in range(parind, parind+npars)]
-            
+
             if sig['stype'] == 'jitterfouriermode':
                 jit.append(sparameters)
                 [mask.append(ii) for ii in range(parind, parind+npars)]
-            
+
             if sig['stype'] == 'lineartimingmodel':
                 tm.append(sparameters)
                 [mask.append(ii) for ii in range(parind, parind+npars)]
@@ -3724,7 +3732,7 @@ class PTAmodels(object):
 
             if len(ared) != 0:
                 btot = np.concatenate((btot, ared[ct]))
-            
+
             if len(jit) != 0:
                 btot = np.concatenate((btot, jit[ct]))
 
@@ -3872,9 +3880,9 @@ class PTAmodels(object):
             for jj in range(ii+1, upper_triang.shape[1]):
                 upper_triang[ii, jj] = np.cos(
                     phi_els[jj-1][ii]) * \
-                    np.prod(np.sin(np.array(phi_els[jj-1])[0:ii]))   
+                    np.prod(np.sin(np.array(phi_els[jj-1])[0:ii]))
 
-        return np.dot(upper_triang.T, upper_triang) 
+        return np.dot(upper_triang.T, upper_triang)
 
 
     def compute_gradient(self, parameters, incJitter=False, transform=True):
@@ -3978,7 +3986,7 @@ class PTAmodels(object):
                         0.5 * np.dot(Phiinv_diag[idx]**2, b[idx]**2)
                 if transform:
                         self.gradient[parind] += 0.5 * np.dot(L[idx]**2, Phiinv_diag[idx]**2)
-                        self.gradient[parind] += 0.5 * np.dot((chi[idx]+2*L[idx]*self.TNdt_pre[idx]) * 
+                        self.gradient[parind] += 0.5 * np.dot((chi[idx]+2*L[idx]*self.TNdt_pre[idx]) *
                                             self.gradient[qidx][idx]/L[idx],
                                             L[idx]**3*Phiinv_diag[idx]**2)
 
@@ -4003,25 +4011,25 @@ class PTAmodels(object):
                         freqpy ** (-gamma) / self.psr[psrind].Tmax
 
                 # gradient for amplitude
-                self.gradient[parind], self.gradient[parind+1] = 0, 0 
+                self.gradient[parind], self.gradient[parind+1] = 0, 0
                 for ct, indx in enumerate(idxs):
                     tmp = -0.5 * np.sum(Phiinv_diag[indx]) + \
                             0.5 * np.dot(Phiinv_diag[indx]**2, b[indx]**2)
-                    
+
                     if transform:
                         tmp += 0.5 * np.dot(L[indx]**2, Phiinv_diag[indx]**2)
-                        tmp += 0.5 * np.dot((chi[indx]+2*L[indx]*self.TNdt_pre[indx]) * 
+                        tmp += 0.5 * np.dot((chi[indx]+2*L[indx]*self.TNdt_pre[indx]) *
                                             self.gradient[qidx][indx]/L[indx],
                                             L[indx]**3*Phiinv_diag[indx]**2)
 
-                    
+
                     # jacobian for phi -> A
                     self.gradient[parind] += tmp * psd[2*ct] * np.log(10) * 2
 
                     # jacobian for phi -> gamma
                     self.gradient[parind+1] += tmp * np.sum(
-                        psd[2*ct] * np.log(10) * 
-                        np.log10(f1yr/self.psr[psrind].Ffreqs[2*ct])) 
+                        psd[2*ct] * np.log(10) *
+                        np.log10(f1yr/self.psr[psrind].Ffreqs[2*ct]))
 
             # add DM + GW + spectrum red noise
 
@@ -4471,7 +4479,7 @@ class PTAmodels(object):
     def constructPhiMatrix(self, parameters, constructPhi=False,
                            incCorrelations=True, incTM=False,
                            incJitter=False, selection=None):
-        
+
         # selection of variables to use
         if selection is None:
             selection = np.array([1]*self.dimensions, dtype=np.bool)
@@ -4500,7 +4508,7 @@ class PTAmodels(object):
 
             # which ones are varying
             sparameters[sig['bvary']] = parameters[parind:parind + npars]
-            
+
             # spline PSD fit
             if sig['stype'] == 'interpolate':
 
@@ -4513,13 +4521,13 @@ class PTAmodels(object):
                 #                 10**control, kind='linear')
                 ifunc = interp1d(np.log10(freqs[selection[parind:parind+npars]]),
                                  control, kind='linear')
-                
+
                 # get psd at all frequencies
                 psd = ifunc(np.log10(freqs))
                 #psd = ifunc(freqs)
                 pcdoubled = np.repeat(psd, 2)
                 #pcdoubled = np.repeat(np.log10(psd), 2)
-                    
+
                 # fill in kappa
                 self.psr[psrind].kappa = pcdoubled
 
@@ -4558,7 +4566,7 @@ class PTAmodels(object):
 
                     # define rho
                     rho = np.array([rhovals, rhovals]).T.flatten()
-                
+
                 if sig['corr'] in ['grs']:
 
                     # spectrum
@@ -4590,7 +4598,7 @@ class PTAmodels(object):
                 kappa_cross = sparameters[10]
 
                 self.corrmat = self.compute_ss_corrmat(gwtheta, gwphi, gwpsi)
-                
+
                 freqpy = self.gwfreqs
                 f1yr = 1 / 3.16e7
                 hcf_plus = A_plus * (freqpy / f1yr) ** ((3 - gamma_plus) / 2) / \
@@ -4682,7 +4690,7 @@ class PTAmodels(object):
                                    fgw ** (-gamma) / self.psr[psrind].Tmax)
                     # rho = np.log10(Amp**2/12/np.pi**2 * f1yr**(gamma-3) * \
                     #                     fgw**(-gamma))
-                    
+
 
                 if sig['corr'] in ['gr_sph']:
 
@@ -4707,7 +4715,7 @@ class PTAmodels(object):
                     theta = np.arccos(sparameters[-2])
                     phi = sparameters[-1]
                     self.corrmat = self.compute_single_corrmat(theta, phi)
-                    
+
                     # number of GW frequencies is the max from all pulsars
                     fgw = self.gwfreqs
 
@@ -5013,7 +5021,7 @@ class PTAmodels(object):
                                                   p.kappa_tot))
 
                     if self.likfunc == 'mark11':
-                        p.kappa_tot = np.concatenate((p.kappa_tot, 
+                        p.kappa_tot = np.concatenate((p.kappa_tot,
                                                       np.ones(p.Dmat.shape[1]) * 80))
                     if incJitter:
                         p.kappa_tot = np.concatenate(
@@ -5113,7 +5121,7 @@ class PTAmodels(object):
                     p.kappa_tot = np.concatenate((np.ones(p.Mmat_reduced.shape[1]) * 80,
                                                   p.kappa_tot))
                     if self.likfunc == 'mark11':
-                        p.kappa_tot = np.concatenate((p.kappa_tot, 
+                        p.kappa_tot = np.concatenate((p.kappa_tot,
                                                       np.ones(p.Dmat.shape[1]) * 80))
                     if incJitter:
                         p.kappa_tot = np.concatenate(
@@ -5139,7 +5147,7 @@ class PTAmodels(object):
 
         # correlated signals (not as easy)
         if incCorrelations:
-            
+
             sigdiag_red_gw, sigdiag_red, sigdiag = [], [], []
             self.logdetPhi = 0
             for ii, p in enumerate(self.psr):
@@ -5178,7 +5186,7 @@ class PTAmodels(object):
 
                 # append to signal diagonal
                 sigdiag_red_gw.append(10**p.kappa_tot)
-                
+
                 # append ephemeris signal
                 if np.any(p.ephem):
                     p.kappa_tot = np.concatenate((p.kappa_tot, p.ephem))
@@ -5191,7 +5199,7 @@ class PTAmodels(object):
                         p.kappa_tot = np.concatenate(
                             (p.kappa_tot, np.log10(p.Qamp)))
                         self.logdetPhi += np.sum(np.log(p.Qamp))
-                
+
                 if rho is not None:
                     # append to off diagonal elements
                     sigoffdiag.append(self.gwamp)
@@ -5199,9 +5207,9 @@ class PTAmodels(object):
                 if incGP:
                     sig_offdiag_plus.append(rho_plus)
                     sig_offdiag_cross.append(rho_cross)
-                
+
                 sigdiag.append(10**p.kappa_tot)
-            
+
             # diagonal of phi matrix
             np.fill_diagonal(self.Phiinv, 1/np.hstack(sigdiag))
             self.logdetPhi = np.sum(np.log(np.hstack(sigdiag)))
@@ -5218,8 +5226,8 @@ class PTAmodels(object):
                         smallMatrix[:, ii, jj] += self.corrmat[1][ii, jj] * \
                                 sig_offdiag_cross[jj]
                         if ii == jj:
-                            smallMatrix[:, ii, jj] += sigdiag_red_gw[jj] 
-                        
+                            smallMatrix[:, ii, jj] += sigdiag_red_gw[jj]
+
                         smallMatrix[:, jj, ii] = smallMatrix[:, ii, jj]
 
                     else:
@@ -5248,7 +5256,7 @@ class PTAmodels(object):
                 nother = [p.Ttmat.shape[1] - ntmpars[kk] - nftot for kk, p in \
                           enumerate(self.psr)]
                 stop = np.cumsum([p.Ttmat.shape[1] for kk,p in enumerate(self.psr)]) - nother
-                start = stop - nftot 
+                start = stop - nftot
                 ind = [np.arange(sta, sto) for sta, sto in zip(start, stop)]
                 for ii in range(self.npsr):
                     for jj in range(self.npsr):
@@ -5261,10 +5269,10 @@ class PTAmodels(object):
                     ind1 = np.arange(ii * nftot, ii * nftot + nftot)
                     for jj in range(0, self.npsr):
                         self.Phiinv[ind1, ind2[jj]] = smallMatrix[:, ii, jj]
-        
+
         return 1
 
-    
+
     def construct_dense_cov_matrix(self, parameters, incJitter=False):
         """
         WARNING: ONLY WORKS FOR A SINGLE PULSAR
@@ -5315,7 +5323,7 @@ class PTAmodels(object):
                     # get Amplitude and spectral index
                     Amp = 10 ** sparameters[0]
                     gamma = sparameters[1]
-                    
+
                     self.Phi[ntmpars:nepoch+ntmpars, ntmpars:nepoch+ntmpars] += \
                             PALutils.createRedNoiseCovarianceMatrix(
                                 psr.tm, Amp, gamma, fast=True, fH=1.3e-7)
@@ -5376,7 +5384,7 @@ class PTAmodels(object):
 
         # In the case we have numerical timing model (linear/nonlinear)
         for ss, sig in enumerate(self.ptasignals):
-            
+
             # short hand
             psrind = sig['pulsarind']
             parind = sig['parindex']
@@ -5442,7 +5450,7 @@ class PTAmodels(object):
                         pindex += 1
 
                 # Generate the new residuals
-                psr.detresiduals -= (psr.residuals - 
+                psr.detresiduals -= (psr.residuals -
                                      (np.array(psr.t2psr.residuals(updatebats=True),
                                             dtype=np.double)[psr.isort] + offset))
 
@@ -5529,7 +5537,7 @@ class PTAmodels(object):
 
                     psr.detresiduals -= PALutils.construct_wavelet(
                         psr.toas, A, t0, f0, Q, phase0) * (psr.freqs/1400.)**(-2)
-            
+
             # System wavelet signal
             if sig['stype'] == 'syswavelet' and np.all(selection[parind:parind+npars]):
                 psr = self.psr[psrind]
@@ -5545,7 +5553,7 @@ class PTAmodels(object):
                 if sig['model'] == 'snr':
                     wv = PALutils.construct_wavelet(psr.toas, 1, t0,
                                                    f0, Q, phase0, idx=idx)
-                    
+
                     if self.likfunc == 'mark6':
                         try:
                             snr = np.sqrt(np.dot(wv/psr.Nvec, wv))
@@ -5578,7 +5586,7 @@ class PTAmodels(object):
                     psr.toas, A, t0, f0, Q, phase0, idx=idx)
 
 
-            
+
             # Chromatic Noise wavelet signal
             if sig['stype'] == 'chrowavelet' and np.all(selection[parind:parind+npars]):
                 beta = sparameters[0]
@@ -5603,7 +5611,7 @@ class PTAmodels(object):
 
                     # get wavelet parameters
                     signums = self.getSignalNumbersFromDict(
-                        self.ptasignals, stype='gwwavelet', 
+                        self.ptasignals, stype='gwwavelet',
                         corr='single')
 
                     for signum in signums:
@@ -5623,14 +5631,14 @@ class PTAmodels(object):
                             t0 = sparameters[2] * 86400
                             Q = sparameters[3]
                             phase0 = sparameters[4]
-                            
+
                             # get SNR and amplitude
                             snr = 0
                             if sig['model'] == 'snr':
                                 for pp in self.psr:
                                     fplus, fcross, _ = PALutils.createAntennaPatternFuncs(
                                         pp, theta, phi)
-                                    
+
                                     pp.splus = PALutils.construct_wavelet(
                                         pp.toas, 1, t0, f0, Q, phase0)
                                     pp.scross = eps * PALutils.construct_wavelet(
@@ -5652,7 +5660,7 @@ class PTAmodels(object):
                                 for pp in self.psr:
                                     fplus, fcross, _ = PALutils.createAntennaPatternFuncs(
                                         pp, theta, phi)
-                                    
+
                                     pp.splus = PALutils.construct_wavelet(
                                         pp.toas, A, t0, f0, Q, phase0)
                                     pp.scross = eps * PALutils.construct_wavelet(
@@ -5661,7 +5669,7 @@ class PTAmodels(object):
                                             fcross * (pp.splus*sin2psi + pp.scross*cos2psi)
                                     pp.detresiduals -= wv
 
-                
+
                 if sig['gwwavemodel'] == 'independent':
                     theta = np.arccos(sparameters[0])
                     phi = sparameters[1]
@@ -5670,7 +5678,7 @@ class PTAmodels(object):
 
                     # get wavelet parameters
                     signums = self.getSignalNumbersFromDict(
-                        self.ptasignals, stype='gwwavelet', 
+                        self.ptasignals, stype='gwwavelet',
                         corr='single')
 
                     for signum in signums:
@@ -5690,14 +5698,14 @@ class PTAmodels(object):
                             t0 = sparameters[2] * 86400
                             Q = sparameters[3]
                             phase0 = sparameters[4]
-                            
+
                             # get SNR and amplitude
                             snr = 0
                             if sig['model'] == 'snr':
                                 for pp in self.psr:
                                     fplus, fcross, _ = PALutils.createAntennaPatternFuncs(
                                         pp, theta, phi)
-                                   
+
                                     if sig0['polarization'] == 'plus':
                                         pp.splus = PALutils.construct_wavelet(
                                             pp.toas, 1, t0, f0, Q, phase0)
@@ -5706,7 +5714,7 @@ class PTAmodels(object):
                                         pp.scross = PALutils.construct_wavelet(
                                             pp.toas, 1, t0, f0, Q, phase0)
                                         wv = fcross*pp.scross*cos2psi - fplus*pp.scross*sin2psi
-                                    
+
                                     snr += np.dot(wv/pp.Nvec, wv)
 
                                 A = sparameters[0] / np.sqrt(snr)
@@ -5733,7 +5741,7 @@ class PTAmodels(object):
                                         pp.scross = PALutils.construct_wavelet(
                                             pp.toas, A, t0, f0, Q, phase0)
                                         wv = fcross*pp.scross*cos2psi - fplus*pp.scross*sin2psi
-                                    
+
                                     pp.detresiduals -= wv
 
 
@@ -5744,7 +5752,7 @@ class PTAmodels(object):
                 gamp = sparameters[1]
                 gsign = sparameters[2]
                 psr.detresiduals -= PALutils.glitch_signal(gtime, gamp, gsign, psr.toas)
-            
+
             # band glitch
             if sig['stype'] == 'glitch_band':
                 psr = self.psr[psrind]
@@ -5760,8 +5768,8 @@ class PTAmodels(object):
 
                 for pp in self.psr:
                     bwmsig = PALutils.bwmsignal(sparameters, np.double(pp.raj),
-                                                np.double(pp.decj), 
-                                                pp.toas/86400, 
+                                                np.double(pp.decj),
+                                                pp.toas/86400,
                                                 corr=sig['corr'])
 
                     pp.detresiduals -= bwmsig
@@ -5802,7 +5810,7 @@ class PTAmodels(object):
                 nsigs = self.getNumberOfSignalsFromDict(
                     self.ptasignals, stype='pulsarTerm',
                     corr='single')
-                
+
                 pphase, pfgw, pgam = [], [], []
                 if np.any(nsigs):
                     signum = self.getSignalNumbersFromDict(
@@ -5837,19 +5845,19 @@ class PTAmodels(object):
                 if pphase != []:
                     npsr = len(self.psr)
                     pphase = pphase[cwnum*npsr:cwnum*npsr+npsr]
-                else: 
+                else:
                     pphase = None
-                
+
                 if pfgw != []:
                     npsr = len(self.psr)
                     pfgw = pfgw[cwnum*npsr:cwnum*npsr+npsr]
-                else: 
+                else:
                     pfgw = None
 
                 if pgam != []:
                     npsr = len(self.psr)
                     pgam = pgam[cwnum*npsr:cwnum*npsr+npsr]
-                else: 
+                else:
                     pgam = None
 
                 # construct CW signal
@@ -5962,16 +5970,16 @@ class PTAmodels(object):
 
         return res
 
-    
+
     def opt_stat_mark9(self, parameters, fixWhite=False):
         """
         Optimal statistic for T-matrix mark9 formalism.
         """
-    
+
         # set pulsar white noise parameters
         if not fixWhite:
             self.setPsrNoise(parameters, incJitter=False)
-            
+
             # initialize arrays
             for ct, p in enumerate(self.psr):
                 nt = p.Ttmat.shape[1]
@@ -5986,7 +5994,7 @@ class PTAmodels(object):
         self.updateTmatrix(parameters)
 
         # set red noise, DM and GW parameters
-        check = self.constructPhiMatrix(parameters, 
+        check = self.constructPhiMatrix(parameters,
                                        incCorrelations=False,
                                        incTM=True, incJitter=False,
                                        selection=None)
@@ -5998,7 +6006,7 @@ class PTAmodels(object):
         # set deterministic sources
         if self.haveDetSources:
             self.updateDetSources(parameters, selection=None)
-            
+
         # get correlation matrix
         ORF = PALutils.computeORF(self.psr)
 
@@ -6014,7 +6022,7 @@ class PTAmodels(object):
             if np.any(np.isnan(p.detresiduals)) or np.any(
                     np.isinf(p.detresiduals)):
                 return -np.inf
-            
+
             if not fixWhite:
 
                 # compute T^T N^{-1} \delta t
@@ -6026,20 +6034,20 @@ class PTAmodels(object):
                         p.detresiduals, p.Nvec, p.Qamp, p.Uinds))
 
                 # compute T^T N^{-1} T
-                p.TNT = PALutils.python_block_shermor_2D(p.Ttmat, p.Nvec, 
+                p.TNT = PALutils.python_block_shermor_2D(p.Ttmat, p.Nvec,
                                                          p.Qamp, p.Uinds)
 
                 # compute F^T N^{-1} F
-                p.FNF = PALutils.python_block_shermor_2D(p.Fmat, p.Nvec, 
+                p.FNF = PALutils.python_block_shermor_2D(p.Fmat, p.Nvec,
                                                          p.Qamp, p.Uinds)
 
                 # compute F^T N^{-1} T
-                p.FNT = PALutils.python_block_shermor_2D2(p.Fmat, p.Tmat, 
-                                                          p.Nvec, p.Qamp, 
+                p.FNT = PALutils.python_block_shermor_2D2(p.Fmat, p.Tmat,
+                                                          p.Nvec, p.Qamp,
                                                           p.Uinds)
 
             #### calculate red noise piece
-            
+
             # compute sigma
             Sigma = p.TNT + self.Phiinv[nfref:(nfref + nf), nfref:(nfref + nf)]
 
@@ -6051,19 +6059,19 @@ class PTAmodels(object):
             except np.linalg.LinAlgError:
                 print "ERROR: Sigma singular according to SVD"
                 return -np.inf
-            
+
             # compute F^T N^{-1} T \Sigma^{-1} d
             FNTSigmad = np.dot(p.FNT, SigmaInvd)
-            
+
             # X = F^T[N^{-1} - N^{-1} T \Sigma^{-1} T^T N^{-1}]\delta t
             X.append(p.FNidt - FNTSigmad)
-            
+
             # Z = F^T [N^{-1} - N^{-1} T \Sigma^{-1} T^T N^{-1}] F
             Z.append(p.FNF - np.dot(p.FNT, SigmaInvTNF))
 
             # increment frequency counter
             nfref += nf
-            
+
         # cross correlations
         top = 0
         bot = 0
@@ -6094,7 +6102,7 @@ class PTAmodels(object):
                                                      self.psr[jj].theta[0],
                                                      self.psr[jj].phi[0]))
 
-        return (np.array(xi), np.array(rho), np.array(sig), 
+        return (np.array(xi), np.array(rho), np.array(sig),
             np.sum(np.array(rho) * ORF / np.array(sig) ** 2) / np.sum(ORF ** 2 / np.array(sig) ** 2),
         1 / np.sqrt(np.sum(ORF ** 2 / np.array(sig) ** 2)))
 
@@ -7218,7 +7226,7 @@ class PTAmodels(object):
     """
 
     def mark6LogLikelihood(self, parameters, incCorrelations=False,
-                           incJitter=False, varyNoise=True, 
+                           incJitter=False, varyNoise=True,
                            fixWhite=False, selection=None):
 
         loglike = 0
@@ -7350,7 +7358,7 @@ class PTAmodels(object):
 
     """
 
-    def mark7LogLikelihood(self, parameters, incCorrelations=True, 
+    def mark7LogLikelihood(self, parameters, incCorrelations=True,
                            incJitter=False, transform=False):
 
 
@@ -7365,7 +7373,7 @@ class PTAmodels(object):
 
         # get quadratic parameters
         b, _ = self.get_quadratic_par_vector(parameters)
-        
+
         if transform:
             b, L = self.get_quadratic_transform(b)
             loglike += np.sum(np.log(L))
@@ -7377,7 +7385,7 @@ class PTAmodels(object):
         # compute the white noise terms in the log likelihood
         nfref = 0
         for ct, p in enumerate(self.psr):
-            
+
             # number of quadratic parameters
             nf = p.Tmat.shape[1]
 
@@ -7463,7 +7471,7 @@ class PTAmodels(object):
             self.updateTmatrix(parameters)
 
             # set red noise, DM and GW parameters
-            check = self.constructPhiMatrix(parameters, 
+            check = self.constructPhiMatrix(parameters,
                                            incCorrelations=incCorrelations,
                                            incTM=True, incJitter=False,
                                            selection=selection)
@@ -7576,8 +7584,8 @@ class PTAmodels(object):
             loglike += -0.5 * \
                 (self.logdetPhi + self.logdet_Sigma) + \
                 0.5 * (np.dot(self.d, expval2))
-        return loglike 
-    
+        return loglike
+
     """
     mark 10 log likelihood. Note that this is not the same as mark6 in piccard
 
@@ -7596,7 +7604,7 @@ class PTAmodels(object):
 
         # set pulsar white noise parameters
         self.setPsrNoise(parameters, incJitter=False)
-        
+
         # construct dense coarse grained covariance matrix
         try:
             self.construct_dense_cov_matrix(parameters, incJitter=incJitter)
@@ -7685,7 +7693,7 @@ class PTAmodels(object):
             self.updateTmatrix(parameters)
 
             # set red noise, DM and GW parameters
-            check = self.constructPhiMatrix(parameters, 
+            check = self.constructPhiMatrix(parameters,
                                            incCorrelations=incCorrelations,
                                            incTM=True, incJitter=False,
                                            selection=selection)
@@ -7851,29 +7859,29 @@ class PTAmodels(object):
         return fstat
 
     def get_Fwstat(self, pnum, t0, f0, Q, weights=None):
-    
+
         N = np.zeros(2)
         M = np.zeros((2, 2))
 
         psr = self.psr[pnum]
 
-        
+
         if weights is None:
             weights = np.ones(len(psr.toas))
-            
+
         w1 = PALutils.construct_wavelet(psr.toas, 1, t0, f0, Q, 0) / weights
-        w2 = PALutils.construct_wavelet(psr.toas, 1, t0, f0, Q, np.pi/2) / weights    
-        
+        w2 = PALutils.construct_wavelet(psr.toas, 1, t0, f0, Q, np.pi/2) / weights
+
         N[0] = PALutils.innerProduct_rr(psr.residuals, w1, psr.Nvec, psr.Tmat, self.Sigma)
         N[1] = PALutils.innerProduct_rr(psr.residuals, w2, psr.Nvec, psr.Tmat, self.Sigma)
-        
+
         w = [w1, w2]
         for ii in range(2):
             for jj in range(ii,2):
                 M[ii, jj] = PALutils.innerProduct_rr(w[ii], w[jj], psr.Nvec,
                                                      psr.Tmat, self.Sigma)
                 M[jj, ii] = M[ii, jj]
-        
+
         return 0.5 * np.dot(N, np.dot(np.linalg.pinv(M), N))
 
     def mark8Gradient(self, parameters):
@@ -8062,7 +8070,7 @@ class PTAmodels(object):
                 nfref += nf
 
         return ml_vals, ml_cov
-        
+
 
     """
     Reconstruct ML signal from Tmatrix
@@ -8289,6 +8297,13 @@ class PTAmodels(object):
                     if fb < fx:
                         prior += -np.inf
 
+                if sig['mu'][0] is not None and sig['sigma'][0]:
+                    m = sig['mu'][0]
+                    s = sig['sigma'][0]
+                    logA = sparameters[0]
+                    prior += -0.5 * \
+                        (np.log(2 * np.pi * s ** 2) + (m - logA) ** 2 / s ** 2)
+
             if sig['corr'] == 'gr' and sig['stype'] == 'spectrum':
                 if np.any(np.array(sig['prior']) == 'uniform'):
                     idx = np.array(sig['prior']) == 'uniform'
@@ -8429,7 +8444,7 @@ class PTAmodels(object):
                     if mp < 0.5 or mp > 3:
                         prior += -1e10
                     #prior += np.log(mp/ms) - (mp/ms)**2
-            
+
             # BWM parameters
             if sig['stype'] == 'bwm':
                 pindex = 0
@@ -8501,13 +8516,13 @@ class PTAmodels(object):
                 lfgw = sparameters2[3]
                 if sparameters[1] > lfgw:
                     prior += -np.inf
-        
+
         ##### SUPER HACK, FIX THIS LATER #####
         # multiple CW sources prior
         signum = self.getSignalNumbersFromDict(self.ptasignals,
                                                stype='cw',
                                                corr='gr')
-        
+
         if len(signum) > 1:
             freqs = []
             for sign in signum:
@@ -8525,7 +8540,7 @@ class PTAmodels(object):
                 sparameters[sig['bvary']] = parameters[parind:parind + npars]
 
                 freqs.append(10**sparameters[4])
-            
+
             sigma = 1/3/self.psr[0].Tmax
             #print freqs, sigma, (1-np.exp(-(freqs[0]-freqs[1])**2/2/sigma**2))
             #prior += np.log((1-np.exp(-(freqs[0]-freqs[1]+1e-11)**2/2/sigma**2)))
@@ -8880,16 +8895,16 @@ class PTAmodels(object):
 
                 elif sig['prior'][jj] == 'uniform':
                     q[parind + jj] = np.log10(np.random.uniform(
-                        10 ** self.pmin[parind + jj], 
+                        10 ** self.pmin[parind + jj],
                         10 ** self.pmax[parind + jj]))
-                    qxy += np.log(10 ** parameters[parind + jj] 
+                    qxy += np.log(10 ** parameters[parind + jj]
                                   / 10 ** q[parind + jj])
 
                 elif sig['prior'][jj] == 'sqrt':
                     q[parind + jj] = np.log10(np.random.uniform(
-                        10 ** (self.pmin[parind + jj] / 2), 
+                        10 ** (self.pmin[parind + jj] / 2),
                         10 ** (self.pmax[parind + jj] / 2)) ** 2)
-                    qxy += np.log(10 ** (parameters[parind + jj] / 2) 
+                    qxy += np.log(10 ** (parameters[parind + jj] / 2)
                                   / 10 ** (q[parind + jj] / 2))
 
                 else:
@@ -8942,16 +8957,16 @@ class PTAmodels(object):
 
                 elif sig['prior'][jj] == 'uniform':
                     q[parind + jj] = np.log10(np.random.uniform(
-                        10 ** self.pmin[parind + jj], 
+                        10 ** self.pmin[parind + jj],
                         10 ** self.pmax[parind + jj]))
-                    qxy += np.log(10 ** parameters[parind + jj] 
+                    qxy += np.log(10 ** parameters[parind + jj]
                                   / 10 ** q[parind + jj])
 
                 elif sig['prior'][jj] == 'sqrt':
                     q[parind + jj] = np.log10(np.random.uniform(
-                        10 ** (self.pmin[parind + jj] / 2), 
+                        10 ** (self.pmin[parind + jj] / 2),
                         10 ** (self.pmax[parind + jj] / 2)) ** 2)
-                    qxy += np.log(10 ** (parameters[parind + jj] / 2) 
+                    qxy += np.log(10 ** (parameters[parind + jj] / 2)
                                   / 10 ** (q[parind + jj] / 2))
 
                 else:
@@ -9051,7 +9066,7 @@ class PTAmodels(object):
                     qxy += 0
 
                 elif sig['prior'][0] == 'uniform':
-                    
+
                     # draw from log-uniform prior
                     # to get more samples in right range
                     q[parind] = np.random.uniform(
@@ -9074,6 +9089,13 @@ class PTAmodels(object):
                     qxy -= (m - parameters[parind]) ** 2 / 2 / \
                         s ** 2 - (m - q[parind]) ** 2 / 2 / s ** 2
 
+                elif sig['mu'][0] is not None and sig['sigma'][0] is not None:
+                    m = sig['mu'][0]
+                    s = sig['sigma'][0]
+                    q[parind] = m + np.random.randn() * s
+                    qxy -= (m - parameters[parind]) ** 2 / 2 / \
+                        s ** 2 - (m - q[parind]) ** 2 / 2 / s ** 2
+
                 else:
                     print 'Prior type not recognized for parameter'
                     q[parind] = parameters[parind]
@@ -9090,7 +9112,7 @@ class PTAmodels(object):
                     q[parind + 1] = parameters[parind + 1]
 
         return q, qxy
-    
+
     # point source GWB draws draws
     def drawFromsGWBPrior(self, parameters, iter, beta):
 
@@ -9110,7 +9132,7 @@ class PTAmodels(object):
         parind = sig['parindex']
         npars = sig['npars']
 
-        # draw parameter to jump in 
+        # draw parameter to jump in
         jj = np.random.randint(0, npars)
 
         q[parind+jj] = np.random.uniform(
@@ -9139,7 +9161,7 @@ class PTAmodels(object):
         parind = sig['parindex']
         npars = sig['npars']
 
-        # draw parameter to jump in 
+        # draw parameter to jump in
         jj = np.random.randint(0, npars)
 
         # jump in amplitude if varying
@@ -9281,7 +9303,7 @@ class PTAmodels(object):
         return q, qxy
 
     def drawFromORFPrior(self, parameters, iter, beta):
-        
+
         # post-jump parameters
         q = parameters.copy()
 
@@ -9295,7 +9317,7 @@ class PTAmodels(object):
 
         # which parameters to jump
         ind = np.unique(np.random.randint(0, nsigs, nsigs))
-        
+
         # draw params from prior
         for ii in ind:
 
@@ -9316,13 +9338,13 @@ class PTAmodels(object):
 
     # CW draws from prior
     def drawFromCWPrior(self, parameters, iter, beta):
-        
+
         # post-jump parameters
         q = parameters.copy()
 
         # transition probability
         qxy = 0
-        
+
         # find signal number
         signum = self.getSignalNumbersFromDict(
             self.ptasignals, stype='cw', corr='gr')
@@ -9336,7 +9358,7 @@ class PTAmodels(object):
         psrind = sig['pulsarind']
         parind = sig['parindex']
         npars = sig['npars']
-        
+
         # parameters for this signal
         sparameters = sig['pstart'].copy()
 
@@ -9345,7 +9367,7 @@ class PTAmodels(object):
 
         # choose parameter
         jj = np.random.randint(0, npars)
-            
+
         if sig['bvary'][jj]:
             if sig['prior'][jj] in ['uniform', 'cyclic', 'log']:
                 q[parind+jj] = np.random.uniform(
@@ -9365,7 +9387,7 @@ class PTAmodels(object):
                     s ** 2 - (m - q[parind+jj]) ** 2 / 2 / s ** 2
 
         return q, qxy
-    
+
     # draw from BWM prior
     def drawFromBWMPrior(self, parameters, iter, beta):
 
@@ -9378,7 +9400,7 @@ class PTAmodels(object):
         signum = self.getSignalNumbersFromDict(
             self.ptasignals, stype='bwm', corr='gr')
         nsigs = len(signum)
-        
+
         # which parameters to jump
         ind = np.random.randint(0, nsigs)
 
@@ -9387,7 +9409,7 @@ class PTAmodels(object):
         parind = sig['parindex']
         npars = sig['npars']
 
-        # jump 
+        # jump
         for jj in range(npars):
             if sig['bvary'][jj]:
                 if sig['prior'][jj] == 'cos':
@@ -9399,7 +9421,7 @@ class PTAmodels(object):
                     qxy += 0
 
         return q, qxy
-    
+
     # draw from uniform wavelet prior
     def drawFromWaveletPrior(self, parameters, iter, beta):
 
@@ -9412,7 +9434,7 @@ class PTAmodels(object):
         signum = self.getSignalNumbersFromDict(
             self.ptasignals, stype='wavelet', corr='single')
         nsigs = len(signum)
-        
+
         # which parameters to jump
         ind = np.random.randint(0, nsigs)
 
@@ -9421,7 +9443,7 @@ class PTAmodels(object):
         parind = sig['parindex']
         npars = sig['npars']
 
-        # jump 
+        # jump
         for jj in range(npars):
             if sig['bvary'][jj]:
                 q[parind + jj] = np.random.uniform(self.pmin[parind + jj],
@@ -9517,7 +9539,7 @@ class PTAmodels(object):
 
             # which ones are varying
             sparameters[sig['bvary']] = post[parind:parind + npars]
-            
+
             if 'prior' in sig and np.any(np.array(sig['prior']) == 'cyclic'):
                 pindex = 0
                 for jj in range(sig['ntotpars']):
@@ -9562,7 +9584,7 @@ class PTAmodels(object):
 
         # now get other relevant parameters
         for ct, sig in enumerate(self.ptasignals):
-            
+
             # short hand
             psrind = sig['pulsarind']
             parind = sig['parindex']
@@ -9690,7 +9712,7 @@ class PTAmodels(object):
 
         # now get other relevant parameters
         for ct, sig in enumerate(self.ptasignals):
-            
+
             # short hand
             psrind = sig['pulsarind']
             parind = sig['parindex']
@@ -9720,7 +9742,7 @@ class PTAmodels(object):
         # get in correct units
         L0 *= PALutils.KPC2S
         L1 *= PALutils.KPC2S
-        
+
         for pp in range(self.npsr):
 
             # times at which to evaluate pulsar term
@@ -9731,14 +9753,14 @@ class PTAmodels(object):
 
             #print tp0.min() / 3.16e7
             #print tp1.min() / 3.16e7
-            
+
             y0 = PALutils.solve_coupled_ecc_solution(F0, e0, gamma0, l0, mc0, q0, t0)
             y1 = PALutils.solve_coupled_ecc_solution(F1, e1, gamma1, l1, mc1, q1, t1)
-                
+
             # get pulsar term values
             if np.any(y0) and np.any(y1):
-                Fp0, ep0, gp0, phip0 = y0[-1,:] 
-                Fp1, ep1, gp1, phip1 = y1[-1,:] 
+                Fp0, ep0, gp0, phip0 = y0[-1,:]
+                Fp1, ep1, gp1, phip1 = y1[-1,:]
             else:
                 return post, 0
 
@@ -9845,7 +9867,7 @@ class PTAmodels(object):
                     q[parind+pind2] = np.mod(phi0+np.pi/2, np.pi)
 
         return q, qxy
-    
+
     # phase and polarization reversal
     def gammaAndPolarizationReverseJump(self, parameters, iter, beta):
 
@@ -10436,10 +10458,10 @@ class PTAmodels(object):
 
         """
         if self.likfunc == 'mark6':
-            ml_vals, ml_cov = self.reconstructML_old(pars, incJitter=incJitter, 
+            ml_vals, ml_cov = self.reconstructML_old(pars, incJitter=incJitter,
                                                      selection=selection)
         elif self.likfunc == 'mark9':
-            ml_vals, ml_cov = self.reconstructMLmark9(pars, incJitter=incJitter, 
+            ml_vals, ml_cov = self.reconstructMLmark9(pars, incJitter=incJitter,
                                                      selection=selection)
         mlreal, mlerr = [], []
         for ct, p in enumerate(self.psr):
@@ -10468,10 +10490,8 @@ class PTAmodels(object):
             mlreal.append(np.dot(Tmat, mlpars))
             tmp = np.dot(Tmat, np.dot(mlcov, Tmat.T))
             mlerr.append(np.sqrt(np.diag(tmp)))
-        
+
         if return_coeffs:
             return (mlreal, mlerr, mlpars, mlcov)
         else:
             return (mlreal, mlerr)
-
-

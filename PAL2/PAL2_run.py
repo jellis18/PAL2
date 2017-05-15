@@ -35,13 +35,13 @@ parser.add_argument('--outDir', dest='outDir', action='store', type=str, default
                    help='Full path to output directory (default = ./)')
 
 parser.add_argument('--pulsar', dest='pname', action='store', nargs='+',
-                    type=str, required=True, 
+                    type=str, required=True,
                     help='Names of pulsars to use separated by single space')
 
 parser.add_argument('--incRed', dest='incRed', action='store_true',default=False,
                    help='Include Red Noise? [default=False]')
 parser.add_argument('--redModel', dest='redModel', action='store', type=str,
-                    default='powerlaw', 
+                    default='powerlaw',
                     help='Red noise model [powerlaw, spectrum, broken, interpolate]')
 parser.add_argument('--nf', dest='nfreqs', action='store', type=int, default=30,
                    help='number of red noise frequencies to use [default=30]')
@@ -58,13 +58,13 @@ parser.add_argument('--incRedBand', dest='incRedBand', action='store_true',defau
 
 parser.add_argument('--incRedEnv', dest='incRedEnv', action='store_true',default=False,
                    help='Include Red Noise Envelope model? [default=False]')
-parser.add_argument('--redEnvModel', dest='redEnvModel', action='store', 
+parser.add_argument('--redEnvModel', dest='redEnvModel', action='store',
                     type=str, default='powerlaw',
                     help='Red noise envelope model [powerlaw, spectrum]')
 
 parser.add_argument('--incRedExt', dest='incRedExt', action='store_true',default=False,
                    help='Include Red Noise Extended model')
-parser.add_argument('--redExtModel', dest='redExtModel', action='store', 
+parser.add_argument('--redExtModel', dest='redExtModel', action='store',
                     type=str, default='powerlaw',
                     help='red noise extended model [powerlaw, spectrum]')
 parser.add_argument('--nfext', dest='nfext', action='store', type=int, default=10,
@@ -130,13 +130,17 @@ parser.add_argument('--noCorrelations', dest='noCorrelations', action='store_tru
 parser.add_argument('--sparse', dest='sparse', action='store_true', \
                     default=False, help='Use spare matrices for cholesky [default=False]')
 parser.add_argument('--GWBAmpPrior', dest='GWBAmpPrior', action='store', type=str, \
-                    default='log', 
+                    default='log',
                     help='prior on GWB Amplitude [uniform, log, sesana, mcwilliams] [default=log]')
+parser.add_argument('--GWBGaussian', dest='GWBGaussian', action='store', nargs='+',
+                    type=float,
+                    default=None,
+                    help='Mean and standard deviation of GWB amplitude')
 parser.add_argument('--incORF', dest='incORF', action='store_true', \
-                    default=False, 
+                    default=False,
                     help='Include generic ORF to be parameterized [default=False]')
-parser.add_argument('--gwbSingleModel', dest='gwbSingleModel', action='store', 
-                    type=str, default='powerlaw', 
+parser.add_argument('--gwbSingleModel', dest='gwbSingleModel', action='store',
+                    type=str, default='powerlaw',
                     help='GWB point source model [powerlaw, spectrum]')
 
 parser.add_argument('--incGWBSingle', dest='incGWBSingle', action='store_true',default=False,
@@ -146,19 +150,19 @@ parser.add_argument('--incGWBAni', dest='incGWBAni', action='store_true',default
                    help='include Anisotropic GWB [default=False]')
 parser.add_argument('--lmax', dest='lmax', action='store', type=int, default=2,
                    help='Number of ls to use in anisitropic search [default=2]')
-parser.add_argument('--clmPrior', dest='clmPrior', action='store', type=str, 
+parser.add_argument('--clmPrior', dest='clmPrior', action='store', type=str,
                     default='uniform', help='clm prior [uniform, phys] [default=uniform]')
 
 parser.add_argument('--incEquad', dest='incEquad', action='store_true',default=False,
                    help='Include Equad [default=False]')
 parser.add_argument('--separateEquads', dest='separateEquads', action='store', type=str, \
-                    default='frequencies', 
+                    default='frequencies',
                     help='separate equads [None, backend, frequencies] [default=frequencies]')
 
 parser.add_argument('--noVaryEfac', dest='noVaryEfac', action='store_true',default=False,
                    help='Option to not vary efac [default=False]')
 parser.add_argument('--separateEfacs', dest='separateEfacs', action='store', type=str, \
-                    default='frequencies', 
+                    default='frequencies',
                     help='separate efacs [None, backend, frequencies] [default=frequencies]')
 
 
@@ -171,7 +175,7 @@ parser.add_argument('--separateJitterEquad', dest='separateJitterEquad', action=
 parser.add_argument('--fixNoise', dest='fixNoise', action='store_true',\
                     default=False, help='Fix Noise values')
 parser.add_argument('--noVaryNoise', dest='noVaryNoise', action='store_true',\
-                    default=False, 
+                    default=False,
                     help='Fix Noise values to default values [i.e. timing uncertainties only]')
 parser.add_argument('--fixWhite', dest='fixWhite', action='store_true',\
                     default=False, help='Fix White Noise values [efac, equad, ecorr]')
@@ -190,10 +194,10 @@ parser.add_argument('--fullmodel', dest='fullmodel', action='store_true', \
 parser.add_argument('--noMarg', dest='noMarg', action='store_true',default=False,
                    help='No analytic marginalization [default=False]')
 parser.add_argument('--addpars', dest='addpars', action='store', nargs='+', \
-                    type=str, required=False, 
+                    type=str, required=False,
                     help='Extra parameters to add to timing model separated by space')
 parser.add_argument('--delpars', dest='delpars', action='store', nargs='+', \
-                    type=str, required=False, 
+                    type=str, required=False,
                     help='parameters to remove from timing model separated by space')
 parser.add_argument('--addAllPars', dest='addAllPars', action='store_true',
                     required=False, help='Add all timing model parameters')
@@ -228,7 +232,7 @@ parser.add_argument('--sysWaveletModel', dest='sysWaveletModel', action='store',
 
 parser.add_argument('--incDMWavelet', dest='incDMWavelet', action='store_true', \
                     default=False, help='Include chromatic noise wavelet signal in run [default=False]')
-parser.add_argument('--nDMWavelets', dest='nDMWavelets', action='store', 
+parser.add_argument('--nDMWavelets', dest='nDMWavelets', action='store',
                     type=int, default=1, help='Number of chromatic noise wavelets(default=1)')
 parser.add_argument('--fixcBeta', dest='fixcBeta', action='store', type=float,
                     default=0, help='fix chromatic wavelet spectral index to user value')
@@ -238,7 +242,7 @@ parser.add_argument('--incCW', dest='incCW', action='store_true', \
 parser.add_argument('--nCW', dest='nCW', action='store', type=int, default=1,
                    help='Number of CW sources (default=1)')
 parser.add_argument('--cwModel', dest='cwModel', action='store', type=str, \
-                    default='standard', 
+                    default='standard',
                     help='Which CW model to use [standard, upperLimit, mass_ratio, free] [default=standard]')
 parser.add_argument('--incPdist', dest='incPdist', action='store_true', \
                     default=False, help='Include pulsar distances for CW signal in run')
@@ -252,7 +256,7 @@ parser.add_argument('--cwphi', dest='cwphi', action='store', type=float, default
                    help='value of GW phi for CW source')
 parser.add_argument('--cwdist', dest='cwdist', action='store', type=float, default=None,
                    help='value of distance for CW source')
-parser.add_argument('--cwsnrprior', dest='cwsnrprior', action='store_true', 
+parser.add_argument('--cwsnrprior', dest='cwsnrprior', action='store_true',
                     default=False, help='Use CW snr prior')
 
 parser.add_argument('--incBWM', dest='incBWM', action='store_true', \
@@ -338,14 +342,14 @@ if not os.path.exists(args.outDir):
 # open file
 incGWB = args.incGWB
 if args.pname[0] != 'all':
-    model = PALmodels.PTAmodels(args.h5file, pulsars=args.pname, 
-                                start_time=args.start_time, 
+    model = PALmodels.PTAmodels(args.h5file, pulsars=args.pname,
+                                start_time=args.start_time,
                                 end_time=args.end_time)
 elif args.pname[0] == 'all':
     print 'Using all pulsars'
     pulsars = 'all'
     model = PALmodels.PTAmodels(args.h5file, pulsars=pulsars,
-                                start_time=args.start_time, 
+                                start_time=args.start_time,
                                 end_time=args.end_time)
 
 
@@ -405,16 +409,16 @@ else:
 if args.jsonfile is None:
 
     fullmodel = model.makeModelDict(
-        incRedNoise=True, noiseModel=args.redModel, 
-        incRedBand=args.incRedBand, 
-        incDMBand=args.incDMBand, 
-        incDM=args.incDM, dmModel=args.dmModel, 
-        incDMEvent=args.incDMshapelet, dmEventModel=dmEventModel, 
-        ndmEventCoeffs=args.nshape, 
+        incRedNoise=True, noiseModel=args.redModel,
+        incRedBand=args.incRedBand,
+        incDMBand=args.incDMBand,
+        incDM=args.incDM, dmModel=args.dmModel,
+        incDMEvent=args.incDMshapelet, dmEventModel=dmEventModel,
+        ndmEventCoeffs=args.nshape,
         incEphemError=args.incEphemError,
         ephemErrorModel = args.ephemModel,
-        incDMX=args.incDMX, 
-        incORF=args.incORF, 
+        incDMX=args.incDMX,
+        incORF=args.incORF,
         incBWM=args.incBWM, BWMmodel=args.BWMmodel,
         incSingleGWGP=args.incGP,
         incGlitch=args.incGlitch, incGlitchBand=args.incGlitchBand,
@@ -423,44 +427,44 @@ if args.jsonfile is None:
         waveletModel=args.waveletModel,
         incSysWavelet=args.incSysWavelet, nSysWavelets=args.nSysWavelets,
         sysWaveletModel=args.sysWaveletModel,
-        incDMWavelet=args.incDMWavelet, 
+        incDMWavelet=args.incDMWavelet,
         nDMWavelets=args.nDMWavelets,
         incGWBAni=args.incGWBAni, lmax=args.lmax,
         clmPrior=args.clmPrior,
-        incDMXKernel=incDMXKernel, DMXKernelModel=DMXKernelModel, 
-        separateEfacs=separateEfacs, separateEfacsByFreq=separateEfacsByFreq, 
-        separateEquads=separateEquads, separateEquadsByFreq=separateEquadsByFreq, 
-        separateJitterEquad=separateJitterEquad, 
-        separateJitterEquadByFreq=separateJitterEquadByFreq, 
-        incRedFourierMode=incRedFourierMode, incDMFourierMode=incDMFourierMode, 
+        incDMXKernel=incDMXKernel, DMXKernelModel=DMXKernelModel,
+        separateEfacs=separateEfacs, separateEfacsByFreq=separateEfacsByFreq,
+        separateEquads=separateEquads, separateEquadsByFreq=separateEquadsByFreq,
+        separateJitterEquad=separateJitterEquad,
+        separateJitterEquadByFreq=separateJitterEquadByFreq,
+        incRedFourierMode=incRedFourierMode, incDMFourierMode=incDMFourierMode,
         incScattering=args.incScat, scatteringModel=args.scatModel, nscatfreqs=args.nscatf,
-        incGWFourierMode=incGWFourierMode, 
+        incGWFourierMode=incGWFourierMode,
         incEquad=args.incEquad,
         inc_dm_efac=args.inc_dm_efac,
-        incTimingModel=args.incTimingModel, nonLinear=args.tmmodel=='nonlinear', 
-        addPars=args.addpars, subPars=args.delpars, 
+        incTimingModel=args.incTimingModel, nonLinear=args.tmmodel=='nonlinear',
+        addPars=args.addpars, subPars=args.delpars,
         add_all_timing_pars=args.addAllPars,
-        fulltimingmodel=args.fullmodel, incNonGaussian=args.incNonGaussian, 
-        nnongaussian=args.nnongauss, 
-        incRedExt=args.incRedExt, redExtModel=args.redExtModel, 
-        redExtNf=args.nfext, 
+        fulltimingmodel=args.fullmodel, incNonGaussian=args.incNonGaussian,
+        nnongaussian=args.nnongauss,
+        incRedExt=args.incRedExt, redExtModel=args.redExtModel,
+        redExtNf=args.nfext,
         incEnvelope=args.incRedEnv, envelopeModel=args.redEnvModel,
-        incCW=args.incCW, incPulsarDistance=args.incPdist, 
+        incCW=args.incCW, incPulsarDistance=args.incPdist,
         cwsnrprior=args.cwsnrprior,
-        CWModel=args.cwModel, nCW=args.nCW, 
-        CWupperLimit=args.CWupperLimit, 
-        incJitterEquad=args.incJitterEquad, 
-        redAmpPrior=args.redAmpPrior, GWAmpPrior=args.GWBAmpPrior, 
-        redSpectrumPrior=args.redAmpPrior, GWspectrumPrior=args.GWBAmpPrior, 
-        incSingleFreqNoise=args.incSingleRed, numSingleFreqLines=1, 
-        incSingleFreqDMNoise=args.incSingleDM, numSingleFreqDMLines=1, 
-        DMAmpPrior=args.DMAmpPrior, 
-        incGWB=incGWB, nfreqs=args.nfreqs, ndmfreqs=args.ndmfreqs, 
+        CWModel=args.cwModel, nCW=args.nCW,
+        CWupperLimit=args.CWupperLimit,
+        incJitterEquad=args.incJitterEquad,
+        redAmpPrior=args.redAmpPrior, GWAmpPrior=args.GWBAmpPrior,
+        redSpectrumPrior=args.redAmpPrior, GWspectrumPrior=args.GWBAmpPrior,
+        incSingleFreqNoise=args.incSingleRed, numSingleFreqLines=1,
+        incSingleFreqDMNoise=args.incSingleDM, numSingleFreqDMLines=1,
+        DMAmpPrior=args.DMAmpPrior,
+        incGWB=incGWB, nfreqs=args.nfreqs, ndmfreqs=args.ndmfreqs,
         ngwfreqs=args.ngwf,
         incGWBSingle=args.incGWBSingle, gwbSingleModel=args.gwbSingleModel,
-        gwbModel=args.gwbModel, 
+        gwbModel=args.gwbModel,
         Tmax = args.Tspan,
-        compression=args.compression, 
+        compression=args.compression,
         use_svd_design=args.use_svd_design,
         likfunc=likfunc)
 
@@ -474,6 +478,13 @@ if args.jsonfile is None:
             elif sig['corr'] == 'gr_sph' and sig['stype'] == 'powerlaw':
                 sig['bvary'][1] = False
                 sig['pstart'][1] = args.fixSi
+
+    if args.GWBGaussian is not None:
+        print 'Setting Gaussian GWB amplitude prior m:{0}, s:{1}'.format(args.GWBGaussian[0], args.GWBGaussian[1])
+        for sig in fullmodel['signals']:
+            if sig['corr'] == 'gr' and sig['stype'] in ['powerlaw', 'turnover']:
+                sig['mu'][0] = args.GWBGaussian[0]
+                sig['sigma'][0] = args.GWBGaussian[1]
 
     # fix spectral index
     if args.fixKappa:
@@ -500,7 +511,7 @@ if args.jsonfile is None:
                 sig['pstart'][1] = 4.33
 
     if not(args.incRed):
-        print 'Warning: Not varying red noise' 
+        print 'Warning: Not varying red noise'
         for sig in fullmodel['signals']:
             if sig['corr'] == 'single' and sig['stype'] == 'powerlaw':
                 sig['bvary'][1] = False
@@ -509,28 +520,28 @@ if args.jsonfile is None:
 
 
     if args.fixf != 0.0:
-        print 'Warning: Fixing CW frequency to {0}'.format(args.fixf) 
+        print 'Warning: Fixing CW frequency to {0}'.format(args.fixf)
         for sig in fullmodel['signals']:
             if sig['stype'] == 'cw':
                 sig['bvary'][4] = False
                 sig['pstart'][4] = np.log10(args.fixf)
 
     if args.cwtheta is not None:
-        print 'Warning: Fixing CW theta to {0}'.format(args.cwtheta) 
+        print 'Warning: Fixing CW theta to {0}'.format(args.cwtheta)
         for sig in fullmodel['signals']:
             if sig['stype'] == 'cw':
                 sig['bvary'][0] = False
                 sig['pstart'][0] = args.cwtheta
 
     if args.cwphi is not None:
-        print 'Warning: Fixing CW phi to {0}'.format(args.cwphi) 
+        print 'Warning: Fixing CW phi to {0}'.format(args.cwphi)
         for sig in fullmodel['signals']:
             if sig['stype'] == 'cw':
                 sig['bvary'][1] = False
                 sig['pstart'][1] = args.cwphi
 
     if args.cwdist is not None:
-        print 'Warning: Fixing dist to {0} Mpc'.format(args.cwdist) 
+        print 'Warning: Fixing dist to {0} Mpc'.format(args.cwdist)
         for sig in fullmodel['signals']:
             if sig['stype'] == 'cw':
                 sig['bvary'][3] = False
@@ -553,7 +564,7 @@ if args.jsonfile is None:
                 print '{0} for {1} set to {2}'.format(sig['stype'],
                                                      sig['flagvalue'],
                                                      sig['pstart'])
-    
+
     #for sig in fullmodel['signals']:
     #    if sig['stype'] == 'jitter_equad':
     #        if sig['flagvalue'] == 'J1741+1351-430_ASP':
@@ -576,7 +587,7 @@ if args.jsonfile is None:
             if sig['corr'] == 'single' and sig['stype'] == 'powerlaw':
                 sig['bvary'][1] = True
                 sig['bvary'][0] = True
-    
+
     # write JSON file
     if not args.incTimingModel:
         model.writeModelToFile(fullmodel, args.outDir + '/model.json')
@@ -599,14 +610,14 @@ else:
     write = 'no'
 
 if args.jsonfile is None:
-    model.initModel(fullmodel, memsave=memsave, fromFile=args.fromFile, 
+    model.initModel(fullmodel, memsave=memsave, fromFile=args.fromFile,
                     verbose=True, write=write)
 
 else:
     print 'Initializing Model from JSON file {0}\n'.format(args.jsonfile)
-    model.initModelFromFile(args.jsonfile, memsave=True, fromFile=args.fromFile, 
+    model.initModelFromFile(args.jsonfile, memsave=True, fromFile=args.fromFile,
                     verbose=True, write=write)
-    
+
 
 pardes = model.getModelParameterList()
 par_names = [p['id'] for p in pardes if p['index'] != -1]
@@ -618,8 +629,8 @@ for pname in par_names:
         par_out.append(pname)
 
 print '{0} Free parameters'.format(len(par_out))
-print 'Search Parameters: {0}'.format(par_out)        
-    
+print 'Search Parameters: {0}'.format(par_out)
+
 # output parameter names
 fout = open(args.outDir + '/pars.txt', 'w')
 for nn in par_out:
@@ -648,7 +659,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         loglike = model.mark10loglikelihood
     if args.mark11:
         loglike = model.mark11LogLikelihood
-                                
+
 
     # if zero log-likeihood
     if args.zerologlike:
@@ -660,7 +671,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         logprior = model.mark3LogPrior
     else:
         logprior = model.mark3LogPrior
-    
+
     # log likelihood arguments
     loglkwargs = {}
     if args.noCorrelations or not(np.any([
@@ -675,7 +686,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
     if args.sparse and args.mark9:
         print 'Using sparse matrix representation of Sigma'
         loglkwargs['sparse'] = True
-   
+
     # get initial parameters for MCMC
     inRange = False
     pstart = False
@@ -691,8 +702,8 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         print loglike(p0, **loglkwargs), logprior(p0)
         if logprior(p0) != -np.inf and loglike(p0, **loglkwargs) != -np.inf:
             inRange = True
-    
-    # add extra kwargs if fixed noise 
+
+    # add extra kwargs if fixed noise
     if np.any([args.fixNoise, args.noVaryNoise]) and not \
        args.fixWhite and np.any([args.mark9, args.mark6]):
         loglkwargs['varyNoise'] = False
@@ -700,10 +711,10 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
             np.any([args.mark9, args.mark6]):
         loglkwargs['varyNoise'] = True
         loglkwargs['fixWhite'] = True
-    
+
     if args.zerologlike:
         loglkwargs = {}
-    
+
     # if fixed noise, must call likelihood once to initialize matrices
     #if args.fixNoise or args.fixWhite or args.noVaryNoise:
     #    if not args.zerologlike:
@@ -742,7 +753,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         if args.incEquad:
             ids = model.get_parameter_indices('equad', corr='single', split=True)
             [ind.append(id) for id in ids if len(id) > 0]
-        
+
         if args.incJitterEquad:
             ids = model.get_parameter_indices('jitter_equad', corr='single', split=True)
             [ind.append(id) for id in ids if len(id) > 0]
@@ -752,8 +763,8 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         if args.inc_dm_efac:
             ids = model.get_parameter_indices('dmefac', corr='single', split=True)
             [ind.append(id) for id in ids if len(id) > 0]
-        
-        
+
+
         ##### red noise #####
         if args.incRed:
             if args.redModel == 'powerlaw':
@@ -765,12 +776,12 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
             if args.redModel == 'interpolate':
                 ids = model.get_parameter_indices('interpolate', corr='single', split=False)
                 [ind.append(id) for id in ids if len(id) > 0]
-        
+
         ##### red band noise #####
         if args.incRedBand:
             ids = model.get_parameter_indices('powerlaw_band', corr='single', split=True)
             [ind.append(id) for id in ids]
-        
+
         ##### DM noise #####
         if args.incDM:
             if args.dmModel == 'powerlaw':
@@ -793,19 +804,19 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         if args.incWavelet:
             ids = model.get_parameter_indices('wavelet', corr='single', split=True)
             [ind.append(id) for id in ids if id != []]
-        
+
         if args.incDMWavelet:
             ids = model.get_parameter_indices('dmwavelet', corr='single', split=True)
             [ind.append(id) for id in ids]
-        
+
         if args.incSysWavelet:
             ids = model.get_parameter_indices('syswavelet', corr='single', split=True)
             [ind.append(id) for id in ids]
-        
+
         if args.incGWwavelet:
             ids = model.get_parameter_indices('gwwavelet', corr='gr', split=True)
             [ind.append(id) for id in ids]
-        
+
         ##### GWB #####
         if args.incGWB:
             if args.gwbModel == 'powerlaw':
@@ -822,7 +833,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         if args.incEphemError:
             ids = model.get_parameter_indices('ephemeris', corr='single', split=False)
             [ind.append(id) for id in ids]
-        
+
         ##### GWB Point Source #####
         if args.incGWBSingle:
             if args.gwbSingleModel == 'powerlaw':
@@ -831,7 +842,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
             if args.gwbSingleModel == 'spectrum':
                 ids = model.get_parameter_indices('spectrum', corr='grs', split=False)
                 [ind.append(id) for id in ids]
-        
+
         ##### Anisotropic GWB #####
         if args.incGWBAni:
             if args.gwbModel == 'powerlaw':
@@ -840,7 +851,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
             if args.gwbModel == 'spectrum':
                 ids = model.get_parameter_indices('spectrum', corr='gr_sph', split=False)
                 [ind.append(id) for id in ids]
-        
+
         ##### Glitch #####
         if args.incGlitch:
             ids = model.get_parameter_indices('glitch', corr='single', split=True)
@@ -855,12 +866,12 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         if args.incBWM:
             ids = model.get_parameter_indices('bwm', corr=args.BWMmodel, split=True)
             [ind.append(id) for id in ids]
-        
+
         ##### GP #####
         if args.incGP:
             ids = model.get_parameter_indices('gw-gp', corr='gr', split=True)
             [ind.append(id) for id in ids]
-        
+
         ##### CW #####
         if args.incCW:
             ids = model.get_parameter_indices('cw', corr='gr', split=True)
@@ -868,7 +879,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
             for id in ids:
                 for idd in id:
                     ind.append([idd])
-            
+
             # pulsar distances
             if args.incPdist:
                 ids = model.get_parameter_indices('pulsardistance', corr='single', split=False)
@@ -981,7 +992,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
         prior_array = np.append(model.pmin, model.pmax)
 
         def chord_like(ndim, theta, phi):
-            
+
             # check prior
             if model.mark3LogPrior(theta) != -np.inf:
                 return loglike(theta, **loglkwargs)
@@ -998,7 +1009,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
 
 
     if args.sampler == 'multinest':
-        print 'WARNING: Using MultiNest, will use uniform priors on all parameters' 
+        print 'WARNING: Using MultiNest, will use uniform priors on all parameters'
         import pymultinest
 
         p0 = model.initParameters(startEfacAtOne=True, fixpstart=False)
@@ -1009,7 +1020,7 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
             ndim = len(p0)
 
             def myloglike(cube, ndim, nparams):
-                
+
                 acube = np.zeros(ndim)
                 for ii in range(ndim):
                     acube[ii] = cube[ii]
@@ -1038,18 +1049,18 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
                                 cube[ii] = model.pmin[ii] + cube[ii] * \
                                         (model.pmax[ii]-model.pmin[ii])
 
-        
+
         # mark1 loglike
         else:
 
             ndim = len(p0)
 
             def myloglike(cube, ndim, nparams):
-                
+
                 acube = np.zeros(ndim)
                 for ii in range(ndim):
                     acube[ii] = cube[ii]
-                
+
                 # check prior
                 if model.mark3LogPrior(acube) != -np.inf:
                     ll = loglike(acube, **loglkwargs) #+ model.mark3LogPrior(acube)
@@ -1089,5 +1100,3 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
                         n_iter_before_update=5, n_live_points=nlive, \
                         const_efficiency_mode=False, importance_nested_sampling=False, \
                         n_clustering_params=n_params, init_MPI=False)
-
-
