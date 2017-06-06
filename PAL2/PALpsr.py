@@ -140,7 +140,7 @@ class Pulsar(object):
     """
 
     def readFromH5(self, h5df, psrname, start_time=None, end_time=None):
-        h5df.readPulsar(self, psrname, start_time=start_time, 
+        h5df.readPulsar(self, psrname, start_time=start_time,
                         end_time=end_time)
 
     """
@@ -551,7 +551,7 @@ class Pulsar(object):
     # parameters, as long as we include the complement function
 
     def constructCompressionMatrix(self, compression='None',nfmodes=-1,
-                                   ndmodes=-1, likfunc='mark4', 
+                                   ndmodes=-1, likfunc='mark4',
                                    threshold=1.0, tmpars=None):
 
         if compression == 'average':
@@ -746,14 +746,14 @@ class Pulsar(object):
                                 tmpars=None, memsave=True, incJitter=False, incDMX=False,
                                 incRedBand=False, incDMBand=False, incRedGroup=False,
                                 redGroups=None, incRedExt=False, nfredExt=20,
-                                redExtFx=None, incGP=False, haveScat=False, 
-                                numScatFreqs=0, incEphemError=False, 
+                                redExtFx=None, incGP=False, haveScat=False,
+                                numScatFreqs=0, incEphemError=False,
                                 ephemModel=None, use_svd_design=False):
 
 
         # For creating the auxiliaries it does not really matter: we are now
         # creating all quantities per default
-        
+
         #self.twoComponentNoise = twoComponent
         #if likfunc == 'mark7' or likfunc == 'mark6' or likfunc == 'mark9' \
         #        or likfunc == 'mark10':
@@ -955,7 +955,7 @@ class Pulsar(object):
 
         if incEphemError:
             # pulsar unit vector
-            phat = np.array([np.cos(self.phi)*np.sin(self.theta), 
+            phat = np.array([np.cos(self.phi)*np.sin(self.theta),
                              np.sin(self.phi)*np.sin(self.theta),
                              np.cos(self.theta)])
 
@@ -969,7 +969,7 @@ class Pulsar(object):
                 for mm, per in enumerate(ss_per):
                     freq = np.array([1 / per / 3.16e7])
 
-                    Ftemp = PALutils.singlefourierdesignmatrix(self.toas, freq) 
+                    Ftemp = PALutils.singlefourierdesignmatrix(self.toas, freq)
                     Fx = Ftemp * phat[0]
                     Fy = Ftemp * phat[1]
                     Fz = Ftemp * phat[2]
@@ -977,8 +977,8 @@ class Pulsar(object):
                     Fs.append(np.hstack((Fx, Fy, Fz)))
 
             elif ephemModel in ['matern']:
-                self.ephemFreqs, F = rr.get_rr_rep(self.toas, Tmax, 
-                                                   1./5./Tmax, 11, 11, 
+                self.ephemFreqs, F = rr.get_rr_rep(self.toas, Tmax,
+                                                   1./5./Tmax, 11, 11,
                                                    simpson=True)
                 F *= np.sqrt(Tmax)
                 Fx = F * phat[0]
@@ -1088,14 +1088,14 @@ class Pulsar(object):
             self.Gmat = np.zeros(self.Mmat.shape)
             n_m = len(self.toas) - self.Gmat.shape[1]
             self.Gcmat = np.zeros((n_m, n_m))
-        
+
         # ppdm re-ordering
         if likfunc == 'mark11':
 
             # find DMX values
-            idx = np.array([ct for ct, p in enumerate(self.newdes) 
+            idx = np.array([ct for ct, p in enumerate(self.newdes)
                             if 'DMX' in p])
-            nidx = np.array([ct for ct, p in enumerate(self.newdes) 
+            nidx = np.array([ct for ct, p in enumerate(self.newdes)
                             if 'DMX' not in p])
 
             self.Kmat = Mmat[:,idx]
@@ -1106,7 +1106,7 @@ class Pulsar(object):
             Mm = Mm[:,nidx]
             #Mm = Mmat[:,nidx]
             self.Mmat_reduced = Mm
-            
+
 
         # T matrix
         if likfunc in ['mark6', 'mark7', 'mark8', 'mark9', 'mark11']:
@@ -1145,7 +1145,7 @@ class Pulsar(object):
 
                 self.Tmat = np.concatenate((self.Tmat, Mscatmat), axis=1)
                 self.Tmat = np.concatenate((self.Tmat, Fscatmat), axis=1)
-                
+
 
             if incDMX:
                 (self.DMXtimes, tmpMat) = PALutils.exploderMatrix(

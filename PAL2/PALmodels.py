@@ -11,6 +11,7 @@ import json
 import tempfile
 import scipy.linalg as sl
 import scipy.special as ss
+import scipy.stats
 from scipy.interpolate import interp1d
 import scipy.sparse as sps
 from numpy.polynomial.hermite import hermval
@@ -179,6 +180,9 @@ class PTAmodels(object):
                       incBWM=False, BWMmodel='gr',
                       incSingleGWGP=False, singleGWGPModel='nuker',
                       incDMX=False,
+                      incEphemMixture=True,
+                      mixture_ephems=['DE421', 'DE430', 'DE435', 'DE436'],
+                      ephem_dirichlet_alpha=1.0,
                       incGlitch=False, incGlitchBand=False,
                       incDMXKernel=False, DMXKernelModel='linear',
                       incCW=False, incPulsarDistance=False, CWupperLimit=False,
@@ -2168,6 +2172,48 @@ class PTAmodels(object):
             })
             signals.append(newsignal)
 
+        if incEphemMixture:
+            # get initial ephemeris
+            for p in self.psr:
+                p.initLibsTempoObject()
+                p.base_ephem = p.t2psr.ephemeris
+
+            nephem = len(mixture_ephems) - 1
+            for p in self.psr:
+                p.ephem_dict = {}
+                for ephem in mixture_ephems:
+                    del p.t2psr
+                    p.initLibsTempoObject(ephem=ephem)
+                    p.ephem_dict[ephem] = np.double(p.t2psr.roemer)
+
+            bvary = [True] * nephem
+            pmin = [0.0] * nephem
+            pmax = [1.0] * nephem
+            pstart = [0.01] * nephem
+            pwidth = [0.1] * nephem
+            prior = ['uniform'] * nephem
+            parids = ['ephem_weight_{}'.format(ephem) for ephem in mixture_ephems[:-1]]
+            mu = [None] * nephem
+            sigma = [None] * nephem
+
+            newsignal = OrderedDict({
+            "stype": "ephemeris_mixture",
+            "model": 'mixture',
+            "corr": "single",
+            "pulsarind": -1,
+            "mu": mu,
+            "sigma": sigma,
+            "bvary": bvary,
+            "pmin": pmin,
+            "pmax": pmax,
+            "pwidth": pwidth,
+            "pstart": pstart,
+            "parid": parids,
+            "prior": prior,
+            "alpha": ephem_dirichlet_alpha
+            })
+            signals.append(newsignal)
+
         if incEphemError:
             if ephemErrorModel in ['jupsat']:
                 bvary = [True] * 6
@@ -2498,6 +2544,10 @@ class PTAmodels(object):
             for pp in self.psr:
                 pp.kappa_env = np.zeros(len(pp.Ffreqs))
             self.ptasignals.append(signal)
+
+        elif signal['stype'] in ['ephemeris_mixture']:
+            self.ptasignals.append(signal)
+            self.haveDetSources = True
 
         elif signal['stype'] in ['scatpowerlaw', 'scatspectrum']:
             self.haveScat = True
@@ -3286,6 +3336,10 @@ class PTAmodels(object):
                     flagname = 'dmefac'
                     flagvalue = sig['parids'][jj]
 
+                elif sig['stype'] == 'ephemeris_mixture':
+                    flagname = 'ephem_mix'
+                    flagvalue = sig['parid'][jj]
+
                 elif sig['stype'] == 'jitter_equad':
                     flagname = sig['flagname']
                     flagvalue = 'jitter_q_' + sig['flagvalue']
@@ -3534,7 +3588,7 @@ class PTAmodels(object):
                         if fixpstart:
                             p0.append(np.double(pstart))
                         else:
-                            p0.append(min + np.random.rand() * (max - min))
+                            p0.append(np.random.uniform(min, max))
                             #p0.append(pstart + np.random.randn()*pwidth*10)
 
         return np.array(p0)
@@ -5396,6 +5450,12 @@ class PTAmodels(object):
             # which ones are varying
             sparameters[sig['bvary']] = parameters[parind:parind + npars]
 
+            if sig['stype'] == 'ephemeris_mixture':
+                roemer_wgts = np.append(sparameters, 1.0 - np.sum(sparameters))
+                for p in self.psr:
+                    p.detresiduals -= p.ephem_dict[p.base_ephem][p.isort]
+                    for ct, (ephem, roemer) in enumerate(p.ephem_dict.items()):
+                        p.detresiduals += roemer_wgts[ct] * roemer[p.isort]
 
             if sig['stype'] == 'lineartimingmodel':
                 # This one only applies to one pulsar at a time
@@ -8238,7 +8298,7 @@ class PTAmodels(object):
             prior += -np.sum(np.log(self.pmax - self.pmin))
 
         else:
-            prior += -np.inf
+            return -np.inf
 
         # TODO:find better way of finding the amplitude
         for ss, sig in enumerate(self.ptasignals):
@@ -8254,6 +8314,15 @@ class PTAmodels(object):
             # which ones are varying
             sparameters[sig['bvary']] = parameters[parind:parind + npars]
 
+            if sig['stype'] == 'ephemeris_mixture':
+                alpha = sig['alpha']
+                roemer_wgts = np.append(sparameters, 1.0 - np.sum(sparameters))
+                nephem = len(roemer_wgts)
+                if np.sum(sparameters) > 1.0:
+                    return  -np.inf
+
+                rmixprior = scipy.stats.dirichlet(alpha*np.ones(nephem, dtype=int))
+                prior += np.log(rmixprior.pdf(roemer_wgts))
 
             if sig['corr'] == 'gr' and sig['stype'] == 'powerlaw':
                 if sig['prior'][0] == 'uniform':
@@ -9218,6 +9287,33 @@ class PTAmodels(object):
                 qxy += 0
 
         return q, qxy
+
+    # draw from ephemeris mixture prior
+    def drawFromEphemerisMixturePrior(self, parameters, iter, beta):
+        # post-jump parameters
+        q = parameters.copy()
+
+        # transition probability
+        qxy = 0
+
+        # find number of signals
+        nsigs = 1
+        signum = self.getSignalNumbersFromDict(
+            self.ptasignals, stype='ephemeris_mixture', corr='single')[0]
+
+        sig = self.ptasignals[signum]
+        parind = sig['parindex']
+        npars = sig['npars']
+        alpha = sig['alpha']
+
+        rmix = scipy.stats.dirichlet(alpha*np.ones(nephem, dtype=int))
+        q[parind:npars+parind] = rmix.rvs()[:-1]
+        proposed = np.append(q[parind:npars+parind], 1.0 - np.sum(q[parind:npars+parind]))
+        current = np.append(parameters[parind:npars+parind], 1.0 - np.sum(parameters[parind:npars+parind]))
+        qxy += (np.log(rmix.pdf(current)) - np.log(rmix.pdf(proposed)))
+
+        return q, qxy
+
 
     # GWB draws draws
     def drawFromGWBTurnoverPrior(self, parameters, iter, beta):

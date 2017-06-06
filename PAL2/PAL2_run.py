@@ -88,6 +88,14 @@ parser.add_argument('--incEphemError', dest='incEphemError', action='store_true'
 parser.add_argument('--ephemModel', dest='ephemModel', action='store', type=str,
                     default=False, help='Model for ephemeris error [default=jupsat]')
 
+parser.add_argument('--incEphemMixture', dest='incEphemMixture', action='store_true',
+                    default=False, help='Include Ephemeris mixture model [default=False]')
+parser.add_argument('--mixture_ephems', dest='mixture_ephems', action='store', nargs='+',
+                    type=str, default=['DE421', 'DE430', 'DE435', 'DE436'],
+                    help='Names of ephemerides to use in mixture separated by space')
+parser.add_argument('--ephem_dirichlet_alpha', dest='ephem_dirichlet_alpha', action='store',
+                    type=float, default=1.0, help='alpha parameter for dirichlet prior')
+
 
 parser.add_argument('--incScat', dest='incScat', action='store_true',default=False,
                    help='Include Scattering variations [default=False]')
@@ -417,6 +425,9 @@ if args.jsonfile is None:
         ndmEventCoeffs=args.nshape,
         incEphemError=args.incEphemError,
         ephemErrorModel = args.ephemModel,
+        incEphemMixture=args.incEphemMixture,
+        mixture_ephems=args.mixture_ephems,
+        ephem_dirichlet_alpha=args.ephem_dirichlet_alpha,
         incDMX=args.incDMX,
         incORF=args.incORF,
         incBWM=args.incBWM, BWMmodel=args.BWMmodel,
@@ -901,6 +912,11 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
 
             [ind.append(id) for id in ids]
 
+        # ephemeris mixture
+        if args.incEphemMixture:
+            ids = model.get_parameter_indices('ephemeris_mixture',
+                                              corr='single', split=True)
+            [ind.append(id) for id in ids]
 
 
         ##### all parameters #####
@@ -972,6 +988,8 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
                     sampler.addAuxilaryJump(model.pulsarPhaseFix)
                 elif args.cwModel == 'ecc':
                     sampler.addAuxilaryJump(model.pulsarGammaFix)
+            if args.incEphemMixture:
+                sampler.addProposalToCycle(model.drawFromEphemerisMixturePrior, 10)
 
         # always include draws from efac
         if not args.noVaryEfac and not args.noVaryNoise and not args.fixWhite:
