@@ -9308,7 +9308,7 @@ class PTAmodels(object):
 
         nephem = npars + 1
         rmix = scipy.stats.dirichlet(alpha*np.ones(nephem, dtype=int))
-        q[parind:npars+parind] = rmix.rvs()[:-1]
+        q[parind:npars+parind] = rmix.rvs()[0, :-1]
         proposed = np.append(q[parind:npars+parind], 1.0 - np.sum(q[parind:npars+parind]))
         current = np.append(parameters[parind:npars+parind], 1.0 - np.sum(parameters[parind:npars+parind]))
         qxy += (np.log(rmix.pdf(current)) - np.log(rmix.pdf(proposed)))
