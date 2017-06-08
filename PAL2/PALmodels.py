@@ -2180,7 +2180,7 @@ class PTAmodels(object):
 
             nephem = len(mixture_ephems) - 1
             for p in self.psr:
-                p.ephem_dict = {}
+                p.ephem_dict = OrderedDict({})
                 for ephem in mixture_ephems:
                     del p.t2psr
                     p.initLibsTempoObject(ephem=ephem)

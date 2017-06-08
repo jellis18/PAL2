@@ -988,8 +988,8 @@ if args.sampler == 'mcmc' or args.sampler == 'minimize' or args.sampler=='multin
                     sampler.addAuxilaryJump(model.pulsarPhaseFix)
                 elif args.cwModel == 'ecc':
                     sampler.addAuxilaryJump(model.pulsarGammaFix)
-            if args.incEphemMixture:
-                sampler.addProposalToCycle(model.drawFromEphemerisMixturePrior, 10)
+        if args.incEphemMixture:
+            sampler.addProposalToCycle(model.drawFromEphemerisMixturePrior, 10)
 
         # always include draws from efac
         if not args.noVaryEfac and not args.noVaryNoise and not args.fixWhite:
