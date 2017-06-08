@@ -9306,6 +9306,7 @@ class PTAmodels(object):
         npars = sig['npars']
         alpha = sig['alpha']
 
+        nephem = npars + 1
         rmix = scipy.stats.dirichlet(alpha*np.ones(nephem, dtype=int))
         q[parind:npars+parind] = rmix.rvs()[:-1]
         proposed = np.append(q[parind:npars+parind], 1.0 - np.sum(q[parind:npars+parind]))
