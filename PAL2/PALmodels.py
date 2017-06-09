@@ -2173,11 +2173,6 @@ class PTAmodels(object):
             signals.append(newsignal)
 
         if incEphemMixture:
-            # get initial ephemeris
-            for p in self.psr:
-                p.initLibsTempoObject()
-                p.base_ephem = p.t2psr.ephemeris
-
             nephem = len(mixture_ephems) - 1
             for p in self.psr:
                 p.ephem_dict = OrderedDict({})

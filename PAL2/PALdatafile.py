@@ -5,7 +5,7 @@
 PALdatafile.py
 
 This file will use the libstempo library to add all relavant data
-into an hdf5 file. 
+into an hdf5 file.
 
 This file was originally developed by Rutger van Haasteren and is recycled here.
 
@@ -17,7 +17,7 @@ import numpy as np
 import h5py as h5
 import os, sys
 import tempfile
-import ephem
+import ephem as pyephem
 import os
 
 import PAL2
@@ -78,7 +78,7 @@ class DataFile(object):
         pulsarGroup = self.h5file.require_group(psrname)
 
         return pulsarGroup
-    
+
 
     """
     Add data to a specific pulsar. Here the hdf5 file is opened, and the right
@@ -102,7 +102,7 @@ class DataFile(object):
         self.h5file.close()
         self.h5file = None
 
-        
+
 
     """
     Read data from a specific pulsar. If the data is not available, the hdf5
@@ -214,8 +214,9 @@ class DataFile(object):
                         does not delete the auxiliary fields. New requires the
                         pulsar not to exist, and throws an exception otherwise.
     """
-    def addTempoPulsar(self, parfile, timfile, iterations=1, 
+    def addTempoPulsar(self, parfile, timfile, iterations=1,
                        mode='overwrite', maxobs=30000, ephem=None):
+
         # Check whether the two files exist
         if not os.path.isfile(parfile) or not os.path.isfile(timfile):
             raise IOError, "Cannot find parfile (%s) or timfile (%s)!" % (parfile, timfile)
@@ -233,7 +234,7 @@ class DataFile(object):
 
         # 'a' means: read/write if exists, create otherwise
         self.h5file = h5.File(self.filename, 'a')
-        
+
         # Obtain the directory name of the timfile, and change to it
         timfiletup = os.path.split(timfile)
         dirname = timfiletup[0]
@@ -247,7 +248,7 @@ class DataFile(object):
 
         # Load pulsar data from the libstempo library
         try:
-            t2pulsar = t2.tempopulsar(relparfile, reltimfile, 
+            t2pulsar = t2.tempopulsar(relparfile, reltimfile,
                                       maxobs=maxobs, ephem=ephem)
         except TypeError:
             t2pulsar = t2.tempopulsar(relparfile, reltimfile, ephem=ephem)
@@ -293,6 +294,9 @@ class DataFile(object):
                        overwrite=overwrite)    # Seconds
         self.writeData(psrGroup, 'freq', np.double(t2pulsar.ssbfreqs())/1e6,
                        overwrite=overwrite)    # MHz
+        if ephem is None:
+            ephem = t2pulsar.ephemeris.split('/')[-1].split('.')[0]
+        self.writeData(psrGroup, 'base_ephem', ephem, overwrite=overwrite)
 
         # design matrix
         desmat = t2pulsar.designmatrix()
@@ -328,7 +332,7 @@ class DataFile(object):
             tmpvalpost[i+1] = t2pulsar[tmpname[i+1]].val
             tmperrpost[i+1] = t2pulsar[tmpname[i+1]].err
 
-        self.writeData(psrGroup, 'tmp_name', tmpname, 
+        self.writeData(psrGroup, 'tmp_name', tmpname,
                        overwrite=overwrite) # TMP name
         self.writeData(psrGroup, 'tmp_valpost', tmpvalpost,
                        overwrite=overwrite) # TMP post-fit value
@@ -343,7 +347,7 @@ class DataFile(object):
             tmpvalpost[i+1] = t2pulsar[tmpname[i+1]].val
             tmperrpost[i+1] = t2pulsar[tmpname[i+1]].err
 
-        self.writeData(psrGroup, 'set_name', tmpname, 
+        self.writeData(psrGroup, 'set_name', tmpname,
                        overwrite=overwrite) # TMP name
         self.writeData(psrGroup, 'set_valpost', tmpvalpost,
                        overwrite=overwrite) # TMP post-fit value
@@ -355,7 +359,7 @@ class DataFile(object):
 
         # Obtain the unique flags in this dataset, and write to file
         uflags = np.unique(map(str, t2pulsar.flags()))
-        
+
         for flagid in uflags:
             self.writeData(flagGroup, flagid,
                            map(str, t2pulsar.flagvals(flagid)),
@@ -366,7 +370,7 @@ class DataFile(object):
             M = t2pulsar.designmatrix()
             pars = ['Offset'] + list(t2pulsar.pars(which='fit'))
             vals = np.concatenate((np.array([0]), np.array(t2pulsar.vals(which='fit'))))
-            idx = np.array([ct for ct, p in enumerate(pars) 
+            idx = np.array([ct for ct, p in enumerate(pars)
                             if 'DMX' in p])
             K = M[:,idx]
             D = K.copy()
@@ -381,7 +385,7 @@ class DataFile(object):
             ppdme = np.zeros(len(t2pulsar.toas()))
         self.writeData(flagGroup, "ppdm", ppdm, overwrite=overwrite)
         self.writeData(flagGroup, "ppdme", ppdme, overwrite=overwrite)
-        
+
 
         if not "efacequad" in flagGroup:
             # Check if the sys-flag is present in this set. If it is, add an
@@ -412,7 +416,7 @@ class DataFile(object):
                 bw = np.ones(nobs) * 4
 
             self.writeData(flagGroup, "bwflags", bw, overwrite=overwrite)
-        
+
         if not "efacequad_freq" in flagGroup:
             efacequad_freq = []
             nobs = len(t2pulsar.toas())
@@ -423,16 +427,16 @@ class DataFile(object):
 
                 if 'group' in flagGroup and flagGroup['group'][ii] != '':
                     efacequad_freq.append('-'.join((pulsarname, flagGroup['group'][ii])))
-                
+
                 elif 'avgroup' in flagGroup and flagGroup['avgroup'][ii] != '':
                     efacequad_freq.append('-'.join((pulsarname, flagGroup['avgroup'][ii])))
 
                 elif 'sys' in flagGroup and flagGroup['sys'][ii] != '':
                     efacequad_freq.append('-'.join((pulsarname, flagGroup['sys'][ii])))
-                
+
                 elif 'i' in flagGroup and flagGroup['i'][ii] != '':
                     efacequad_freq.append('-'.join((pulsarname, flagGroup['i'][ii])))
-                
+
                 elif 'f' in flagGroup and flagGroup['f'][ii] != '':
                     efacequad_freq.append('-'.join((pulsarname, flagGroup['f'][ii])))
 
@@ -440,14 +444,14 @@ class DataFile(object):
                         flagGroup['fe'][ii] != '' and flagGroup['be'] != '':
                     fflag = '-'.join((flagGroup['fe'][ii], flagGroup['be'][ii]))
                     efacequad_freq.append('-'.join((pulsarname, fflag)))
-                
+
                 else:
                     #print 'WARNING: no flagGroup found for TOA {0} \
                     #        in pulsar {1}'.format(ii, pulsarname)
                     efacequad_freq.append(pulsarname)
-            
+
             self.writeData(flagGroup, "efacequad_freq", efacequad_freq, overwrite=overwrite)
-        
+
         if not "tobs_all" in flagGroup:
             tobs = []
             nobs = len(t2pulsar.toas())
@@ -541,9 +545,10 @@ class DataFile(object):
     TODO: The HDF5 file is opened and closed every call of 'getData'. That seems
           kind of inefficient
     """
-    
+
     def readPulsar(self, psr, psrname, start_time=None, end_time=None):
         psr.name = str(psrname)
+        psr.base_ephem = str(self.getData(psrname, 'base_ephem', required=False))
 
         # Read the content of the par/tim files in a string
         psr.parfile_content = str(self.getData(psrname, 'parfile', required=False))
@@ -583,14 +588,14 @@ class DataFile(object):
             # convert via pyephem
             #print elong, elat
             try:
-                ec = ephem.Ecliptic(elong, elat)
-                
+                ec = pyephem.Ecliptic(elong, elat)
+
                 # check for B name
                 if 'B' in psr.name:
                     epoch = '1950'
                 else:
                     epoch = '2000'
-                eq = ephem.Equatorial(ec, epoch=epoch)
+                eq = pyephem.Equatorial(ec, epoch=epoch)
                 psr.raj = np.double([eq.ra])
                 psr.decj = np.double([eq.dec])
             except TypeError:
@@ -605,7 +610,7 @@ class DataFile(object):
 
         psr.theta = np.pi/2 - psr.decj
         psr.phi = psr.raj
-        
+
         # period of pulsar
         perind = np.flatnonzero(np.array(psr.ptmdescription) == 'F0')
         psr.period = 1/np.array(self.getData(psrname, 'tmp_valpost'))[perind]
@@ -660,7 +665,7 @@ class DataFile(object):
             psr.ptmpars = psr.ptmpars[~dind]
             psr.ptmparerrs = psr.ptmparerrs[~dind]
 
-        
+
         # get number of epochs (i.e 1 s window)
         try:
             (avetoas, aveflags, Umat) = PALutils.exploderMatrixNoSingles(
@@ -668,7 +673,3 @@ class DataFile(object):
             psr.nepoch = len(avetoas)
         except IndexError:
             pass
-
-
-        
-
