@@ -376,10 +376,10 @@ class DataFile(object):
             D = K.copy()
             D[np.nonzero(D)] = 1
             dmt = t2pulsar['DM'].val + np.dot(D, vals[idx])
-            ppdm = np.array(map(float, flagGroup['pp_dm']))
+            ppdm = np.array(map(float, flagGroup['pp_dm'].value))
             ppdm -= dmt
             #ppdm -= ppdm.mean()
-            ppdme = map(float, flagGroup['pp_dme'])
+            ppdme = map(float, flagGroup['pp_dme'].value)
         else:
             ppdm = np.zeros(len(t2pulsar.toas()))
             ppdme = np.zeros(len(t2pulsar.toas()))
