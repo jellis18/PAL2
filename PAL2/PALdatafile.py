@@ -428,6 +428,9 @@ class DataFile(object):
                 if 'group' in flagGroup and flagGroup['group'][ii] != '':
                     efacequad_freq.append('-'.join((pulsarname, flagGroup['group'][ii])))
 
+                if 'g' in flagGroup and flagGroup['g'][ii] != '':
+                    efacequad_freq.append('-'.join((pulsarname, flagGroup['g'][ii])))
+
                 elif 'avgroup' in flagGroup and flagGroup['avgroup'][ii] != '':
                     efacequad_freq.append('-'.join((pulsarname, flagGroup['avgroup'][ii])))
 
