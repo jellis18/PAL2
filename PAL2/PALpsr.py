@@ -24,7 +24,10 @@ import os
 import sys
 import json
 import tempfile
-import libstempo as t2
+try:
+    import libstempo as t2
+except ImportError:
+    t2 = None
 
 from PAL2 import PALutils
 from PAL2 import PALdatafile
