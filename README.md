@@ -93,5 +93,20 @@ We have included two datasets for testing purposes.
 
 Example ipython notebook can be found in [here](https://github.com/jellis18/PAL2/blob/master/demo/PAL2_demo.ipynb).
 
+## Attribution ##
+
+If you make use of this code please cite:
+```
+@misc{justin_ellis_2017_251456,
+  author       = {Justin Ellis and
+                  Rutger van Haasteren},
+  title        = {jellis18/PAL2: PAL2},
+  month        = jan,
+  year         = 2017,
+  doi          = {10.5281/zenodo.251456},
+  url          = {https://doi.org/10.5281/zenodo.251456}
+}
+```
+
 ## Contact ##
 [_Justin Ellis_] (mailto:justin.ellis18@gmail.com)
